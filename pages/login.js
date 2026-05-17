@@ -67,10 +67,6 @@ CREATE ACCOUNT
 <div style={{marginTop:16,fontSize:11,color:'#7a8db0',textAlign:'center'}}>
 New here? Enter your email and a password then hit Create Account.
 </div>
-<div style={{marginTop:12,fontSize:10,color:'#7a8db0',textAlign:'center',wordBreak:'break-all'}}>
-debug url: {String(process.env.NEXT_PUBLIC_SUPABASE_URL)} (len {String(process.env.NEXT_PUBLIC_SUPABASE_URL||'').length})
-<br/>debug key len: {String(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY||'').length}
-</div>
 </div>
 </div>
 );
