@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
+import { useOrg } from '../../lib/org';
 
 export default function Customers() {
 const router = useRouter();
 const [user, setUser] = useState(null);
+const { orgId, loading: orgLoading } = useOrg(user);
 const [customers, setCustomers] = useState([]);
 const [loading, setLoading] = useState(true);
 const [sheet, setSheet] = useState(null);
@@ -17,13 +19,17 @@ useEffect(() => {
 supabase.auth.getSession().then(({ data: { session } }) => {
 if (!session) { router.push('/login'); return; }
 setUser(session.user);
-loadCustomers(session.user.id);
 });
 }, []);
 
-const loadCustomers = async (uid) => {
+useEffect(() => {
+if (orgId) loadCustomers();
+else if (user && !orgLoading) setLoading(false);
+}, [orgId, orgLoading]);
+
+const loadCustomers = async () => {
 setLoading(true);
-const { data } = await supabase.from('customers').select('*').eq('owner_id', uid).order('name');
+const { data } = await supabase.from('customers').select('*').eq('org_id', orgId).order('name');
 setCustomers(data || []);
 setLoading(false);
 };
@@ -39,14 +45,14 @@ setSheet(c);
 };
 
 const save = async () => {
-if (!form.name.trim()) return;
+if (!form.name.trim() || !orgId) return;
 setSaving(true);
 if (sheet === 'new') {
-await supabase.from('customers').insert({ ...form, owner_id: user.id });
+await supabase.from('customers').insert({ ...form, owner_id: user.id, org_id: orgId });
 } else {
 await supabase.from('customers').update(form).eq('id', sheet.id);
 }
-await loadCustomers(user.id);
+await loadCustomers();
 setSaving(false);
 setSheet(null);
 };

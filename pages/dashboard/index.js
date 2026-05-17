@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
+import { useOrg } from '../../lib/org';
 import { fmt$ } from '../../lib/helpers';
 
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const { orgId, org, loading: orgLoading } = useOrg(user);
   const [stats, setStats] = useState({ activeJobs:0, unpaidInvoices:0, revenueMonth:0 });
   const [statsLoading, setStatsLoading] = useState(true);
 
@@ -13,11 +15,15 @@ export default function Dashboard() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.push('/login'); return; }
       setUser(session.user);
-      loadStats(session.user.id);
     });
   }, []);
 
-  const loadStats = async (uid) => {
+  useEffect(() => {
+    if (orgId) loadStats(orgId);
+    else if (user && !orgLoading) setStatsLoading(false);
+  }, [orgId, orgLoading]);
+
+  const loadStats = async (oid) => {
     setStatsLoading(true);
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
@@ -25,11 +31,11 @@ export default function Dashboard() {
 
     const [active, unpaid, paid] = await Promise.all([
       supabase.from('jobs').select('id', { count:'exact', head:true })
-        .eq('owner_id', uid).in('status', ['scheduled','in_progress']),
+        .eq('org_id', oid).in('status', ['scheduled','in_progress']),
       supabase.from('invoices').select('id', { count:'exact', head:true })
-        .eq('owner_id', uid).eq('status', 'unpaid'),
+        .eq('org_id', oid).eq('status', 'unpaid'),
       supabase.from('invoices').select('amount')
-        .eq('owner_id', uid).eq('status', 'paid')
+        .eq('org_id', oid).eq('status', 'paid')
         .gte('paid_date', start).lt('paid_date', end),
     ]);
 
@@ -64,8 +70,8 @@ export default function Dashboard() {
         </button>
       </div>
       <div style={{padding:20}}>
-        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,letterSpacing:'.08em',marginBottom:6}}>DASHBOARD</div>
-        <div style={{fontSize:13,color:'#7a8db0',marginBottom:20}}>Welcome, {user.email}</div>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,letterSpacing:'.08em',marginBottom:6}}>{org?.name?.toUpperCase() || 'DASHBOARD'}</div>
+        <div style={{fontSize:13,color:'#7a8db0',marginBottom:20}}>{user.email}</div>
 
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
           <StatCard

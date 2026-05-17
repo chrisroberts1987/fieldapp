@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
+import { useOrg } from '../../lib/org';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 
 const FILTERS = [
@@ -17,6 +18,7 @@ const EMPTY = {
 export default function Invoices() {
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const { orgId, loading: orgLoading } = useOrg(user);
   const [invoices, setInvoices] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -30,16 +32,20 @@ export default function Invoices() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.push('/login'); return; }
       setUser(session.user);
-      loadAll(session.user.id);
     });
   }, []);
 
-  const loadAll = async (uid) => {
+  useEffect(() => {
+    if (orgId) loadAll();
+    else if (user && !orgLoading) setLoading(false);
+  }, [orgId, orgLoading]);
+
+  const loadAll = async () => {
     setLoading(true);
     const [{ data: inv }, { data: j }, { data: c }] = await Promise.all([
-      supabase.from('invoices').select('*').eq('owner_id', uid).order('issued_date', { ascending:false, nullsFirst:false }),
-      supabase.from('jobs').select('id,title,customer_id,price,status').eq('owner_id', uid).order('scheduled_date', { ascending:false, nullsFirst:false }),
-      supabase.from('customers').select('id,name').eq('owner_id', uid).order('name'),
+      supabase.from('invoices').select('*').eq('org_id', orgId).order('issued_date', { ascending:false, nullsFirst:false }),
+      supabase.from('jobs').select('id,title,customer_id,price,status').eq('org_id', orgId).order('scheduled_date', { ascending:false, nullsFirst:false }),
+      supabase.from('customers').select('id,name').eq('org_id', orgId).order('name'),
     ]);
     setInvoices(inv || []);
     setJobs(j || []);
@@ -83,7 +89,7 @@ export default function Invoices() {
   };
 
   const save = async () => {
-    if (form.amount === '' || isNaN(Number(form.amount))) return;
+    if (form.amount === '' || isNaN(Number(form.amount)) || !orgId) return;
     setSaving(true);
     const payload = {
       job_id: form.job_id || null,
@@ -95,11 +101,11 @@ export default function Invoices() {
       notes: form.notes || null,
     };
     if (sheet === 'new') {
-      await supabase.from('invoices').insert({ ...payload, owner_id: user.id });
+      await supabase.from('invoices').insert({ ...payload, owner_id: user.id, org_id: orgId });
     } else {
       await supabase.from('invoices').update(payload).eq('id', sheet.id);
     }
-    await loadAll(user.id);
+    await loadAll();
     setSaving(false);
     setSheet(null);
   };
@@ -112,7 +118,7 @@ export default function Invoices() {
 
   const quickMarkPaid = async (inv) => {
     await supabase.from('invoices').update({ status:'paid', paid_date: todayStr() }).eq('id', inv.id);
-    await loadAll(user.id);
+    await loadAll();
   };
 
   const visible = invoices.filter(i => filter === 'all' || i.status === filter);

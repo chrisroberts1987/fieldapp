@@ -16,13 +16,6 @@ if (error) { setError(error.message); setLoading(false); }
 else router.push('/dashboard');
 };
 
-const signUp = async () => {
-setLoading(true); setError('');
-const { error } = await supabase.auth.signUp({ email, password });
-if (error) { setError(error.message); setLoading(false); }
-else router.push('/dashboard');
-};
-
 return (
 <div style={{minHeight:'100vh',background:'#111827',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24,fontFamily:"'Inter',sans-serif"}}>
 <div style={{marginBottom:32,textAlign:'center'}}>
@@ -60,12 +53,12 @@ style={{width:'100%',background:'#4f9eff',color:'#fff',border:'none',borderRadiu
 {loading ? 'Signing in...' : 'SIGN IN'}
 </button>
 <button
-onClick={signUp} disabled={loading || !email || !password}
-style={{width:'100%',background:'transparent',color:'#7a8db0',border:'1px solid #2e3f60',borderRadius:10,padding:'10px 0',fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:'.08em',cursor:'pointer',opacity:loading||!email||!password?0.4:1}}>
+onClick={() => router.push('/signup')}
+style={{width:'100%',background:'transparent',color:'#7a8db0',border:'1px solid #2e3f60',borderRadius:10,padding:'10px 0',fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:'.08em',cursor:'pointer'}}>
 CREATE ACCOUNT
 </button>
 <div style={{marginTop:16,fontSize:11,color:'#7a8db0',textAlign:'center'}}>
-New here? Enter your email and a password then hit Create Account.
+New here? Tap Create Account to start a free trial.
 </div>
 </div>
 </div>

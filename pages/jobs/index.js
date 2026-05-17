@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
+import { useOrg } from '../../lib/org';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 
 const STATUSES = [
@@ -19,6 +20,7 @@ const EMPTY = {
 export default function Jobs() {
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const { orgId, loading: orgLoading } = useOrg(user);
   const [jobs, setJobs] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,15 +33,19 @@ export default function Jobs() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.push('/login'); return; }
       setUser(session.user);
-      loadAll(session.user.id);
     });
   }, []);
 
-  const loadAll = async (uid) => {
+  useEffect(() => {
+    if (orgId) loadAll();
+    else if (user && !orgLoading) setLoading(false);
+  }, [orgId, orgLoading]);
+
+  const loadAll = async () => {
     setLoading(true);
     const [{ data: j }, { data: c }] = await Promise.all([
-      supabase.from('jobs').select('*').eq('owner_id', uid).order('scheduled_date', { ascending:false, nullsFirst:false }),
-      supabase.from('customers').select('id,name').eq('owner_id', uid).order('name'),
+      supabase.from('jobs').select('*').eq('org_id', orgId).order('scheduled_date', { ascending:false, nullsFirst:false }),
+      supabase.from('customers').select('id,name').eq('org_id', orgId).order('name'),
     ]);
     setJobs(j || []);
     setCustomers(c || []);
@@ -63,7 +69,7 @@ export default function Jobs() {
   };
 
   const save = async () => {
-    if (!form.title.trim()) return;
+    if (!form.title.trim() || !orgId) return;
     setSaving(true);
     const payload = {
       ...form,
@@ -72,11 +78,11 @@ export default function Jobs() {
       price: form.price === '' ? 0 : Number(form.price),
     };
     if (sheet === 'new') {
-      await supabase.from('jobs').insert({ ...payload, owner_id: user.id });
+      await supabase.from('jobs').insert({ ...payload, owner_id: user.id, org_id: orgId });
     } else {
       await supabase.from('jobs').update(payload).eq('id', sheet.id);
     }
-    await loadAll(user.id);
+    await loadAll();
     setSaving(false);
     setSheet(null);
   };
