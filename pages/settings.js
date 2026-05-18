@@ -29,6 +29,7 @@ export default function Settings() {
     if (org && !form) {
       setForm({
         name:             org.name || '',
+        slug:             org.slug || '',
         owner_name:       org.owner_name || '',
         phone:            org.phone || '',
         business_email:   org.business_email || '',
@@ -39,6 +40,18 @@ export default function Settings() {
       setLogoPreview(org.logo_url || null);
     }
   }, [org]);
+
+  const quoteUrl = (form?.slug && typeof window !== 'undefined')
+    ? `${window.location.origin}/quote/${form.slug}`
+    : '';
+  const [copied, setCopied] = useState(false);
+  const copyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(quoteUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {}
+  };
 
   const pickLogo = (e) => {
     const file = e.target.files?.[0];
@@ -74,10 +87,15 @@ export default function Settings() {
       logo_url = pub?.publicUrl ? `${pub.publicUrl}?t=${Date.now()}` : null;
     }
 
+    // Slug: lowercase, alphanumeric + hyphens only.
+    const newSlug = (form.slug || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!newSlug) { setError('Quote link must contain at least one letter or number'); setSaving(false); return; }
+
     const { error: updErr } = await supabase
       .from('organizations')
       .update({
         name:             form.name.trim(),
+        slug:             newSlug,
         owner_name:       form.owner_name.trim(),
         phone:            form.phone.trim(),
         business_email:   form.business_email.trim(),
@@ -87,7 +105,16 @@ export default function Settings() {
         logo_url,
       })
       .eq('id', orgId);
-    if (updErr) { setError(updErr.message); setSaving(false); return; }
+    if (updErr) {
+      if (updErr.code === '23505' || /duplicate|unique/i.test(updErr.message)) {
+        setError('That quote link is already taken. Try a different one.');
+      } else {
+        setError(updErr.message);
+      }
+      setSaving(false);
+      return;
+    }
+    setForm(p => ({ ...p, slug: newSlug }));
 
     setSaving(false);
     setLogoFile(null);
@@ -106,6 +133,30 @@ export default function Settings() {
       </div>
 
       <div style={{maxWidth:560,margin:'16px auto 0',padding:'0 16px'}}>
+
+        <Section title="Public Quote Link">
+          <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.55,marginBottom:10}}>
+            Share this link with anyone — on your website, in texts, on social, in your voicemail. They'll fill out a quick form and land in your Leads pipeline.
+          </div>
+          <div style={{display:'flex',gap:6,marginBottom:8,alignItems:'stretch'}}>
+            <input readOnly value={quoteUrl} style={{...inputStyle, flex:1, fontFamily:'monospace', fontSize:12}}/>
+            <button onClick={copyUrl} disabled={!quoteUrl}
+              style={{background:copied?'#2edf8722':'#4f9eff',border:copied?'1px solid #2edf87':'none',borderRadius:10,color:copied?'#2edf87':'#fff',padding:'0 14px',fontSize:12,fontWeight:700,letterSpacing:'.06em',cursor:'pointer',whiteSpace:'nowrap'}}>
+              {copied ? 'COPIED' : 'COPY'}
+            </button>
+          </div>
+          {quoteUrl && (
+            <a href={quoteUrl} target="_blank" rel="noopener noreferrer" style={{display:'inline-block',fontSize:12,color:'#4f9eff',marginBottom:10}}>
+              Preview ↗
+            </a>
+          )}
+          <Field label="Customize the slug">
+            <input style={inputStyle} type="text" value={form.slug}
+              onChange={e => setForm(p => ({...p, slug:e.target.value}))}
+              placeholder="smith-lawn-care"/>
+          </Field>
+          <div style={{fontSize:11,color:'#fbbf24'}}>Changing this breaks any links you've already shared.</div>
+        </Section>
 
         <Section title="Business">
           <Field label="Business Name">

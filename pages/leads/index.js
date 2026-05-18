@@ -31,7 +31,8 @@ const EMPTY = {
 export default function Leads() {
   const router = useRouter();
   const [user, setUser] = useState(null);
-  const { orgId, loading: orgLoading } = useOrg(user);
+  const { orgId, org, loading: orgLoading } = useOrg(user);
+  const [copied, setCopied] = useState(false);
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sheet, setSheet] = useState(null);
@@ -136,6 +137,25 @@ export default function Leads() {
         <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'.08em',flex:1}}>LEADS</div>
         <button onClick={openNew} style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'8px 16px',fontWeight:700,cursor:'pointer',fontSize:13}}>+ New</button>
       </div>
+
+      {org?.slug && typeof window !== 'undefined' && (() => {
+        const url = `${window.location.origin}/quote/${org.slug}`;
+        const copy = async () => {
+          try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(()=>setCopied(false),1800); } catch {}
+        };
+        return (
+          <div style={{margin:'10px 16px 4px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,padding:'10px 12px',display:'flex',alignItems:'center',gap:10}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:11,letterSpacing:'.08em',fontWeight:600,color:'#7a8db0',textTransform:'uppercase',marginBottom:2}}>Get more leads</div>
+              <div style={{fontSize:12,color:'#c8d4ee',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{url}</div>
+            </div>
+            <button onClick={copy}
+              style={{background:copied?'#2edf8722':'#4f9eff',border:copied?'1px solid #2edf87':'none',borderRadius:8,color:copied?'#2edf87':'#fff',padding:'8px 12px',fontSize:11,fontWeight:700,letterSpacing:'.05em',cursor:'pointer',whiteSpace:'nowrap'}}>
+              {copied ? 'COPIED' : 'COPY'}
+            </button>
+          </div>
+        );
+      })()}
 
       <div style={{display:'flex',gap:6,padding:'10px 12px',overflowX:'auto'}}>
         {[{ key:'all', label:'All' }, ...STATUSES].map(opt => (
