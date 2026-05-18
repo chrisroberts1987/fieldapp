@@ -170,6 +170,10 @@ drop policy if exists "customers owner select" on public.customers;
 drop policy if exists "customers owner insert" on public.customers;
 drop policy if exists "customers owner update" on public.customers;
 drop policy if exists "customers owner delete" on public.customers;
+drop policy if exists "customers org select"   on public.customers;
+drop policy if exists "customers org insert"   on public.customers;
+drop policy if exists "customers org update"   on public.customers;
+drop policy if exists "customers org delete"   on public.customers;
 -- (also drop any unnamed-or-older variants that may exist; harmless if absent)
 drop policy if exists "Enable read access for owner" on public.customers;
 
@@ -187,6 +191,10 @@ drop policy if exists "jobs owner select" on public.jobs;
 drop policy if exists "jobs owner insert" on public.jobs;
 drop policy if exists "jobs owner update" on public.jobs;
 drop policy if exists "jobs owner delete" on public.jobs;
+drop policy if exists "jobs org select"   on public.jobs;
+drop policy if exists "jobs org insert"   on public.jobs;
+drop policy if exists "jobs org update"   on public.jobs;
+drop policy if exists "jobs org delete"   on public.jobs;
 
 create policy "jobs org select" on public.jobs
   for select using (public.is_org_member(org_id));
@@ -202,6 +210,10 @@ drop policy if exists "invoices owner select" on public.invoices;
 drop policy if exists "invoices owner insert" on public.invoices;
 drop policy if exists "invoices owner update" on public.invoices;
 drop policy if exists "invoices owner delete" on public.invoices;
+drop policy if exists "invoices org select"   on public.invoices;
+drop policy if exists "invoices org insert"   on public.invoices;
+drop policy if exists "invoices org update"   on public.invoices;
+drop policy if exists "invoices org delete"   on public.invoices;
 
 create policy "invoices org select" on public.invoices
   for select using (public.is_org_member(org_id));
