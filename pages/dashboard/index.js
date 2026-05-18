@@ -20,7 +20,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (orgId) loadStats(orgId);
-    else if (user && !orgLoading) setStatsLoading(false);
+    else if (user && !orgLoading) router.push('/onboarding');
   }, [orgId, orgLoading]);
 
   const loadStats = async (oid) => {

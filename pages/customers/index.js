@@ -24,7 +24,7 @@ setUser(session.user);
 
 useEffect(() => {
 if (orgId) loadCustomers();
-else if (user && !orgLoading) setLoading(false);
+else if (user && !orgLoading) router.push('/onboarding');
 }, [orgId, orgLoading]);
 
 const loadCustomers = async () => {

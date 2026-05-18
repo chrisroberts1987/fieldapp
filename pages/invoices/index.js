@@ -37,7 +37,7 @@ export default function Invoices() {
 
   useEffect(() => {
     if (orgId) loadAll();
-    else if (user && !orgLoading) setLoading(false);
+    else if (user && !orgLoading) router.push('/onboarding');
   }, [orgId, orgLoading]);
 
   const loadAll = async () => {
