@@ -9,7 +9,7 @@ export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const { orgId, org, loading: orgLoading } = useOrg(user);
-  const [stats, setStats] = useState({ activeJobs:0, unpaidInvoices:0, revenueMonth:0 });
+  const [stats, setStats] = useState({ openLeads:0, activeJobs:0, unpaidInvoices:0, revenueMonth:0 });
   const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
@@ -30,7 +30,9 @@ export default function Dashboard() {
     const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
     const end   = new Date(now.getFullYear(), now.getMonth()+1, 1).toISOString().slice(0,10);
 
-    const [active, unpaid, paid] = await Promise.all([
+    const [openLeads, active, unpaid, paid] = await Promise.all([
+      supabase.from('leads').select('id', { count:'exact', head:true })
+        .eq('org_id', oid).in('status', ['new','contacted','qualified']),
       supabase.from('jobs').select('id', { count:'exact', head:true })
         .eq('org_id', oid).in('status', ['scheduled','in_progress']),
       supabase.from('invoices').select('id', { count:'exact', head:true })
@@ -42,6 +44,7 @@ export default function Dashboard() {
 
     const revenueMonth = (paid.data || []).reduce((s, r) => s + Number(r.amount || 0), 0);
     setStats({
+      openLeads: openLeads.count || 0,
       activeJobs: active.count || 0,
       unpaidInvoices: unpaid.count || 0,
       revenueMonth,
@@ -81,6 +84,12 @@ export default function Dashboard() {
 
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
           <StatCard
+            label="Open Leads"
+            value={statsLoading ? '—' : stats.openLeads}
+            color="#54d4f8"
+            onClick={() => router.push('/leads')}
+          />
+          <StatCard
             label="Active Jobs"
             value={statsLoading ? '—' : stats.activeJobs}
             color="#4f9eff"
@@ -92,21 +101,19 @@ export default function Dashboard() {
             color="#fbbf24"
             onClick={() => router.push('/invoices')}
           />
-        </div>
-        <div style={{marginBottom:24}}>
           <StatCard
             label={`Revenue · ${monthLabel}`}
             value={statsLoading ? '—' : fmt$(stats.revenueMonth)}
             color="#2edf87"
             onClick={() => router.push('/invoices')}
-            big
           />
         </div>
 
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:24}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:24,marginTop:14}}>
           {[
-            { label:'Customers', color:'#54d4f8', route:'/customers' },
-            { label:'Jobs',      color:'#4f9eff', route:'/jobs' },
+            { label:'Leads',     color:'#54d4f8', route:'/leads' },
+            { label:'Customers', color:'#4f9eff', route:'/customers' },
+            { label:'Jobs',      color:'#fbbf24', route:'/jobs' },
             { label:'Invoices',  color:'#2edf87', route:'/invoices' },
             { label:'Crew',      color:'#fb923c', route:'/crew' },
             { label:'Insights',  color:'#b197fc', route:'/insights' },

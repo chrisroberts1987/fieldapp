@@ -1,0 +1,296 @@
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+import { supabase } from '../../lib/supabase';
+import { useOrg } from '../../lib/org';
+import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
+
+const STATUSES = [
+  { key:'new',        label:'New',        color:'#4f9eff' },
+  { key:'contacted',  label:'Contacted',  color:'#fbbf24' },
+  { key:'qualified',  label:'Qualified',  color:'#b197fc' },
+  { key:'won',        label:'Won',        color:'#2edf87' },
+  { key:'lost',       label:'Lost',       color:'#7a8db0' },
+];
+const statusMeta = k => STATUSES.find(s => s.key === k) || STATUSES[0];
+
+const SOURCES = [
+  { key:'call',     label:'Phone Call' },
+  { key:'website',  label:'Website' },
+  { key:'referral', label:'Referral' },
+  { key:'walk_in',  label:'Walk-in' },
+  { key:'other',    label:'Other' },
+];
+const sourceLabel = k => SOURCES.find(s => s.key === k)?.label || 'Other';
+
+const EMPTY = {
+  name:'', phone:'', email:'', address:'',
+  source:'call', status:'new',
+  estimated_value:'', follow_up_date:'', notes:'',
+};
+
+export default function Leads() {
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+  const { orgId, loading: orgLoading } = useOrg(user);
+  const [leads, setLeads] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [sheet, setSheet] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [filter, setFilter] = useState('all');
+  const [form, setForm] = useState(EMPTY);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) { router.push('/login'); return; }
+      setUser(session.user);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (orgId) loadLeads();
+    else if (user && !orgLoading) router.push('/onboarding');
+  }, [orgId, orgLoading]);
+
+  const loadLeads = async () => {
+    setLoading(true);
+    const { data } = await supabase.from('leads').select('*')
+      .eq('org_id', orgId)
+      .order('created_at', { ascending: false });
+    setLeads(data || []);
+    setLoading(false);
+  };
+
+  const openNew = () => { setForm(EMPTY); setSheet('new'); };
+  const openEdit = (l) => {
+    setForm({
+      name: l.name || '',
+      phone: l.phone || '',
+      email: l.email || '',
+      address: l.address || '',
+      source: l.source || 'other',
+      status: l.status || 'new',
+      estimated_value: l.estimated_value ?? '',
+      follow_up_date: l.follow_up_date || '',
+      notes: l.notes || '',
+    });
+    setSheet(l);
+  };
+
+  const save = async () => {
+    if (!form.name.trim() || !orgId) return;
+    setSaving(true);
+    const payload = {
+      ...form,
+      estimated_value: form.estimated_value === '' ? 0 : Number(form.estimated_value),
+      follow_up_date: form.follow_up_date || null,
+    };
+    if (sheet === 'new') {
+      await supabase.from('leads').insert({ ...payload, owner_id: user.id, org_id: orgId });
+    } else {
+      await supabase.from('leads').update(payload).eq('id', sheet.id);
+    }
+    await loadLeads();
+    setSaving(false);
+    setSheet(null);
+  };
+
+  const del = async (id) => {
+    if (!confirm('Delete this lead?')) return;
+    await supabase.from('leads').delete().eq('id', id);
+    setLeads(l => l.filter(x => x.id !== id));
+  };
+
+  const convertToCustomer = async (lead) => {
+    if (lead.converted_customer_id) {
+      router.push('/customers');
+      return;
+    }
+    if (!confirm(`Convert ${lead.name} to a customer?`)) return;
+    const { data: c, error } = await supabase.from('customers').insert({
+      org_id: orgId,
+      owner_id: user.id,
+      name: lead.name,
+      phone: lead.phone,
+      email: lead.email,
+      address: lead.address,
+      notes: lead.notes,
+    }).select('id').single();
+    if (error) { alert('Could not convert: ' + error.message); return; }
+    await supabase.from('leads').update({
+      status: 'won',
+      converted_customer_id: c.id,
+    }).eq('id', lead.id);
+    await loadLeads();
+  };
+
+  const visible = leads.filter(l => filter === 'all' || l.status === filter);
+
+  if (loading) return (
+    <div style={{minHeight:'100vh',background:'#111827',display:'flex',alignItems:'center',justifyContent:'center',color:'#f0f4ff',fontFamily:'sans-serif'}}>Loading...</div>
+  );
+
+  return (
+    <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif",paddingBottom:80}}>
+      <div style={{background:'#1a2236',borderBottom:'1.5px solid #2e3f60',padding:'12px 16px',display:'flex',alignItems:'center',gap:12,position:'sticky',top:0,zIndex:50}}>
+        <button onClick={() => router.push('/dashboard')} style={{background:'none',border:'none',color:'#7a8db0',cursor:'pointer',fontSize:20,padding:'0 4px'}}>←</button>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'.08em',flex:1}}>LEADS</div>
+        <button onClick={openNew} style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'8px 16px',fontWeight:700,cursor:'pointer',fontSize:13}}>+ New</button>
+      </div>
+
+      <div style={{display:'flex',gap:6,padding:'10px 12px',overflowX:'auto'}}>
+        {[{ key:'all', label:'All' }, ...STATUSES].map(opt => (
+          <button key={opt.key} onClick={() => setFilter(opt.key)}
+            style={{
+              background: filter===opt.key ? '#2e3f60' : 'transparent',
+              border:'1px solid #2e3f60', borderRadius:999, color:'#f0f4ff',
+              padding:'6px 12px', fontSize:12, fontWeight:600, whiteSpace:'nowrap', cursor:'pointer',
+            }}>{opt.label}</button>
+        ))}
+      </div>
+
+      {visible.length === 0 && (
+        <div style={{textAlign:'center',padding:'60px 24px',color:'#7a8db0'}}>
+          <div style={{fontSize:36,marginBottom:8}}>📞</div>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,letterSpacing:'.06em',color:'#f0f4ff',marginBottom:4}}>
+            {leads.length === 0 ? 'No Leads Yet' : 'Nothing in this filter'}
+          </div>
+          <div style={{fontSize:13}}>{leads.length === 0 ? 'Tap + New to log your first lead.' : 'Try a different filter.'}</div>
+        </div>
+      )}
+
+      {visible.map(l => {
+        const s = statusMeta(l.status);
+        const converted = !!l.converted_customer_id;
+        return (
+          <div key={l.id} onClick={() => openEdit(l)}
+            style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,margin:'6px 16px',padding:'13px 14px',cursor:'pointer'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:3,gap:8}}>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.04em',color:'#f0f4ff',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.name}</div>
+              <span style={{background:s.color+'22',color:s.color,border:'1px solid '+s.color+'66',borderRadius:999,padding:'2px 8px',fontSize:10,fontWeight:700,letterSpacing:'.05em',whiteSpace:'nowrap'}}>{s.label.toUpperCase()}</span>
+              <button onClick={e => { e.stopPropagation(); del(l.id); }} style={{background:'none',border:'none',color:'#f26060',cursor:'pointer',fontSize:12,fontWeight:700,padding:'2px 4px'}}>✕</button>
+            </div>
+            {(l.phone || l.email) && (
+              <div style={{fontSize:12,color:'#c8d4ee'}}>
+                {l.phone}{l.phone && l.email ? ' · ' : ''}{l.email}
+              </div>
+            )}
+            <div style={{display:'flex',justifyContent:'space-between',marginTop:4,fontSize:11,color:'#7a8db0',gap:8}}>
+              <span>{sourceLabel(l.source)}{l.follow_up_date ? ' · Follow up ' + fmtDate(l.follow_up_date) : ''}</span>
+              {l.estimated_value > 0 && <span style={{color:'#2edf87',fontWeight:600}}>~{fmt$(l.estimated_value)}</span>}
+            </div>
+            {l.notes && <div style={{fontSize:11,color:'#fbbf24',marginTop:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>Note: {l.notes}</div>}
+            {!converted && (
+              <button onClick={e => { e.stopPropagation(); convertToCustomer(l); }}
+                style={{marginTop:8,width:'100%',background:'#2edf8722',border:'1px solid #2edf8766',borderRadius:8,color:'#2edf87',padding:'7px 0',fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>
+                CONVERT TO CUSTOMER
+              </button>
+            )}
+            {converted && (
+              <div style={{marginTop:8,padding:'6px 0',fontSize:11,color:'#7a8db0',textAlign:'center',letterSpacing:'.04em'}}>
+                ✓ Customer created
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {sheet && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.72)',zIndex:200,display:'flex',alignItems:'flex-end',backdropFilter:'blur(3px)'}} onClick={e => e.target===e.currentTarget && setSheet(null)}>
+          <div style={{background:'#1a2236',borderTop:'2px solid #2e3f60',borderRadius:'20px 20px 0 0',width:'100%',maxWidth:480,margin:'0 auto',maxHeight:'90vh',overflowY:'auto',paddingBottom:24}}>
+            <div style={{width:36,height:4,background:'#2e3f60',borderRadius:2,margin:'12px auto 4px'}}/>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:21,letterSpacing:'.08em',padding:'6px 16px 4px',color:'#f0f4ff'}}>{sheet==='new'?'NEW LEAD':'EDIT LEAD'}</div>
+
+            <div style={{margin:'10px 16px'}}>
+              <div style={fieldLabel}>Name</div>
+              <input style={inputStyle} type="text" placeholder="Homeowner or business name"
+                value={form.name} onChange={e => setForm(p => ({...p, name:e.target.value}))}/>
+            </div>
+
+            <div style={{display:'flex',gap:8,margin:'10px 16px'}}>
+              <div style={{flex:1}}>
+                <div style={fieldLabel}>Phone</div>
+                <input style={inputStyle} type="tel" placeholder="512-555-0100"
+                  value={form.phone} onChange={e => setForm(p => ({...p, phone:e.target.value}))}/>
+              </div>
+              <div style={{flex:1}}>
+                <div style={fieldLabel}>Email</div>
+                <input style={inputStyle} type="email" placeholder="email@example.com"
+                  value={form.email} onChange={e => setForm(p => ({...p, email:e.target.value}))}/>
+              </div>
+            </div>
+
+            <div style={{margin:'10px 16px'}}>
+              <div style={fieldLabel}>Address</div>
+              <input style={inputStyle} type="text" placeholder="Job site or mailing"
+                value={form.address} onChange={e => setForm(p => ({...p, address:e.target.value}))}/>
+            </div>
+
+            <div style={{margin:'10px 16px'}}>
+              <div style={fieldLabel}>Source</div>
+              <select value={form.source} onChange={e => setForm(p => ({...p, source:e.target.value}))} style={inputStyle}>
+                {SOURCES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+              </select>
+            </div>
+
+            <div style={{margin:'10px 16px'}}>
+              <div style={fieldLabel}>Status</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
+                {STATUSES.map(s => (
+                  <button key={s.key} onClick={() => setForm(p => ({...p, status:s.key}))}
+                    style={{
+                      background: form.status===s.key ? s.color+'22' : 'transparent',
+                      border:'1.5px solid '+(form.status===s.key ? s.color : '#2e3f60'),
+                      color: form.status===s.key ? s.color : '#c8d4ee',
+                      borderRadius:10, padding:'10px 4px', fontSize:11, fontWeight:700, cursor:'pointer', letterSpacing:'.04em',
+                    }}>{s.label}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{display:'flex',gap:8,margin:'10px 16px'}}>
+              <div style={{flex:1}}>
+                <div style={fieldLabel}>Est. Value ($)</div>
+                <input style={inputStyle} type="number" inputMode="decimal" placeholder="0.00"
+                  value={form.estimated_value} onChange={e => setForm(p => ({...p, estimated_value:e.target.value}))}/>
+              </div>
+              <div style={{flex:1}}>
+                <div style={fieldLabel}>Follow-up Date</div>
+                <input style={inputStyle} type="date"
+                  value={form.follow_up_date} onChange={e => setForm(p => ({...p, follow_up_date:e.target.value}))}/>
+              </div>
+            </div>
+
+            <div style={{margin:'10px 16px'}}>
+              <div style={fieldLabel}>Notes</div>
+              <textarea value={form.notes}
+                onChange={e => setForm(p => ({...p, notes:e.target.value}))}
+                placeholder="What they need, when, budget, special considerations..."
+                style={{...inputStyle, resize:'vertical', minHeight:60, fontFamily:'inherit'}}/>
+            </div>
+
+            <div style={{padding:'8px 16px 0',display:'flex',gap:8}}>
+              <button onClick={save} disabled={saving || !form.name.trim()}
+                style={{flex:1,background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'13px 0',fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.06em',cursor:'pointer',opacity:saving?0.6:1}}>
+                {saving ? 'Saving...' : 'Save Lead'}
+              </button>
+              <button onClick={() => setSheet(null)}
+                style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:10,color:'#7a8db0',padding:'13px 16px',cursor:'pointer',fontSize:13,fontWeight:600}}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const inputStyle = {
+  width:'100%', background:'#111827', border:'1.5px solid #2e3f60', borderRadius:10,
+  color:'#f0f4ff', fontSize:14, padding:'10px 12px', outline:'none', fontFamily:'inherit',
+};
+
+const fieldLabel = {
+  fontSize:11, fontWeight:600, letterSpacing:'.08em',
+  textTransform:'uppercase', color:'#7a8db0', marginBottom:5,
+};
