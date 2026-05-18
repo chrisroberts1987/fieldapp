@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
 import { fmt$ } from '../../lib/helpers';
+import Logo from '../../components/Logo';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -63,8 +64,8 @@ export default function Dashboard() {
 
   return (
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif"}}>
-      <div style={{background:'#1a2236',borderBottom:'1.5px solid #2e3f60',padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
-        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,letterSpacing:'.1em'}}>MYFOREMAN</div>
+      <div style={{background:'#1a2236',borderBottom:'1.5px solid #2e3f60',padding:'10px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+        <Logo size="sm" />
         <div style={{display:'flex',gap:8}}>
           <button onClick={() => router.push('/settings')} style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#7a8db0',padding:'6px 12px',cursor:'pointer',fontSize:12,fontWeight:600}}>
             Settings

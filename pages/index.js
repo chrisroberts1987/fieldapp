@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
+import Logo from '../components/Logo';
 
 export default function Home() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function Home() {
   return (
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif",display:'flex',flexDirection:'column'}}>
       <div style={{padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'.12em'}}>MYFOREMAN</div>
+        <Logo size="sm" />
         <button onClick={() => router.push('/login')}
           style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'7px 14px',cursor:'pointer',fontSize:12,fontWeight:600,letterSpacing:'.06em'}}>
           SIGN IN
@@ -34,8 +35,7 @@ export default function Home() {
       <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',padding:'24px 20px',maxWidth:680,margin:'0 auto',width:'100%'}}>
 
         <div style={{marginBottom:14}}>
-          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:64,letterSpacing:'.1em',lineHeight:1,color:'#f0f4ff'}}>MYFOREMAN</div>
-          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:30,letterSpacing:'.08em',color:'#4f9eff',marginTop:8}}>FROM LEAD TO PAID.</div>
+          <Logo size="xl" tagline />
         </div>
 
         <p style={{fontSize:17,lineHeight:1.5,color:'#c8d4ee',marginTop:24,marginBottom:0,maxWidth:560}}>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
 import { useOrg } from '../lib/org';
+import Logo from '../components/Logo';
 
 export default function Onboarding() {
   const router = useRouter();
@@ -92,9 +93,9 @@ export default function Onboarding() {
 
   return (
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif",padding:'20px 16px 60px'}}>
-      <div style={{textAlign:'center',marginBottom:18}}>
-        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:40,letterSpacing:'.12em'}}>MYFOREMAN</div>
-        <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.06em'}}>SET UP YOUR BUSINESS</div>
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',marginBottom:18,gap:6}}>
+        <Logo size="md" />
+        <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.1em',fontWeight:600,textTransform:'uppercase'}}>Set up your business</div>
       </div>
 
       <div style={{maxWidth:480,margin:'0 auto',background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:16,padding:'18px 16px'}}>
