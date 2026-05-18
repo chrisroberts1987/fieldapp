@@ -64,7 +64,7 @@ export default function Dashboard() {
   return (
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif"}}>
       <div style={{background:'#1a2236',borderBottom:'1.5px solid #2e3f60',padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,letterSpacing:'.1em'}}>FIELDAPP</div>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,letterSpacing:'.1em'}}>MYFOREMAN</div>
         <button onClick={signOut} style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#7a8db0',padding:'6px 14px',cursor:'pointer',fontSize:12,fontWeight:600}}>
           Sign Out
         </button>

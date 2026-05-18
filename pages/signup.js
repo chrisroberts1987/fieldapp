@@ -39,7 +39,7 @@ export default function Signup() {
   return (
     <div style={{minHeight:'100vh',background:'#111827',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24,fontFamily:"'Inter',sans-serif"}}>
       <div style={{marginBottom:32,textAlign:'center'}}>
-        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:48,letterSpacing:'.12em',color:'#f0f4ff'}}>FIELDAPP</div>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:48,letterSpacing:'.12em',color:'#f0f4ff'}}>MYFOREMAN</div>
         <div style={{fontSize:13,color:'#7a8db0',letterSpacing:'.06em'}}>FIELD SERVICE MANAGEMENT</div>
       </div>
       <div style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:16,padding:24,width:'100%',maxWidth:340}}>
