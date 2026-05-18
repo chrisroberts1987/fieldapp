@@ -112,41 +112,51 @@ alter table public.jobs      add column if not exists org_id uuid references pub
 alter table public.invoices  add column if not exists org_id uuid references public.organizations(id) on delete cascade;
 
 -- ============================================================
--- BACKFILL: for each existing owner_id with data, create an org,
--- add them as owner, set org_id on their rows.
+-- BACKFILL: plain-SQL version. For each user that has rows but no
+-- membership, create an org and add them as owner. Then set org_id
+-- on every existing row by looking up its owner's membership.
+-- Fully idempotent: re-runs are no-ops once everyone has an org.
 -- ============================================================
-do $$
-declare
-  r record;
-  v_org_id uuid;
-  v_email  text;
-begin
-  for r in
-    select distinct owner_id from public.customers where owner_id is not null
-    union
-    select distinct owner_id from public.jobs      where owner_id is not null
-    union
-    select distinct owner_id from public.invoices  where owner_id is not null
-  loop
-    -- Skip if this user is already a member of an org (idempotent re-runs)
-    if exists (select 1 from public.org_members where user_id = r.owner_id) then
-      select om.org_id into v_org_id
-        from public.org_members om
-        where om.user_id = r.owner_id
-        order by om.joined_at asc
-        limit 1;
-    else
-      select email into v_email from auth.users where id = r.owner_id;
-      insert into public.organizations (name) values (coalesce(v_email, 'My Company')) returning id into v_org_id;
-      insert into public.org_members (org_id, user_id, role, joined_at)
-        values (v_org_id, r.owner_id, 'owner', now());
-    end if;
+create temporary table if not exists tmp_backfill_pairs (
+  user_id uuid not null,
+  org_id  uuid not null default gen_random_uuid(),
+  name    text not null
+);
 
-    update public.customers set org_id = v_org_id where owner_id = r.owner_id and org_id is null;
-    update public.jobs      set org_id = v_org_id where owner_id = r.owner_id and org_id is null;
-    update public.invoices  set org_id = v_org_id where owner_id = r.owner_id and org_id is null;
-  end loop;
-end $$;
+truncate tmp_backfill_pairs;
+
+insert into tmp_backfill_pairs (user_id, name)
+select u.id, coalesce(u.email, 'My Company')
+from auth.users u
+where (
+  exists (select 1 from public.customers c where c.owner_id = u.id)
+  or exists (select 1 from public.jobs      j where j.owner_id = u.id)
+  or exists (select 1 from public.invoices  i where i.owner_id = u.id)
+)
+and not exists (select 1 from public.org_members om where om.user_id = u.id);
+
+insert into public.organizations (id, name)
+select org_id, name from tmp_backfill_pairs;
+
+insert into public.org_members (org_id, user_id, role, joined_at)
+select org_id, user_id, 'owner', now() from tmp_backfill_pairs;
+
+drop table tmp_backfill_pairs;
+
+update public.customers c
+set org_id = om.org_id
+from public.org_members om
+where c.owner_id = om.user_id and c.org_id is null;
+
+update public.jobs j
+set org_id = om.org_id
+from public.org_members om
+where j.owner_id = om.user_id and j.org_id is null;
+
+update public.invoices i
+set org_id = om.org_id
+from public.org_members om
+where i.owner_id = om.user_id and i.org_id is null;
 
 -- ============================================================
 -- LOCK IN: org_id is now required on all owned tables.
