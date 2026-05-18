@@ -3,30 +3,42 @@ import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
 import { useOrg } from '../lib/org';
 
-export default function Onboarding() {
+export default function Settings() {
   const router = useRouter();
   const [user, setUser] = useState(null);
-  const { orgId, loading: orgLoading } = useOrg(user);
-  const [form, setForm] = useState({
-    name:'', owner_name:'', phone:'', business_email:'',
-    address:'', license_number:'', default_tax_rate:'8.25',
-  });
+  const { orgId, org, loading: orgLoading } = useOrg(user);
+  const [form, setForm] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
-  const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [savedAt, setSavedAt] = useState(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.push('/login'); return; }
       setUser(session.user);
-      setForm(p => ({ ...p, business_email: p.business_email || session.user.email || '' }));
     });
   }, []);
 
   useEffect(() => {
-    if (orgId && user && !saving) router.push('/dashboard');
-  }, [orgId, user]);
+    if (user && !orgLoading && !orgId) router.push('/onboarding');
+  }, [user, orgLoading, orgId]);
+
+  useEffect(() => {
+    if (org && !form) {
+      setForm({
+        name:             org.name || '',
+        owner_name:       org.owner_name || '',
+        phone:            org.phone || '',
+        business_email:   org.business_email || '',
+        address:          org.address || '',
+        license_number:   org.license_number || '',
+        default_tax_rate: org.default_tax_rate != null ? String(org.default_tax_rate) : '8.25',
+      });
+      setLogoPreview(org.logo_url || null);
+    }
+  }, [org]);
 
   const pickLogo = (e) => {
     const file = e.target.files?.[0];
@@ -39,34 +51,33 @@ export default function Onboarding() {
 
   const save = async () => {
     setError('');
-    if (!form.name.trim())          { setError('Business name required'); return; }
-    if (!form.owner_name.trim())    { setError('Owner name required'); return; }
-    if (!form.phone.trim())         { setError('Phone required'); return; }
-    if (!form.business_email.trim()){ setError('Business email required'); return; }
-    if (!form.address.trim())       { setError('Business address required'); return; }
+    if (!form.name.trim())           { setError('Business name required'); return; }
+    if (!form.owner_name.trim())     { setError('Owner name required'); return; }
+    if (!form.phone.trim())          { setError('Phone required'); return; }
+    if (!form.business_email.trim()) { setError('Business email required'); return; }
+    if (!form.address.trim())        { setError('Business address required'); return; }
     const tax = Number(form.default_tax_rate);
     if (isNaN(tax) || tax < 0 || tax > 100) { setError('Default tax rate must be a number 0–100'); return; }
 
     setSaving(true);
 
-    const { data: newOrgId, error: rpcErr } = await supabase.rpc('create_org', { p_name: form.name });
-    if (rpcErr) { setError(rpcErr.message); setSaving(false); return; }
-
-    let logo_url = null;
+    let logo_url = org?.logo_url || null;
     if (logoFile) {
       const ext = (logoFile.name.split('.').pop() || 'png').toLowerCase();
-      const path = `${newOrgId}/logo.${ext}`;
+      const path = `${orgId}/logo.${ext}`;
       const { error: upErr } = await supabase.storage
         .from('org-logos')
         .upload(path, logoFile, { upsert: true, contentType: logoFile.type });
       if (upErr) { setError('Logo upload failed: ' + upErr.message); setSaving(false); return; }
       const { data: pub } = supabase.storage.from('org-logos').getPublicUrl(path);
-      logo_url = pub?.publicUrl || null;
+      // Cache-bust by appending the time so the new logo shows immediately.
+      logo_url = pub?.publicUrl ? `${pub.publicUrl}?t=${Date.now()}` : null;
     }
 
     const { error: updErr } = await supabase
       .from('organizations')
       .update({
+        name:             form.name.trim(),
         owner_name:       form.owner_name.trim(),
         phone:            form.phone.trim(),
         business_email:   form.business_email.trim(),
@@ -75,53 +86,49 @@ export default function Onboarding() {
         default_tax_rate: tax,
         logo_url,
       })
-      .eq('id', newOrgId);
-    if (updErr) { setError('Saved company but profile update failed: ' + updErr.message); setSaving(false); return; }
+      .eq('id', orgId);
+    if (updErr) { setError(updErr.message); setSaving(false); return; }
 
-    router.push('/dashboard');
+    setSaving(false);
+    setLogoFile(null);
+    setSavedAt(Date.now());
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    router.push('/login');
-  };
-
-  if (!user || orgLoading) {
+  if (!user || orgLoading || !form) {
     return <div style={loadingStyle}>Loading...</div>;
   }
 
   return (
-    <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif",padding:'20px 16px 60px'}}>
-      <div style={{textAlign:'center',marginBottom:18}}>
-        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:40,letterSpacing:'.12em'}}>MYFOREMAN</div>
-        <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.06em'}}>SET UP YOUR BUSINESS</div>
+    <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif",paddingBottom:80}}>
+      <div style={{background:'#1a2236',borderBottom:'1.5px solid #2e3f60',padding:'12px 16px',display:'flex',alignItems:'center',gap:12,position:'sticky',top:0,zIndex:50}}>
+        <button onClick={() => router.push('/dashboard')} style={{background:'none',border:'none',color:'#7a8db0',cursor:'pointer',fontSize:20,padding:'0 4px'}}>←</button>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'.08em',flex:1}}>SETTINGS</div>
       </div>
 
-      <div style={{maxWidth:480,margin:'0 auto',background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:16,padding:'18px 16px'}}>
+      <div style={{maxWidth:560,margin:'16px auto 0',padding:'0 16px'}}>
 
         <Section title="Business">
-          <Field label="Business Name *">
-            <input style={inputStyle} type="text" placeholder="Smith Lawn Care LLC"
-              value={form.name} onChange={e => setForm(p => ({...p, name:e.target.value}))}/>
+          <Field label="Business Name">
+            <input style={inputStyle} type="text" value={form.name}
+              onChange={e => setForm(p => ({...p, name:e.target.value}))}/>
           </Field>
-          <Field label="Owner Name *">
-            <input style={inputStyle} type="text" placeholder="John Smith"
-              value={form.owner_name} onChange={e => setForm(p => ({...p, owner_name:e.target.value}))}/>
+          <Field label="Owner Name">
+            <input style={inputStyle} type="text" value={form.owner_name}
+              onChange={e => setForm(p => ({...p, owner_name:e.target.value}))}/>
           </Field>
         </Section>
 
         <Section title="Contact">
-          <Field label="Phone *">
-            <input style={inputStyle} type="tel" placeholder="512-555-0100"
-              value={form.phone} onChange={e => setForm(p => ({...p, phone:e.target.value}))}/>
+          <Field label="Phone">
+            <input style={inputStyle} type="tel" value={form.phone}
+              onChange={e => setForm(p => ({...p, phone:e.target.value}))}/>
           </Field>
-          <Field label="Business Email *">
-            <input style={inputStyle} type="email" placeholder="billing@yourbiz.com"
-              value={form.business_email} onChange={e => setForm(p => ({...p, business_email:e.target.value}))}/>
+          <Field label="Business Email">
+            <input style={inputStyle} type="email" value={form.business_email}
+              onChange={e => setForm(p => ({...p, business_email:e.target.value}))}/>
           </Field>
-          <Field label="Business Address *">
+          <Field label="Business Address">
             <textarea style={{...inputStyle, minHeight:64, resize:'vertical'}}
-              placeholder="123 Main St&#10;Austin, TX 78701"
               value={form.address} onChange={e => setForm(p => ({...p, address:e.target.value}))}/>
           </Field>
         </Section>
@@ -136,7 +143,7 @@ export default function Onboarding() {
             <label style={{flex:1}}>
               <input type="file" accept="image/*" onChange={pickLogo} style={{display:'none'}}/>
               <div style={{background:'transparent',border:'1.5px solid #2e3f60',borderRadius:10,padding:'10px 12px',color:'#c8d4ee',fontSize:13,cursor:'pointer',textAlign:'center'}}>
-                {logoFile ? 'Change logo' : 'Upload logo (optional)'}
+                {logoFile ? 'Change logo' : (logoPreview ? 'Replace logo' : 'Upload logo')}
               </div>
             </label>
           </div>
@@ -144,13 +151,14 @@ export default function Onboarding() {
         </Section>
 
         <Section title="Details">
-          <Field label="License Number (optional)">
-            <input style={inputStyle} type="text" placeholder="TX-12345"
-              value={form.license_number} onChange={e => setForm(p => ({...p, license_number:e.target.value}))}/>
+          <Field label="License Number">
+            <input style={inputStyle} type="text" value={form.license_number}
+              onChange={e => setForm(p => ({...p, license_number:e.target.value}))}/>
           </Field>
           <Field label="Default Tax Rate (%)">
             <input style={inputStyle} type="number" inputMode="decimal" step="0.01" min="0" max="100"
-              value={form.default_tax_rate} onChange={e => setForm(p => ({...p, default_tax_rate:e.target.value}))}/>
+              value={form.default_tax_rate}
+              onChange={e => setForm(p => ({...p, default_tax_rate:e.target.value}))}/>
           </Field>
         </Section>
 
@@ -159,18 +167,16 @@ export default function Onboarding() {
             {error}
           </div>
         )}
+        {savedAt > 0 && !error && (
+          <div style={{background:'rgba(46,223,135,.12)',border:'1px solid rgba(46,223,135,.3)',borderRadius:8,padding:'9px 12px',marginBottom:12,fontSize:12,color:'#2edf87',textAlign:'center'}}>
+            Saved.
+          </div>
+        )}
 
         <button onClick={save} disabled={saving}
-          style={{width:'100%',background:'#4f9eff',color:'#fff',border:'none',borderRadius:10,padding:'13px 0',fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.08em',cursor:'pointer',marginBottom:10,opacity:saving?0.5:1}}>
-          {saving ? 'Setting up...' : 'CONTINUE'}
+          style={{width:'100%',background:'#4f9eff',color:'#fff',border:'none',borderRadius:10,padding:'13px 0',fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.08em',cursor:'pointer',marginBottom:24,opacity:saving?0.5:1}}>
+          {saving ? 'Saving...' : 'SAVE CHANGES'}
         </button>
-        <button onClick={signOut}
-          style={{width:'100%',background:'transparent',color:'#7a8db0',border:'1px solid #2e3f60',borderRadius:10,padding:'8px 0',fontSize:12,cursor:'pointer'}}>
-          Sign out
-        </button>
-        <div style={{marginTop:12,fontSize:11,color:'#7a8db0',textAlign:'center'}}>
-          Signed in as {user.email}
-        </div>
       </div>
     </div>
   );
@@ -178,8 +184,8 @@ export default function Onboarding() {
 
 function Section({ title, children }) {
   return (
-    <div style={{marginBottom:14}}>
-      <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:'.1em',color:'#7a8db0',marginBottom:8,paddingBottom:6,borderBottom:'1px solid #2e3f60'}}>{title}</div>
+    <div style={{marginBottom:14,background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:12,padding:'14px 14px 6px'}}>
+      <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:'.1em',color:'#7a8db0',marginBottom:10}}>{title}</div>
       {children}
     </div>
   );

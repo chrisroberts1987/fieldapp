@@ -186,12 +186,18 @@ export default function Invoices() {
               <span>Issued {fmtDate(inv.issued_date)}{paid && inv.paid_date ? ` · Paid ${fmtDate(inv.paid_date)}` : ''}</span>
               <span style={{color:'#2edf87',fontWeight:700,fontSize:14}}>{fmt$(inv.amount || 0)}</span>
             </div>
-            {!paid && (
-              <button onClick={e => { e.stopPropagation(); quickMarkPaid(inv); }}
-                style={{marginTop:8,width:'100%',background:'#2edf8722',border:'1px solid #2edf8766',borderRadius:8,color:'#2edf87',padding:'7px 0',fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>
-                MARK PAID
+            <div style={{display:'flex',gap:6,marginTop:8}}>
+              <button onClick={e => { e.stopPropagation(); router.push('/invoices/' + inv.id); }}
+                style={{flex:1,background:'#4f9eff22',border:'1px solid #4f9eff66',borderRadius:8,color:'#4f9eff',padding:'7px 0',fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>
+                VIEW
               </button>
-            )}
+              {!paid && (
+                <button onClick={e => { e.stopPropagation(); quickMarkPaid(inv); }}
+                  style={{flex:1,background:'#2edf8722',border:'1px solid #2edf8766',borderRadius:8,color:'#2edf87',padding:'7px 0',fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>
+                  MARK PAID
+                </button>
+              )}
+            </div>
           </div>
         );
       })}
