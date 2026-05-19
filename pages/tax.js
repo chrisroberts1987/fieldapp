@@ -98,6 +98,17 @@ export default function Tax() {
           </div>
         </div>
 
+        {ytdRevenue === 0 && (
+          <div style={{background:'rgba(79,158,255,0.10)',border:'1px solid rgba(79,158,255,0.3)',borderRadius:10,padding:'14px 16px',marginBottom:16,display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+            <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.5,flex:1,minWidth:200}}>
+              No revenue logged yet for {year}. Import prior invoices to fill in your history.
+            </div>
+            <button onClick={() => router.push('/invoices/import')} style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'8px 14px',fontWeight:700,cursor:'pointer',fontSize:12,letterSpacing:'.04em'}}>
+              IMPORT INVOICES
+            </button>
+          </div>
+        )}
+
         {/* Disclaimer */}
         <div style={{background:'rgba(251,191,36,0.08)',border:'1px solid rgba(251,191,36,0.3)',borderRadius:10,padding:'12px 14px',marginBottom:24,display:'flex',gap:10,alignItems:'flex-start'}}>
           <span style={{color:'#fbbf24',fontSize:14,lineHeight:1.4}}>⚠</span>
