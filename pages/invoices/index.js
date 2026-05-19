@@ -100,14 +100,46 @@ export default function Invoices() {
       paid_date: form.status === 'paid' ? (form.paid_date || todayStr()) : null,
       notes: form.notes || null,
     };
+    const wasPaid = sheet !== 'new' && sheet?.status === 'paid';
+    const nowPaid = payload.status === 'paid';
+    let invoiceId = sheet !== 'new' ? sheet.id : null;
+
     if (sheet === 'new') {
-      await supabase.from('invoices').insert({ ...payload, owner_id: user.id, org_id: orgId });
+      const { data } = await supabase.from('invoices').insert({ ...payload, owner_id: user.id, org_id: orgId }).select('id').single();
+      invoiceId = data?.id;
     } else {
       await supabase.from('invoices').update(payload).eq('id', sheet.id);
     }
+
+    if (invoiceId && nowPaid && !wasPaid) {
+      await onInvoicePaid(invoiceId, payload.customer_id, payload.amount);
+    }
+
     await loadAll();
     setSaving(false);
     setSheet(null);
+  };
+
+  const onInvoicePaid = async (invoiceId, custId, amount) => {
+    const custName = customers.find(c => c.id === custId)?.name || 'Customer';
+    // Ensure we only create one feedback record per invoice.
+    const { data: existing } = await supabase.from('feedback').select('id').eq('invoice_id', invoiceId).maybeSingle();
+    if (!existing) {
+      await supabase.from('feedback').insert({
+        org_id: orgId,
+        invoice_id: invoiceId,
+        customer_id: custId,
+        customer_name: custName,
+      });
+    }
+    await supabase.from('notifications').insert({
+      org_id: orgId,
+      user_id: user.id,
+      kind: 'invoice_paid',
+      title: 'Invoice paid 🎉',
+      body: `${custName} just paid ${'$'+Number(amount||0).toFixed(2)}. Feedback link generated.`,
+      link: '/invoices',
+    });
   };
 
   const del = async (id) => {
@@ -117,8 +149,22 @@ export default function Invoices() {
   };
 
   const quickMarkPaid = async (inv) => {
+    if (inv.status === 'paid') return;
     await supabase.from('invoices').update({ status:'paid', paid_date: todayStr() }).eq('id', inv.id);
+    await onInvoicePaid(inv.id, inv.customer_id, inv.amount);
     await loadAll();
+  };
+
+  const copyFeedbackLink = async (inv) => {
+    const { data } = await supabase.from('feedback').select('token').eq('invoice_id', inv.id).maybeSingle();
+    if (!data?.token) { alert('No feedback link generated yet — try saving the invoice again.'); return; }
+    const url = `${window.location.origin}/feedback/${data.token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      alert('Feedback link copied:\n' + url);
+    } catch {
+      alert('Feedback link:\n' + url);
+    }
   };
 
   const visible = invoices.filter(i => filter === 'all' || i.status === filter);
@@ -196,6 +242,12 @@ export default function Invoices() {
                 <button onClick={e => { e.stopPropagation(); quickMarkPaid(inv); }}
                   style={{flex:1,background:'#2edf8722',border:'1px solid #2edf8766',borderRadius:8,color:'#2edf87',padding:'7px 0',fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>
                   MARK PAID
+                </button>
+              )}
+              {paid && (
+                <button onClick={e => { e.stopPropagation(); copyFeedbackLink(inv); }}
+                  style={{flex:1,background:'#fbbf2422',border:'1px solid #fbbf2466',borderRadius:8,color:'#fbbf24',padding:'7px 0',fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>
+                  FEEDBACK LINK
                 </button>
               )}
             </div>

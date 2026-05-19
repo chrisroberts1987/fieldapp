@@ -101,6 +101,24 @@ export default function Leads() {
     setLeads(l => l.filter(x => x.id !== id));
   };
 
+  const generateQuote = async (lead) => {
+    if (!orgId) return;
+    const { data, error } = await supabase.from('quotes').insert({
+      org_id: orgId,
+      owner_id: user.id,
+      lead_id: lead.id,
+      customer_id: lead.converted_customer_id || null,
+      customer_name: lead.name,
+      customer_email: lead.email,
+      customer_phone: lead.phone,
+      title: lead.notes ? lead.notes.slice(0, 80) : 'Quote for ' + lead.name,
+      description: lead.notes,
+      amount: lead.estimated_value || 0,
+    }).select('id').single();
+    if (error) { alert('Could not create quote: ' + error.message); return; }
+    router.push(`/quotes/${data.id}`);
+  };
+
   const convertToCustomer = async (lead) => {
     if (lead.converted_customer_id) {
       router.push('/customers');
@@ -199,12 +217,18 @@ export default function Leads() {
               {l.estimated_value > 0 && <span style={{color:'#2edf87',fontWeight:600}}>~{fmt$(l.estimated_value)}</span>}
             </div>
             {l.notes && <div style={{fontSize:11,color:'#fbbf24',marginTop:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>Note: {l.notes}</div>}
-            {!converted && (
-              <button onClick={e => { e.stopPropagation(); convertToCustomer(l); }}
-                style={{marginTop:8,width:'100%',background:'#2edf8722',border:'1px solid #2edf8766',borderRadius:8,color:'#2edf87',padding:'7px 0',fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>
-                CONVERT TO CUSTOMER
+            <div style={{display:'flex',gap:6,marginTop:8}}>
+              <button onClick={e => { e.stopPropagation(); generateQuote(l); }}
+                style={{flex:1,background:'#4f9eff22',border:'1px solid #4f9eff66',borderRadius:8,color:'#4f9eff',padding:'7px 0',fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>
+                GENERATE QUOTE
               </button>
-            )}
+              {!converted && (
+                <button onClick={e => { e.stopPropagation(); convertToCustomer(l); }}
+                  style={{flex:1,background:'#2edf8722',border:'1px solid #2edf8766',borderRadius:8,color:'#2edf87',padding:'7px 0',fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>
+                  CONVERT TO CUSTOMER
+                </button>
+              )}
+            </div>
             {converted && (
               <div style={{marginTop:8,padding:'6px 0',fontSize:11,color:'#7a8db0',textAlign:'center',letterSpacing:'.04em'}}>
                 ✓ Customer created
