@@ -5,17 +5,17 @@ import { useOrg } from '../../lib/org';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 
-const TEMPLATE = `customer_name,amount,issued_date,paid_date,notes
-Jane Smith,450.00,2025-03-15,2025-03-20,Lawn mow + edge
-Bob Jones,1200.00,2025-04-02,2025-04-15,HVAC service call
-Smith LLC,800.00,2025-05-10,,Quarterly maintenance`;
+const ACCEPTED = '.pdf,.png,.jpg,.jpeg,.gif,.webp,application/pdf,image/png,image/jpeg,image/gif,image/webp';
+const MAX_BATCH = 10;
+const MAX_FILE_MB = 10;
 
 export default function ImportInvoices() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const { orgId, loading: orgLoading } = useOrg(user);
-  const [csv, setCsv] = useState('');
-  const [parsed, setParsed] = useState(null);   // { rows: [...], errors: [...] }
+
+  const [rows, setRows] = useState([]); // { id, filename, type, status, data, error }
+  const [dragOver, setDragOver] = useState(false);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -30,120 +30,142 @@ export default function ImportInvoices() {
     if (user && !orgLoading && !orgId) router.push('/onboarding');
   }, [user, orgLoading, orgId]);
 
-  const parse = () => {
-    setResult(null);
-    if (!csv.trim()) { setParsed({ rows:[], errors:['Paste some CSV first.'] }); return; }
-    const rows = parseCSV(csv);
-    if (rows.length < 2) { setParsed({ rows:[], errors:['Need a header row plus at least one data row.'] }); return; }
+  const addFiles = async (fileList) => {
+    const files = Array.from(fileList || []);
+    if (files.length === 0) return;
 
-    const headers = rows[0].map(h => h.toLowerCase().replace(/\s+/g, '_'));
-    const reqd = ['customer_name', 'amount', 'issued_date'];
-    const missing = reqd.filter(c => !headers.includes(c));
-    if (missing.length) {
-      setParsed({ rows:[], errors:[`Missing required column(s): ${missing.join(', ')}`] });
+    if (rows.length + files.length > MAX_BATCH) {
+      alert(`Max ${MAX_BATCH} files at a time. You have ${rows.length} queued.`);
       return;
     }
-    const idx = {
-      customer_name: headers.indexOf('customer_name'),
-      amount:        headers.indexOf('amount'),
-      issued_date:   headers.indexOf('issued_date'),
-      paid_date:     headers.indexOf('paid_date'),
-      notes:         headers.indexOf('notes'),
-      status:        headers.indexOf('status'),
-    };
 
-    const out = [];
-    const errors = [];
-    rows.slice(1).forEach((r, i) => {
-      const rowNum = i + 2; // 1-indexed line number including header
-      const name = (r[idx.customer_name] || '').trim();
-      const amount = parseFloat((r[idx.amount] || '').replace(/[$,]/g, ''));
-      const issued = (r[idx.issued_date] || '').trim();
-      const paid   = idx.paid_date >= 0 ? (r[idx.paid_date] || '').trim() : '';
-      const notes  = idx.notes >= 0 ? (r[idx.notes] || '').trim() : null;
-      const statusExplicit = idx.status >= 0 ? (r[idx.status] || '').trim().toLowerCase() : '';
-      const status = statusExplicit || (paid ? 'paid' : 'unpaid');
-
-      if (!name) { errors.push(`Row ${rowNum}: customer_name is required`); return; }
-      if (isNaN(amount) || amount < 0) { errors.push(`Row ${rowNum}: amount "${r[idx.amount]}" is not a valid number`); return; }
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(issued)) { errors.push(`Row ${rowNum}: issued_date must be YYYY-MM-DD`); return; }
-      if (paid && !/^\d{4}-\d{2}-\d{2}$/.test(paid)) { errors.push(`Row ${rowNum}: paid_date must be YYYY-MM-DD or blank`); return; }
-      if (status !== 'paid' && status !== 'unpaid') { errors.push(`Row ${rowNum}: status must be "paid" or "unpaid"`); return; }
-      if (status === 'paid' && !paid) {
-        // Default paid_date to issued_date when status=paid but paid_date blank
+    const newRows = [];
+    for (const file of files) {
+      if (file.size > MAX_FILE_MB * 1024 * 1024) {
+        newRows.push({ id: rid(), filename: file.name, type: file.type, status: 'error', error: `Too large (>${MAX_FILE_MB} MB)` });
+        continue;
       }
+      const accept = ['application/pdf','image/png','image/jpeg','image/webp','image/gif'];
+      if (!accept.includes(file.type)) {
+        newRows.push({ id: rid(), filename: file.name, type: file.type, status: 'error', error: 'Unsupported type. Use PDF, PNG, JPG, GIF, or WebP.' });
+        continue;
+      }
+      newRows.push({ id: rid(), filename: file.name, type: file.type, status: 'extracting', _file: file });
+    }
+    const updated = [...rows, ...newRows];
+    setRows(updated);
 
-      out.push({
-        row: rowNum,
+    // Extract each pending file sequentially.
+    for (const row of newRows) {
+      if (row.status !== 'extracting') continue;
+      try {
+        const base64 = await fileToBase64(row._file);
+        const resp = await fetch('/api/invoices/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ files: [{ name: row.filename, type: row.type, data: base64 }] }),
+        });
+        const json = await resp.json();
+        if (!resp.ok) {
+          patchRow(row.id, { status:'error', error: json?.error || `Server error ${resp.status}` });
+          continue;
+        }
+        const r = json.results?.[0];
+        if (!r || !r.success) {
+          patchRow(row.id, { status:'error', error: r?.error || 'Extraction failed' });
+          continue;
+        }
+        patchRow(row.id, { status:'ready', data: r.data });
+      } catch (e) {
+        patchRow(row.id, { status:'error', error: e.message });
+      }
+    }
+  };
+
+  const patchRow = (id, patch) => {
+    setRows(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r));
+  };
+
+  const updateField = (id, key, value) => {
+    setRows(prev => prev.map(r => r.id === id ? { ...r, data: { ...r.data, [key]: value } } : r));
+  };
+
+  const removeRow = (id) => setRows(prev => prev.filter(r => r.id !== id));
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    addFiles(e.dataTransfer.files);
+  };
+
+  const importAll = async () => {
+    const ready = rows.filter(r => r.status === 'ready' && r.data);
+    if (ready.length === 0 || !orgId) return;
+    setImporting(true);
+
+    // Validate each row.
+    const errors = [];
+    const cleaned = ready.map((r, i) => {
+      const rowNum = i + 1;
+      const d = r.data;
+      const name = (d.customer_name || '').trim();
+      const amount = Number(d.amount);
+      const issued = (d.issued_date || '').trim();
+      const paid = (d.paid_date || '').trim();
+      const status = d.status === 'paid' ? 'paid' : 'unpaid';
+      if (!name) errors.push(`${r.filename}: customer name is empty`);
+      if (isNaN(amount) || amount < 0) errors.push(`${r.filename}: amount invalid`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(issued)) errors.push(`${r.filename}: issued date must be YYYY-MM-DD`);
+      if (paid && !/^\d{4}-\d{2}-\d{2}$/.test(paid)) errors.push(`${r.filename}: paid date must be YYYY-MM-DD or blank`);
+      return {
         customer_name: name,
         amount,
         issued_date: issued,
         paid_date: status === 'paid' ? (paid || issued) : null,
-        notes: notes || null,
+        notes: d.notes || null,
         status,
-      });
+      };
     });
-
-    setParsed({ rows: out, errors });
-  };
-
-  const importAll = async () => {
-    if (!parsed?.rows?.length || !orgId) return;
-    setImporting(true);
-
-    // 1. Collect unique customer names from the import.
-    const namesNeeded = [...new Set(parsed.rows.map(r => r.customer_name))];
-
-    // 2. Find existing customers (case-insensitive) for this org.
-    const { data: existing } = await supabase
-      .from('customers').select('id, name')
-      .eq('org_id', orgId);
-    const existingMap = new Map();
-    (existing || []).forEach(c => existingMap.set(c.name.trim().toLowerCase(), c.id));
-
-    // 3. Create customers that don't exist yet.
-    const toCreate = namesNeeded.filter(n => !existingMap.has(n.toLowerCase()));
-    if (toCreate.length > 0) {
-      const inserts = toCreate.map(n => ({ org_id: orgId, owner_id: user.id, name: n }));
-      const { data: newC, error: cErr } = await supabase
-        .from('customers').insert(inserts).select('id, name');
-      if (cErr) {
-        setResult({ ok:false, message: 'Failed to create customers: ' + cErr.message });
-        setImporting(false);
-        return;
-      }
-      (newC || []).forEach(c => existingMap.set(c.name.trim().toLowerCase(), c.id));
-    }
-
-    // 4. Bulk-insert invoices.
-    const invoiceInserts = parsed.rows.map(r => ({
-      org_id:        orgId,
-      owner_id:      user.id,
-      customer_id:   existingMap.get(r.customer_name.toLowerCase()) || null,
-      amount:        r.amount,
-      issued_date:   r.issued_date,
-      paid_date:     r.paid_date,
-      status:        r.status,
-      notes:         r.notes,
-    }));
-    const { error: iErr } = await supabase.from('invoices').insert(invoiceInserts);
-    if (iErr) {
-      setResult({ ok:false, message: 'Failed to insert invoices: ' + iErr.message });
+    if (errors.length > 0) {
+      setResult({ ok:false, message: errors.join('\n') });
       setImporting(false);
       return;
     }
 
-    setResult({
-      ok: true,
-      invoicesImported: invoiceInserts.length,
-      customersCreated: toCreate.length,
-    });
-    setCsv('');
-    setParsed(null);
+    // Find or create customers by name.
+    const names = [...new Set(cleaned.map(r => r.customer_name))];
+    const { data: existing } = await supabase.from('customers').select('id, name').eq('org_id', orgId);
+    const map = new Map();
+    (existing || []).forEach(c => map.set(c.name.trim().toLowerCase(), c.id));
+    const toCreate = names.filter(n => !map.has(n.toLowerCase()));
+    if (toCreate.length > 0) {
+      const inserts = toCreate.map(n => ({ org_id: orgId, owner_id: user.id, name: n }));
+      const { data: newC, error: cErr } = await supabase.from('customers').insert(inserts).select('id, name');
+      if (cErr) { setResult({ ok:false, message: 'Customer create failed: ' + cErr.message }); setImporting(false); return; }
+      (newC || []).forEach(c => map.set(c.name.trim().toLowerCase(), c.id));
+    }
+
+    const inserts = cleaned.map(r => ({
+      org_id: orgId,
+      owner_id: user.id,
+      customer_id: map.get(r.customer_name.toLowerCase()) || null,
+      amount: r.amount,
+      issued_date: r.issued_date,
+      paid_date: r.paid_date,
+      status: r.status,
+      notes: r.notes,
+    }));
+    const { error: iErr } = await supabase.from('invoices').insert(inserts);
+    if (iErr) {
+      setResult({ ok:false, message: 'Invoice insert failed: ' + iErr.message });
+      setImporting(false);
+      return;
+    }
+
+    setResult({ ok:true, invoicesImported: inserts.length, customersCreated: toCreate.length });
+    setRows([]);
     setImporting(false);
   };
-
-  const pasteTemplate = () => { setCsv(TEMPLATE); setParsed(null); setResult(null); };
 
   if (!user || orgLoading) {
     return (
@@ -154,22 +176,20 @@ export default function ImportInvoices() {
     );
   }
 
-  const paidPreview = parsed?.rows?.filter(r => r.status === 'paid') || [];
-  const totalPreview = parsed?.rows?.reduce((s, r) => s + Number(r.amount || 0), 0) || 0;
-  const paidTotalPreview = paidPreview.reduce((s, r) => s + Number(r.amount || 0), 0);
+  const readyCount = rows.filter(r => r.status === 'ready').length;
+  const extractingCount = rows.filter(r => r.status === 'extracting').length;
+  const totalPreview = rows.filter(r => r.status === 'ready').reduce((s, r) => s + Number(r.data?.amount || 0), 0);
 
   return (
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif",paddingBottom:80}}>
       <TopNav active="/invoices"/>
 
-      <main style={{maxWidth:1080,margin:'0 auto',padding:'28px 20px 0'}}>
-        <div style={{marginBottom:24}}>
+      <main style={{maxWidth:980,margin:'0 auto',padding:'28px 20px 0'}}>
+        <div style={{marginBottom:20}}>
           <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase'}}>Invoices</div>
-          <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,letterSpacing:'.04em',margin:'4px 0 0',color:'#f0f4ff'}}>
-            IMPORT PRIOR INVOICES
-          </h1>
-          <div style={{fontSize:13,color:'#c8d4ee',marginTop:6,maxWidth:640,lineHeight:1.55}}>
-            Paste invoices you've already collected this year (or any prior period) to populate your dashboard, revenue chart, and tax estimates. Customers you mention will be auto-created if they don't already exist.
+          <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,letterSpacing:'.04em',margin:'4px 0 0',color:'#f0f4ff'}}>IMPORT PRIOR INVOICES</h1>
+          <div style={{fontSize:13,color:'#c8d4ee',marginTop:6,maxWidth:680,lineHeight:1.55}}>
+            Drop in PDFs or photos of past invoices. AI extracts the customer name, amount, dates, and status. Review and edit anything that's off, then import in one click. Customers are auto-created if they don't already exist.
           </div>
         </div>
 
@@ -192,89 +212,56 @@ export default function ImportInvoices() {
 
         {!result?.ok && (
           <>
-            {/* Format / instructions */}
-            <div style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:12,padding:'16px 18px',marginBottom:14}}>
-              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:16,letterSpacing:'.06em',color:'#f0f4ff',marginBottom:8}}>FORMAT</div>
-              <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.6,marginBottom:10}}>
-                CSV with a header row. <strong>Required columns:</strong> <code style={code}>customer_name</code>, <code style={code}>amount</code>, <code style={code}>issued_date</code> (YYYY-MM-DD). <strong>Optional:</strong> <code style={code}>paid_date</code>, <code style={code}>status</code> (paid/unpaid), <code style={code}>notes</code>.
+            <label
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={onDrop}
+              style={{
+                display:'block', textAlign:'center', padding:'36px 24px',
+                background: dragOver ? 'rgba(79,158,255,0.12)' : '#1e2a42',
+                border: dragOver ? '2px dashed #4f9eff' : '2px dashed #2e3f60',
+                borderRadius: 14,
+                marginBottom: 16,
+                cursor: 'pointer',
+                transition: 'background .15s, border-color .15s',
+              }}>
+              <input type="file" accept={ACCEPTED} multiple onChange={e => addFiles(e.target.files)} style={{display:'none'}}/>
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.06em',color:'#f0f4ff',marginBottom:6}}>
+                DROP INVOICES HERE
               </div>
-              <div style={{fontSize:13,color:'#7a8db0',marginBottom:10}}>If <code style={code}>paid_date</code> is set, status defaults to paid. If blank, defaults to unpaid.</div>
-              <button onClick={pasteTemplate} style={btnGhost}>PASTE EXAMPLE TEMPLATE</button>
-            </div>
-
-            {/* CSV input */}
-            <div style={{marginBottom:14}}>
-              <div style={fieldLabel}>Paste CSV</div>
-              <textarea value={csv} onChange={e => setCsv(e.target.value)}
-                placeholder={"customer_name,amount,issued_date,paid_date,notes\nJane Smith,450,2025-03-15,2025-03-20,Lawn mow"}
-                style={{...inputStyle, minHeight:200, fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize:12, resize:'vertical'}}/>
-            </div>
-
-            <div style={{display:'flex',gap:8,marginBottom:24,flexWrap:'wrap'}}>
-              <button onClick={parse} disabled={!csv.trim()} style={{...btnPrimary, opacity: csv.trim() ? 1 : 0.4}}>
-                PARSE
-              </button>
-              <button onClick={() => { setCsv(''); setParsed(null); }} style={btnGhost}>CLEAR</button>
-            </div>
-
-            {parsed && parsed.errors.length > 0 && (
-              <div style={{background:'rgba(242,96,96,0.10)',border:'1px solid rgba(242,96,96,0.3)',borderRadius:10,padding:'12px 14px',marginBottom:16}}>
-                <div style={{fontSize:12,fontWeight:700,color:'#f26060',letterSpacing:'.08em',textTransform:'uppercase',marginBottom:6}}>
-                  {parsed.errors.length} issue{parsed.errors.length===1?'':'s'}
-                </div>
-                <ul style={{margin:0,paddingLeft:18,fontSize:12,color:'#f26060',lineHeight:1.6}}>
-                  {parsed.errors.slice(0, 30).map((e, i) => <li key={i}>{e}</li>)}
-                  {parsed.errors.length > 30 && <li>...and {parsed.errors.length - 30} more</li>}
-                </ul>
+              <div style={{fontSize:13,color:'#c8d4ee',marginBottom:4}}>
+                or tap to choose files
               </div>
-            )}
+              <div style={{fontSize:11,color:'#7a8db0'}}>
+                PDF, PNG, JPG, GIF, or WebP · up to {MAX_FILE_MB} MB each · max {MAX_BATCH} at a time
+              </div>
+            </label>
 
-            {parsed && parsed.rows.length > 0 && (
+            {rows.length > 0 && (
               <>
                 <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10,flexWrap:'wrap',gap:8}}>
                   <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.06em',color:'#f0f4ff'}}>
-                    PREVIEW · {parsed.rows.length} ROW{parsed.rows.length===1?'':'S'}
+                    QUEUE · {rows.length}
                   </div>
                   <div style={{fontSize:12,color:'#7a8db0'}}>
-                    Total <strong style={{color:'#2edf87'}}>{fmt$(totalPreview)}</strong>
-                    {' · '}Paid <strong style={{color:'#2edf87'}}>{fmt$(paidTotalPreview)}</strong>
+                    {extractingCount > 0 && <>Extracting {extractingCount} · </>}
+                    Ready <strong style={{color:'#2edf87'}}>{readyCount}</strong> · Total <strong style={{color:'#2edf87'}}>{fmt$(totalPreview)}</strong>
                   </div>
                 </div>
 
-                <div style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:12,overflow:'hidden',marginBottom:16}}>
-                  <div style={{maxHeight:360,overflowY:'auto'}}>
-                    {parsed.rows.slice(0, 200).map((r, i) => (
-                      <div key={i} style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr 80px',gap:10,padding:'10px 12px',borderBottom:'1px solid #2e3f60',fontSize:12,alignItems:'baseline'}}>
-                        <div style={{minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'#f0f4ff'}}>{r.customer_name}</div>
-                        <div style={{color:'#c8d4ee'}}>{fmtDate(r.issued_date)}</div>
-                        <div style={{color:'#2edf87',fontWeight:600,fontVariantNumeric:'tabular-nums'}}>{fmt$(r.amount)}</div>
-                        <div style={{textAlign:'right'}}>
-                          <span style={{
-                            background: r.status==='paid' ? 'rgba(46,223,135,0.12)' : 'rgba(251,191,36,0.12)',
-                            color: r.status==='paid' ? '#2edf87' : '#fbbf24',
-                            border: '1px solid ' + (r.status==='paid' ? '#2edf8755' : '#fbbf2455'),
-                            borderRadius:999, padding:'2px 8px', fontSize:10, fontWeight:700, letterSpacing:'.05em',
-                          }}>{r.status.toUpperCase()}</span>
-                        </div>
-                      </div>
-                    ))}
-                    {parsed.rows.length > 200 && (
-                      <div style={{padding:'10px 12px',fontSize:11,color:'#7a8db0',textAlign:'center'}}>
-                        ...and {parsed.rows.length - 200} more (all will be imported)
-                      </div>
-                    )}
-                  </div>
+                <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:16}}>
+                  {rows.map(r => <Row key={r.id} row={r} onChange={updateField} onRemove={removeRow} />)}
                 </div>
 
-                <button onClick={importAll} disabled={importing}
-                  style={{...btnPrimary, padding:'14px 24px', fontSize:16, opacity:importing?0.6:1}}>
-                  {importing ? 'IMPORTING...' : `IMPORT ${parsed.rows.length} INVOICE${parsed.rows.length===1?'':'S'}`}
+                <button onClick={importAll} disabled={importing || readyCount === 0}
+                  style={{...btnPrimary, padding:'14px 24px', fontSize:16, opacity:(importing||readyCount===0)?0.5:1}}>
+                  {importing ? 'IMPORTING...' : `IMPORT ${readyCount} INVOICE${readyCount===1?'':'S'}`}
                 </button>
               </>
             )}
 
             {result && !result.ok && (
-              <div style={{background:'rgba(242,96,96,0.10)',border:'1px solid rgba(242,96,96,0.3)',borderRadius:10,padding:'12px 14px',marginTop:16,fontSize:13,color:'#f26060'}}>
+              <div style={{background:'rgba(242,96,96,0.10)',border:'1px solid rgba(242,96,96,0.3)',borderRadius:10,padding:'12px 14px',marginTop:16,fontSize:13,color:'#f26060',whiteSpace:'pre-line'}}>
                 {result.message}
               </div>
             )}
@@ -285,43 +272,101 @@ export default function ImportInvoices() {
   );
 }
 
-// =====================================================
-// CSV PARSER — handles quoted fields with commas + escaped quotes.
-// =====================================================
-function parseCSV(text) {
-  const rows = [];
-  const lines = text.replace(/\r\n/g, '\n').split('\n').filter(l => l.length > 0);
-  for (const line of lines) {
-    const cells = [];
-    let current = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQuotes && line[i+1] === '"') { current += '"'; i++; }
-        else inQuotes = !inQuotes;
-      } else if (ch === ',' && !inQuotes) {
-        cells.push(current); current = '';
-      } else {
-        current += ch;
-      }
-    }
-    cells.push(current);
-    rows.push(cells.map(c => c.trim()));
-  }
-  return rows;
+function Row({ row, onChange, onRemove }) {
+  const { status, filename, data, error } = row;
+  const confColor = data?.confidence === 'high' ? '#2edf87' : data?.confidence === 'medium' ? '#fbbf24' : '#f26060';
+
+  return (
+    <div style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:12,padding:'14px 14px'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,marginBottom: status==='ready' ? 12 : 0}}>
+        <div style={{flex:1,minWidth:0,display:'flex',alignItems:'center',gap:10}}>
+          <FileIcon type={row.type}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:13,color:'#f0f4ff',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{filename}</div>
+            <div style={{fontSize:11,color:'#7a8db0',marginTop:1}}>
+              {status === 'extracting' && <><span style={{color:'#fbbf24'}}>● Extracting...</span></>}
+              {status === 'ready'      && <span style={{color: confColor}}>● {data.confidence?.toUpperCase()} confidence</span>}
+              {status === 'error'      && <span style={{color:'#f26060'}}>● Error: {error}</span>}
+            </div>
+          </div>
+        </div>
+        <button onClick={() => onRemove(row.id)} style={{background:'none',border:'none',color:'#f26060',fontSize:14,fontWeight:700,cursor:'pointer',padding:'4px 8px'}}>✕</button>
+      </div>
+
+      {status === 'ready' && data && (
+        <div style={{display:'grid',gridTemplateColumns:'1fr',gap:8}}>
+          <Field label="Customer">
+            <input style={inputStyle} type="text" value={data.customer_name || ''}
+              onChange={e => onChange(row.id, 'customer_name', e.target.value)} placeholder="Customer name"/>
+          </Field>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+            <Field label="Amount ($)">
+              <input style={inputStyle} type="number" inputMode="decimal" value={data.amount ?? ''}
+                onChange={e => onChange(row.id, 'amount', e.target.value === '' ? '' : Number(e.target.value))}/>
+            </Field>
+            <Field label="Issued">
+              <input style={inputStyle} type="date" value={data.issued_date || ''}
+                onChange={e => onChange(row.id, 'issued_date', e.target.value)}/>
+            </Field>
+            <Field label="Status">
+              <select style={inputStyle} value={data.status || 'unpaid'}
+                onChange={e => onChange(row.id, 'status', e.target.value)}>
+                <option value="unpaid">Unpaid</option>
+                <option value="paid">Paid</option>
+              </select>
+            </Field>
+          </div>
+          {data.status === 'paid' && (
+            <Field label="Paid Date">
+              <input style={inputStyle} type="date" value={data.paid_date || ''}
+                onChange={e => onChange(row.id, 'paid_date', e.target.value)}/>
+            </Field>
+          )}
+          <Field label="Notes">
+            <input style={inputStyle} type="text" value={data.notes || ''}
+              onChange={e => onChange(row.id, 'notes', e.target.value)} placeholder="What was billed"/>
+          </Field>
+        </div>
+      )}
+    </div>
+  );
 }
 
-// =====================================================
-// STYLES
-// =====================================================
+function Field({ label, children }) {
+  return (
+    <div>
+      <div style={{fontSize:10,color:'#7a8db0',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',marginBottom:3}}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function FileIcon({ type }) {
+  const isPdf = type === 'application/pdf';
+  const c = isPdf ? '#f26060' : '#4f9eff';
+  return (
+    <div style={{width:32,height:32,borderRadius:8,background:c+'22',border:'1px solid '+c+'66',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:10,fontWeight:700,color:c,letterSpacing:'.04em'}}>
+      {isPdf ? 'PDF' : 'IMG'}
+    </div>
+  );
+}
+
+const rid = () => Math.random().toString(36).slice(2, 11);
+
+const fileToBase64 = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const result = reader.result || '';
+    const idx = String(result).indexOf(',');
+    resolve(idx >= 0 ? String(result).slice(idx + 1) : String(result));
+  };
+  reader.onerror = reject;
+  reader.readAsDataURL(file);
+});
+
 const inputStyle = {
-  width:'100%', background:'#111827', border:'1.5px solid #2e3f60', borderRadius:10,
-  color:'#f0f4ff', fontSize:14, padding:'10px 12px', outline:'none', fontFamily:'inherit',
-};
-const fieldLabel = {
-  fontSize:11, fontWeight:600, letterSpacing:'.08em',
-  textTransform:'uppercase', color:'#7a8db0', marginBottom:5,
+  width:'100%', background:'#111827', border:'1.5px solid #2e3f60', borderRadius:8,
+  color:'#f0f4ff', fontSize:13, padding:'8px 10px', outline:'none', fontFamily:'inherit',
 };
 const btnPrimary = {
   background:'#4f9eff', border:'none', borderRadius:10, color:'#fff',
@@ -332,8 +377,4 @@ const btnGhost = {
   background:'transparent', border:'1px solid #2e3f60', borderRadius:10, color:'#c8d4ee',
   padding:'10px 16px', cursor:'pointer', fontFamily:"'Bebas Neue',Impact,sans-serif",
   fontSize:14, letterSpacing:'.08em', fontWeight:700,
-};
-const code = {
-  background:'#111827', padding:'1px 6px', borderRadius:4, fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace',
-  fontSize:11, border:'1px solid #2e3f60', color:'#c8d4ee',
 };
