@@ -73,15 +73,18 @@ returns table (
   name      text,
   logo_url  text
 )
-language sql
+language plpgsql
 stable
 security definer
 set search_path = public
-as $get_pub_org$
-  select id, name, logo_url
-  from public.organizations
-  where slug = p_slug;
-$get_pub_org$;
+as $$
+begin
+  return query
+    select o.id, o.name, o.logo_url
+    from public.organizations o
+    where o.slug = p_slug;
+end;
+$$;
 
 revoke all on function public.get_public_org_by_slug(text) from public;
 grant execute on function public.get_public_org_by_slug(text) to anon, authenticated;
@@ -104,7 +107,7 @@ returns uuid
 language plpgsql
 security definer
 set search_path = public
-as $create_lead_quote$
+as $$
 declare
   v_org_id  uuid;
   v_lead_id uuid;
@@ -122,14 +125,21 @@ begin
   end if;
 
   insert into public.leads (org_id, name, phone, email, address, notes, source, status)
-    values (v_org_id, trim(p_name), trim(p_phone), nullif(trim(coalesce(p_email,'')),''),
-            nullif(trim(coalesce(p_address,'')),''), nullif(trim(coalesce(p_notes,'')),''),
-            'website', 'new')
+    values (
+      v_org_id,
+      trim(p_name),
+      trim(p_phone),
+      nullif(trim(coalesce(p_email, '')), ''),
+      nullif(trim(coalesce(p_address, '')), ''),
+      nullif(trim(coalesce(p_notes, '')), ''),
+      'website',
+      'new'
+    )
     returning id into v_lead_id;
 
   return v_lead_id;
 end;
-$create_lead_quote$;
+$$;
 
 revoke all on function public.create_lead_from_quote(text, text, text, text, text, text) from public;
 grant execute on function public.create_lead_from_quote(text, text, text, text, text, text) to anon, authenticated;
