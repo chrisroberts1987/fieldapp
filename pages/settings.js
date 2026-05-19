@@ -36,6 +36,7 @@ export default function Settings() {
         address:          org.address || '',
         license_number:   org.license_number || '',
         default_tax_rate: org.default_tax_rate != null ? String(org.default_tax_rate) : '8.25',
+        income_tax_rate:  org.income_tax_rate  != null ? String(org.income_tax_rate)  : '25',
       });
       setLogoPreview(org.logo_url || null);
     }
@@ -71,6 +72,8 @@ export default function Settings() {
     if (!form.address.trim())        { setError('Business address required'); return; }
     const tax = Number(form.default_tax_rate);
     if (isNaN(tax) || tax < 0 || tax > 100) { setError('Default tax rate must be a number 0–100'); return; }
+    const incomeTax = Number(form.income_tax_rate);
+    if (isNaN(incomeTax) || incomeTax < 0 || incomeTax > 100) { setError('Income tax rate must be a number 0–100'); return; }
 
     setSaving(true);
 
@@ -102,6 +105,7 @@ export default function Settings() {
         address:          form.address.trim(),
         license_number:   form.license_number.trim() || null,
         default_tax_rate: tax,
+        income_tax_rate:  incomeTax,
         logo_url,
       })
       .eq('id', orgId);
@@ -206,10 +210,16 @@ export default function Settings() {
             <input style={inputStyle} type="text" value={form.license_number}
               onChange={e => setForm(p => ({...p, license_number:e.target.value}))}/>
           </Field>
-          <Field label="Default Tax Rate (%)">
+          <Field label="Sales Tax Rate (%)">
             <input style={inputStyle} type="number" inputMode="decimal" step="0.01" min="0" max="100"
               value={form.default_tax_rate}
               onChange={e => setForm(p => ({...p, default_tax_rate:e.target.value}))}/>
+          </Field>
+          <Field label="Income Tax Rate (%)">
+            <input style={inputStyle} type="number" inputMode="decimal" step="0.01" min="0" max="100"
+              value={form.income_tax_rate}
+              onChange={e => setForm(p => ({...p, income_tax_rate:e.target.value}))}/>
+            <div style={{fontSize:11,color:'#7a8db0',marginTop:4}}>Used by the Tax view to estimate quarterly/annual taxes. 25% is a sensible default for most US sole proprietors; ask your accountant.</div>
           </Field>
         </Section>
 
