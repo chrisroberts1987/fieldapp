@@ -85,7 +85,7 @@ export default function Signup() {
           ALREADY HAVE AN ACCOUNT? SIGN IN
         </button>
         <div style={{marginTop:14,fontSize:11,color:'#7a8db0',textAlign:'center',lineHeight:1.5}}>
-          Free 14-day trial. No card required.
+          Free 14-day trial. Card required — cancel anytime, no charge during your trial.
         </div>
       </div>
     </div>

@@ -195,7 +195,7 @@ function Hero({ router }) {
           </a>
         </div>
         <div style={{marginTop:18,fontSize:12,color:'#7a8db0',letterSpacing:'.03em'}}>
-          No card required. Cancel anytime.
+          Card required. Cancel anytime — no charge during your trial.
         </div>
       </div>
     </section>
