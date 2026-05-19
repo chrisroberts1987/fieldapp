@@ -375,6 +375,7 @@ begin
   return jsonb_build_object('ok', true);
 end;
 $$;
+-- (kept in multi-line declare format; the Supabase SQL editor reliably parses this form)
 
 revoke all on function public.submit_feedback(text, int, text) from public;
 grant execute on function public.submit_feedback(text, int, text) to anon, authenticated;
