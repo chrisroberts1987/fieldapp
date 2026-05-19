@@ -17,7 +17,7 @@ export default function PublicQuote() {
     if (!router.isReady || !slug) return;
     (async () => {
       const { data } = await supabase.rpc('get_public_org_by_slug', { p_slug: slug });
-      setBiz(Array.isArray(data) && data.length > 0 ? data[0] : null);
+      setBiz(data || null);
       setLoaded(true);
     })();
   }, [router.isReady, slug]);
