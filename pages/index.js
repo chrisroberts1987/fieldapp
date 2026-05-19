@@ -176,7 +176,7 @@ function Hero({ router }) {
 
       <div style={{position:'relative',zIndex:2,maxWidth:900,margin:'0 auto',padding:'72px 20px 0',textAlign:'center'}}>
         <div style={{display:'inline-block',marginBottom:24,padding:'6px 14px',background:'rgba(79,158,255,0.10)',border:'1px solid rgba(79,158,255,0.3)',borderRadius:999,fontSize:11,letterSpacing:'.12em',fontWeight:700,color:'#4f9eff',textTransform:'uppercase'}}>
-          Built for handymen, contractors, and small crews
+          Built for handymen, contractors, and service crews
         </div>
         <h1 className="hero-headline">
           FROM LEAD<br/>TO <span className="accent">PAID.</span>
@@ -283,7 +283,7 @@ function Workflow() {
 function Pricing({ billing, setBilling, router }) {
   const plans = [
     { name:'Solo',     monthly:29,  users:'1 user',          subtitle:'For owner-operators' },
-    { name:'Crew',     monthly:69,  users:'Up to 7 users',   subtitle:'For small crews', popular:true },
+    { name:'Crew',     monthly:69,  users:'Up to 7 users',   subtitle:'For service crews', popular:true },
     { name:'Business', monthly:149, users:'Up to 15 users',  subtitle:'For multi-crew shops' },
   ];
   return (
