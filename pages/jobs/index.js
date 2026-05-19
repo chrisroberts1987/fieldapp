@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
+import { useRefetchOnFocus } from '../../lib/useFocus';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 
 const STATUSES = [
@@ -40,6 +41,17 @@ export default function Jobs() {
   const [quickExp, setQuickExp] = useState({ amount:'', category:'materials', vendor:'' });
   const [addingExp, setAddingExp] = useState(false);
 
+  const loadAll = async () => {
+    setLoading(true);
+    const [{ data: j }, { data: c }] = await Promise.all([
+      supabase.from('jobs').select('*').eq('org_id', orgId).order('scheduled_date', { ascending:false, nullsFirst:false }),
+      supabase.from('customers').select('id,name').eq('org_id', orgId).order('name'),
+    ]);
+    setJobs(j || []);
+    setCustomers(c || []);
+    setLoading(false);
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.push('/login'); return; }
@@ -52,16 +64,7 @@ export default function Jobs() {
     else if (user && !orgLoading) router.push('/onboarding');
   }, [orgId, orgLoading]);
 
-  const loadAll = async () => {
-    setLoading(true);
-    const [{ data: j }, { data: c }] = await Promise.all([
-      supabase.from('jobs').select('*').eq('org_id', orgId).order('scheduled_date', { ascending:false, nullsFirst:false }),
-      supabase.from('customers').select('id,name').eq('org_id', orgId).order('name'),
-    ]);
-    setJobs(j || []);
-    setCustomers(c || []);
-    setLoading(false);
-  };
+  useRefetchOnFocus(loadAll, !!orgId);
 
   const customerName = id => customers.find(c => c.id === id)?.name || '—';
 

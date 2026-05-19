@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
+import { useRefetchOnFocus } from '../../lib/useFocus';
 
 export default function Customers() {
 const router = useRouter();
@@ -15,6 +16,13 @@ const [form, setForm] = useState({
 name:'', phone:'', email:'', address:'', notes:''
 });
 
+const loadCustomers = async () => {
+setLoading(true);
+const { data } = await supabase.from('customers').select('*').eq('org_id', orgId).order('name');
+setCustomers(data || []);
+setLoading(false);
+};
+
 useEffect(() => {
 supabase.auth.getSession().then(({ data: { session } }) => {
 if (!session) { router.push('/login'); return; }
@@ -27,12 +35,7 @@ if (orgId) loadCustomers();
 else if (user && !orgLoading) router.push('/onboarding');
 }, [orgId, orgLoading]);
 
-const loadCustomers = async () => {
-setLoading(true);
-const { data } = await supabase.from('customers').select('*').eq('org_id', orgId).order('name');
-setCustomers(data || []);
-setLoading(false);
-};
+useRefetchOnFocus(loadCustomers, !!orgId);
 
 const openNew = () => {
 setForm({ name:'', phone:'', email:'', address:'', notes:'' });

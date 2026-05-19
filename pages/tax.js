@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
 import { useOrg } from '../lib/org';
+import { useRefetchOnFocus } from '../lib/useFocus';
 import { fmt$, fmtDate } from '../lib/helpers';
 import TopNav from '../components/TopNav';
 
@@ -12,18 +13,6 @@ export default function Tax() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [paid, setPaid] = useState(null);
   const [expenses, setExpenses] = useState(null);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) { router.push('/login'); return; }
-      setUser(session.user);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (orgId) loadYear(orgId, year);
-    else if (user && !orgLoading) router.push('/onboarding');
-  }, [orgId, orgLoading, year]);
 
   const loadYear = async (oid, y) => {
     const start = `${y}-01-01`;
@@ -39,6 +28,22 @@ export default function Tax() {
     setPaid(p || []);
     setExpenses(e || []);
   };
+
+  const refetchTax = () => { if (orgId) loadYear(orgId, year); };
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) { router.push('/login'); return; }
+      setUser(session.user);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (orgId) loadYear(orgId, year);
+    else if (user && !orgLoading) router.push('/onboarding');
+  }, [orgId, orgLoading, year]);
+
+  useRefetchOnFocus(refetchTax, !!orgId);
 
   if (!user || orgLoading || !paid || !expenses) {
     return (

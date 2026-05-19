@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
+import { useRefetchOnFocus } from '../../lib/useFocus';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 
 const STATUSES = [
@@ -40,6 +41,15 @@ export default function Leads() {
   const [filter, setFilter] = useState('all');
   const [form, setForm] = useState(EMPTY);
 
+  const loadLeads = async () => {
+    setLoading(true);
+    const { data } = await supabase.from('leads').select('*')
+      .eq('org_id', orgId)
+      .order('created_at', { ascending: false });
+    setLeads(data || []);
+    setLoading(false);
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.push('/login'); return; }
@@ -52,14 +62,7 @@ export default function Leads() {
     else if (user && !orgLoading) router.push('/onboarding');
   }, [orgId, orgLoading]);
 
-  const loadLeads = async () => {
-    setLoading(true);
-    const { data } = await supabase.from('leads').select('*')
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: false });
-    setLeads(data || []);
-    setLoading(false);
-  };
+  useRefetchOnFocus(loadLeads, !!orgId);
 
   const openNew = () => { setForm(EMPTY); setSheet('new'); };
   const openEdit = (l) => {

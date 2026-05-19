@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
+import { useRefetchOnFocus } from '../../lib/useFocus';
 import { fmt$ } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 
@@ -10,18 +11,6 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const { orgId, org, loading: orgLoading } = useOrg(user);
   const [stats, setStats] = useState(null);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) { router.push('/login'); return; }
-      setUser(session.user);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (orgId) loadStats(orgId);
-    else if (user && !orgLoading) router.push('/onboarding');
-  }, [orgId, orgLoading]);
 
   const loadStats = async (oid) => {
     const now = new Date();
@@ -96,6 +85,22 @@ export default function Dashboard() {
       avgInvoice,
     });
   };
+
+  const refetchStats = () => { if (orgId) loadStats(orgId); };
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) { router.push('/login'); return; }
+      setUser(session.user);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (orgId) loadStats(orgId);
+    else if (user && !orgLoading) router.push('/onboarding');
+  }, [orgId, orgLoading]);
+
+  useRefetchOnFocus(refetchStats, !!orgId);
 
   if (!user || orgLoading || !stats) {
     return (

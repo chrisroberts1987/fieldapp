@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
+import { useRefetchOnFocus } from '../../lib/useFocus';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 
 const FILTERS = [
@@ -28,18 +29,6 @@ export default function Invoices() {
   const [filter, setFilter] = useState('all');
   const [form, setForm] = useState(EMPTY);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) { router.push('/login'); return; }
-      setUser(session.user);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (orgId) loadAll();
-    else if (user && !orgLoading) router.push('/onboarding');
-  }, [orgId, orgLoading]);
-
   const loadAll = async () => {
     setLoading(true);
     const [{ data: inv }, { data: j }, { data: c }] = await Promise.all([
@@ -52,6 +41,20 @@ export default function Invoices() {
     setCustomers(c || []);
     setLoading(false);
   };
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) { router.push('/login'); return; }
+      setUser(session.user);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (orgId) loadAll();
+    else if (user && !orgLoading) router.push('/onboarding');
+  }, [orgId, orgLoading]);
+
+  useRefetchOnFocus(loadAll, !!orgId);
 
   const customerName = id => customers.find(c => c.id === id)?.name || '—';
   const jobTitle = id => jobs.find(j => j.id === id)?.title || '—';

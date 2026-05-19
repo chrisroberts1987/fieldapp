@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
+import { useRefetchOnFocus } from '../../lib/useFocus';
 import { fmt$, fmtDate, todayStr, IRS_RATE } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 
@@ -37,11 +38,6 @@ export default function Mileage() {
     try { const t = JSON.parse(localStorage.getItem(TRIP_KEY) || 'null'); if (t) setActiveTrip(t); } catch {}
   }, []);
 
-  useEffect(() => {
-    if (orgId) loadAll();
-    else if (user && !orgLoading) router.push('/onboarding');
-  }, [orgId, orgLoading]);
-
   const loadAll = async () => {
     setLoading(true);
     const [{ data: t }, { data: j }] = await Promise.all([
@@ -52,6 +48,13 @@ export default function Mileage() {
     setJobs(j || []);
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (orgId) loadAll();
+    else if (user && !orgLoading) router.push('/onboarding');
+  }, [orgId, orgLoading]);
+
+  useRefetchOnFocus(loadAll, !!orgId);
 
   const jobTitle = id => jobs.find(j => j.id === id)?.title || '—';
 

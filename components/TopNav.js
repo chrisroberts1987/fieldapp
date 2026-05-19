@@ -1,6 +1,7 @@
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { useRefetchOnFocus } from '../lib/useFocus';
 import Logo from './Logo';
 
 const TABS = [
@@ -24,6 +25,14 @@ export default function TopNav({ active }) {
   const [notifs, setNotifs] = useState([]);
   const [user, setUser] = useState(null);
 
+  const loadNotifs = async () => {
+    if (!user) return;
+    const { data } = await supabase.from('notifications')
+      .select('*').eq('user_id', user.id)
+      .order('created_at', { ascending:false }).limit(20);
+    setNotifs(data || []);
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) setUser(session.user);
@@ -37,13 +46,7 @@ export default function TopNav({ active }) {
     return () => clearInterval(interval);
   }, [user]);
 
-  const loadNotifs = async () => {
-    if (!user) return;
-    const { data } = await supabase.from('notifications')
-      .select('*').eq('user_id', user.id)
-      .order('created_at', { ascending:false }).limit(20);
-    setNotifs(data || []);
-  };
+  useRefetchOnFocus(loadNotifs, !!user);
 
   const unreadCount = notifs.filter(n => !n.read_at).length;
 

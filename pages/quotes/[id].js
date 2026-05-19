@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
+import { useRefetchOnFocus } from '../../lib/useFocus';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 
@@ -16,6 +17,15 @@ export default function QuoteDetail() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
 
+  const load = async () => {
+    const [{ data: q }, { data: c }] = await Promise.all([
+      supabase.from('quotes').select('*').eq('id', id).eq('org_id', orgId).maybeSingle(),
+      supabase.from('customers').select('id,name,email,phone').eq('org_id', orgId).order('name'),
+    ]);
+    setQuote(q || null);
+    setCustomers(c || []);
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.push('/login'); return; }
@@ -28,14 +38,7 @@ export default function QuoteDetail() {
     load();
   }, [router.isReady, id, orgId]);
 
-  const load = async () => {
-    const [{ data: q }, { data: c }] = await Promise.all([
-      supabase.from('quotes').select('*').eq('id', id).eq('org_id', orgId).maybeSingle(),
-      supabase.from('customers').select('id,name,email,phone').eq('org_id', orgId).order('name'),
-    ]);
-    setQuote(q || null);
-    setCustomers(c || []);
-  };
+  useRefetchOnFocus(load, !!(id && orgId));
 
   const update = (key, value) => setQuote(q => ({ ...q, [key]: value }));
 
