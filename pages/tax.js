@@ -11,6 +11,7 @@ export default function Tax() {
   const { orgId, org, loading: orgLoading } = useOrg(user);
   const [year, setYear] = useState(new Date().getFullYear());
   const [paid, setPaid] = useState(null);
+  const [expenses, setExpenses] = useState(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -20,21 +21,26 @@ export default function Tax() {
   }, []);
 
   useEffect(() => {
-    if (orgId) loadPaid(orgId, year);
+    if (orgId) loadYear(orgId, year);
     else if (user && !orgLoading) router.push('/onboarding');
   }, [orgId, orgLoading, year]);
 
-  const loadPaid = async (oid, y) => {
+  const loadYear = async (oid, y) => {
     const start = `${y}-01-01`;
     const end   = `${y+1}-01-01`;
-    const { data } = await supabase.from('invoices')
-      .select('amount, paid_date')
-      .eq('org_id', oid).eq('status', 'paid')
-      .gte('paid_date', start).lt('paid_date', end);
-    setPaid(data || []);
+    const [{ data: p }, { data: e }] = await Promise.all([
+      supabase.from('invoices').select('amount, paid_date')
+        .eq('org_id', oid).eq('status', 'paid')
+        .gte('paid_date', start).lt('paid_date', end),
+      supabase.from('expenses').select('amount, expense_date')
+        .eq('org_id', oid)
+        .gte('expense_date', start).lt('expense_date', end),
+    ]);
+    setPaid(p || []);
+    setExpenses(e || []);
   };
 
-  if (!user || orgLoading || !paid) {
+  if (!user || orgLoading || !paid || !expenses) {
     return (
       <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif"}}>
         <TopNav active="/tax"/>
@@ -54,12 +60,19 @@ export default function Tax() {
     const revenue = paid
       .filter(p => p.paid_date >= q.start && p.paid_date < q.end)
       .reduce((s, r) => s + Number(r.amount || 0), 0);
-    return { ...q, revenue, taxDue: revenue * taxRate / 100 };
+    const qExpenses = expenses
+      .filter(e => e.expense_date >= q.start && e.expense_date < q.end)
+      .reduce((s, r) => s + Number(r.amount || 0), 0);
+    const netIncome = revenue - qExpenses;
+    const taxDue = Math.max(0, netIncome) * taxRate / 100;
+    return { ...q, revenue, expenses: qExpenses, netIncome, taxDue };
   });
 
-  const ytdRevenue = paid.reduce((s, r) => s + Number(r.amount || 0), 0);
-  const annualTax  = ytdRevenue * taxRate / 100;
-  const totalPaid  = paid.length;
+  const ytdRevenue  = paid.reduce((s, r) => s + Number(r.amount || 0), 0);
+  const ytdExpenses = expenses.reduce((s, r) => s + Number(r.amount || 0), 0);
+  const ytdNetIncome = ytdRevenue - ytdExpenses;
+  const annualTax    = Math.max(0, ytdNetIncome) * taxRate / 100;
+  const totalPaid    = paid.length;
 
   const today      = new Date();
   const nextDue    = quarters.find(q => q.due >= today) || null;
@@ -98,10 +111,10 @@ export default function Tax() {
           </div>
         </div>
 
-        {ytdRevenue === 0 && (
+        {ytdRevenue === 0 && ytdExpenses === 0 && (
           <div style={{background:'rgba(79,158,255,0.10)',border:'1px solid rgba(79,158,255,0.3)',borderRadius:10,padding:'14px 16px',marginBottom:16,display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
             <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.5,flex:1,minWidth:200}}>
-              No revenue logged yet for {year}. Import prior invoices to fill in your history.
+              No revenue or expenses logged yet for {year}. Import prior invoices to fill in your history.
             </div>
             <button onClick={() => router.push('/invoices/import')} style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'8px 14px',fontWeight:700,cursor:'pointer',fontSize:12,letterSpacing:'.04em'}}>
               IMPORT INVOICES
@@ -113,34 +126,41 @@ export default function Tax() {
         <div style={{background:'rgba(251,191,36,0.08)',border:'1px solid rgba(251,191,36,0.3)',borderRadius:10,padding:'12px 14px',marginBottom:24,display:'flex',gap:10,alignItems:'flex-start'}}>
           <span style={{color:'#fbbf24',fontSize:14,lineHeight:1.4}}>⚠</span>
           <div style={{fontSize:12,color:'#fbbf24',lineHeight:1.55}}>
-            <strong>Estimate only.</strong> This is a rough projection based on paid revenue × your configured rate. It does not account for deductions, expenses, self-employment tax separately, or state tax. Talk to an accountant before filing.
+            <strong>Estimate only.</strong> Projection = (revenue − expenses) × your configured tax rate. It does not separate self-employment from income tax, account for state tax, factor in deductions beyond logged expenses, or handle vehicle/home-office allowances. Talk to an accountant before filing.
           </div>
         </div>
 
         {/* Annual summary */}
-        <div style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,padding:'24px 22px',marginBottom:24,position:'relative',overflow:'hidden'}}>
+        <div style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,padding:'24px 22px',marginBottom:14,position:'relative',overflow:'hidden'}}>
           <div style={{position:'absolute',inset:0,background:'radial-gradient(circle at top right, rgba(242,96,96,0.10), transparent 60%)',pointerEvents:'none'}}/>
-          <div style={{position:'relative',display:'grid',gridTemplateColumns:'1fr',gap:18}} className="annual-grid">
-            <div>
-              <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.12em',fontWeight:700,textTransform:'uppercase',marginBottom:6}}>{year} Revenue</div>
-              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:48,letterSpacing:'.02em',lineHeight:1,color:'#2edf87'}}>{fmt$(ytdRevenue)}</div>
-              <div style={{marginTop:6,fontSize:12,color:'#7a8db0'}}>{totalPaid} paid invoice{totalPaid===1?'':'s'}</div>
-            </div>
-            <div>
-              <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.12em',fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Estimated Tax</div>
-              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:48,letterSpacing:'.02em',lineHeight:1,color:'#f26060'}}>{fmt$(annualTax)}</div>
-              <div style={{marginTop:6,fontSize:12,color:'#7a8db0'}}>at {taxRate}% rate</div>
+          <div style={{position:'relative'}}>
+            <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.12em',fontWeight:700,textTransform:'uppercase',marginBottom:6}}>{year} Estimated Tax</div>
+            <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:56,letterSpacing:'.02em',lineHeight:1,color:'#f26060'}}>{fmt$(annualTax)}</div>
+            <div style={{marginTop:8,fontSize:13,color:'#c8d4ee'}}>
+              {fmt$(ytdRevenue)} revenue − {fmt$(ytdExpenses)} expenses = <span style={{color: ytdNetIncome >= 0 ? '#2edf87' : '#f26060',fontWeight:600}}>{fmt$(ytdNetIncome)} net</span> · taxed at {taxRate}%
             </div>
             {nextDue && (
-              <div>
-                <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.12em',fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Next Payment Due</div>
-                <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:30,letterSpacing:'.04em',lineHeight:1.05,color:'#fbbf24'}}>
-                  {nextDue.due.toLocaleDateString(undefined, { month:'long', day:'numeric' })}
+              <div style={{marginTop:14,paddingTop:14,borderTop:'1px solid #2e3f60',display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:12,flexWrap:'wrap'}}>
+                <div>
+                  <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.12em',fontWeight:700,textTransform:'uppercase'}}>Next Payment Due</div>
+                  <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:26,letterSpacing:'.04em',lineHeight:1.1,color:'#fbbf24',marginTop:2}}>
+                    {nextDue.due.toLocaleDateString(undefined, { month:'long', day:'numeric' })}
+                  </div>
                 </div>
-                <div style={{marginTop:6,fontSize:12,color:'#7a8db0'}}>{nextDue.label} · {fmt$(nextDue.taxDue)}</div>
+                <div style={{textAlign:'right'}}>
+                  <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.06em',fontWeight:600}}>{nextDue.label}</div>
+                  <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,color:'#f26060'}}>{fmt$(nextDue.taxDue)}</div>
+                </div>
               </div>
             )}
           </div>
+        </div>
+
+        {/* Revenue / Expenses summary row */}
+        <div className="annual-row" style={{marginBottom:24}}>
+          <SummaryTile label="Revenue"  value={fmt$(ytdRevenue)}   color="#2edf87" sub={`${totalPaid} paid invoice${totalPaid===1?'':'s'}`}/>
+          <SummaryTile label="Expenses" value={fmt$(ytdExpenses)}  color="#f26060" sub={`${expenses.length} expense${expenses.length===1?'':'s'}`}/>
+          <SummaryTile label="Net Income" value={fmt$(ytdNetIncome)} color={ytdNetIncome >= 0 ? '#2edf87' : '#f26060'} sub={`${ytdRevenue > 0 ? Math.round((ytdNetIncome/ytdRevenue)*100) : 0}% margin`}/>
         </div>
 
         {/* Quarterly grid */}
@@ -170,10 +190,10 @@ export default function Tax() {
                   </div>
                   <div style={{fontSize:11,color:'#7a8db0',fontWeight:600}}>{q.periodLabel}</div>
                 </div>
-                <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:600,marginBottom:4}}>Revenue</div>
-                <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:24,color:'#2edf87',lineHeight:1.1,marginBottom:12}}>
-                  {fmt$(q.revenue)}
-                </div>
+                <QLine label="Revenue"    value={fmt$(q.revenue)}   color="#2edf87"/>
+                <QLine label="Expenses"   value={fmt$(q.expenses)}  color="#f26060"/>
+                <QLine label="Net Income" value={fmt$(q.netIncome)} color={q.netIncome >= 0 ? '#2edf87' : '#f26060'} bold/>
+                <div style={{margin:'10px 0 12px',borderTop:'1px solid #2e3f60'}}/>
                 <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:600,marginBottom:4}}>Estimated Tax</div>
                 <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:28,color:'#f26060',lineHeight:1.1,marginBottom:14}}>
                   {fmt$(q.taxDue)}
@@ -208,7 +228,34 @@ export default function Tax() {
         @media (min-width: 640px) {
           .annual-grid { grid-template-columns: 1fr 1fr 1fr !important; }
         }
+        .annual-row {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+        @media (min-width: 640px) {
+          .annual-row { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        }
       `}</style>
+    </div>
+  );
+}
+
+function QLine({ label, value, color, bold }) {
+  return (
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:6}}>
+      <span style={{fontSize:11,color:'#7a8db0',letterSpacing:'.06em',textTransform:'uppercase',fontWeight:600}}>{label}</span>
+      <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize: bold ? 20 : 17,color,letterSpacing:'.02em'}}>{value}</span>
+    </div>
+  );
+}
+
+function SummaryTile({ label, value, color, sub }) {
+  return (
+    <div style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:12,padding:'14px 14px'}}>
+      <div style={{fontSize:10,color:'#7a8db0',letterSpacing:'.12em',textTransform:'uppercase',fontWeight:700,marginBottom:6}}>{label}</div>
+      <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:26,letterSpacing:'.02em',color}}>{value}</div>
+      {sub && <div style={{fontSize:11,color:'#7a8db0',marginTop:4}}>{sub}</div>}
     </div>
   );
 }

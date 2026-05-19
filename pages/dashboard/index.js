@@ -29,7 +29,7 @@ export default function Dashboard() {
     const ytdStart     = new Date(now.getFullYear(), 0,                  1).toISOString().slice(0,10);
     const sixMoStart   = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().slice(0,10);
 
-    const [activeJobs, openLeads, customers, unpaidInvoices, paidLast6mo] = await Promise.all([
+    const [activeJobs, openLeads, customers, unpaidInvoices, paidLast6mo, expensesLast6mo] = await Promise.all([
       supabase.from('jobs').select('id', { count:'exact', head:true })
         .eq('org_id', oid).in('status', ['scheduled','in_progress']),
       supabase.from('leads').select('id', { count:'exact', head:true })
@@ -41,33 +41,48 @@ export default function Dashboard() {
       supabase.from('invoices').select('amount, paid_date')
         .eq('org_id', oid).eq('status', 'paid')
         .gte('paid_date', sixMoStart),
+      supabase.from('expenses').select('amount, expense_date')
+        .eq('org_id', oid).gte('expense_date', sixMoStart),
     ]);
 
-    // Bucket paid invoices by YYYY-MM for the trailing 6 months.
+    // Bucket paid invoices + expenses by YYYY-MM for the trailing 6 months.
     const monthly = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       monthly.push({
         key: d.toISOString().slice(0,7),
         label: d.toLocaleString(undefined, { month:'short' }),
-        amount: 0,
+        revenue: 0,
+        expenses: 0,
       });
     }
     const paid = paidLast6mo.data || [];
     for (const inv of paid) {
       const k = (inv.paid_date || '').slice(0,7);
       const b = monthly.find(x => x.key === k);
-      if (b) b.amount += Number(inv.amount || 0);
+      if (b) b.revenue += Number(inv.amount || 0);
     }
+    const exps = expensesLast6mo.data || [];
+    for (const exp of exps) {
+      const k = (exp.expense_date || '').slice(0,7);
+      const b = monthly.find(x => x.key === k);
+      if (b) b.expenses += Number(exp.amount || 0);
+    }
+    for (const b of monthly) b.netIncome = b.revenue - b.expenses;
 
-    const ytdPaid = paid.filter(p => p.paid_date >= ytdStart);
-    const ytdRevenue = ytdPaid.reduce((s, r) => s + Number(r.amount || 0), 0);
-    const avgInvoice = ytdPaid.length > 0 ? ytdRevenue / ytdPaid.length : 0;
+    const ytdPaid       = paid.filter(p => p.paid_date >= ytdStart);
+    const ytdRevenue    = ytdPaid.reduce((s, r) => s + Number(r.amount || 0), 0);
+    const avgInvoice    = ytdPaid.length > 0 ? ytdRevenue / ytdPaid.length : 0;
+    const ytdExpenses   = exps.filter(e => e.expense_date >= ytdStart).reduce((s, r) => s + Number(r.amount || 0), 0);
     const outstandingSum = (unpaidInvoices.data || []).reduce((s, r) => s + Number(r.amount || 0), 0);
 
     setStats({
-      revenueMonth:     monthly[5].amount,
-      revenueLastMonth: monthly[4].amount,
+      revenueMonth:     monthly[5].revenue,
+      revenueLastMonth: monthly[4].revenue,
+      expensesMonth:    monthly[5].expenses,
+      expensesLastMonth:monthly[4].expenses,
+      netIncomeMonth:   monthly[5].netIncome,
+      netIncomeLastMonth: monthly[4].netIncome,
       monthly,
       openLeads:        openLeads.count || 0,
       activeJobs:       activeJobs.count || 0,
@@ -75,6 +90,8 @@ export default function Dashboard() {
       outstandingSum,
       customers:        customers.count || 0,
       ytdRevenue,
+      ytdExpenses,
+      ytdNetIncome:     ytdRevenue - ytdExpenses,
       ytdInvoiceCount:  ytdPaid.length,
       avgInvoice,
     });
@@ -90,11 +107,13 @@ export default function Dashboard() {
   }
 
   const taxRate    = Number(org?.income_tax_rate || 25);
-  const estTaxYtd  = stats.ytdRevenue * taxRate / 100;
+  const estTaxYtd  = Math.max(0, stats.ytdNetIncome) * taxRate / 100;
   const monthName  = new Date().toLocaleString(undefined, { month:'long' });
-  const delta      = stats.revenueLastMonth > 0
-    ? ((stats.revenueMonth - stats.revenueLastMonth) / stats.revenueLastMonth) * 100
-    : (stats.revenueMonth > 0 ? null : 0);
+  const netDelta   = stats.netIncomeLastMonth !== 0
+    ? ((stats.netIncomeMonth - stats.netIncomeLastMonth) / Math.abs(stats.netIncomeLastMonth)) * 100
+    : (stats.netIncomeMonth !== 0 ? null : 0);
+  const netColor   = stats.netIncomeMonth >= 0 ? '#2edf87' : '#f26060';
+  const ytdNetColor = stats.ytdNetIncome >= 0 ? '#2edf87' : '#f26060';
 
   return (
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif",paddingBottom:80}}>
@@ -110,22 +129,22 @@ export default function Dashboard() {
           <div style={{fontSize:13,color:'#7a8db0',marginTop:2}}>Signed in as {user.email}</div>
         </div>
 
-        {/* Hero revenue */}
+        {/* Hero: net income */}
         <div style={{display:'grid',gridTemplateColumns:'1fr',gap:14,marginBottom:14}}>
           <div style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,padding:'24px 22px',position:'relative',overflow:'hidden'}}>
-            <div style={{position:'absolute',inset:0,background:'radial-gradient(circle at top right, rgba(46,223,135,0.10), transparent 60%)',pointerEvents:'none'}}/>
+            <div style={{position:'absolute',inset:0,background:`radial-gradient(circle at top right, ${netColor}1a, transparent 60%)`,pointerEvents:'none'}}/>
             <div style={{position:'relative'}}>
-              <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.12em',fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Revenue · {monthName}</div>
+              <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.12em',fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Net Income · {monthName}</div>
               <div style={{display:'flex',alignItems:'baseline',gap:12,flexWrap:'wrap'}}>
-                <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:64,letterSpacing:'.02em',lineHeight:1,color:'#2edf87'}}>
-                  {fmt$(stats.revenueMonth)}
+                <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:64,letterSpacing:'.02em',lineHeight:1,color:netColor}}>
+                  {fmt$(stats.netIncomeMonth)}
                 </div>
-                {delta !== null && delta !== 0 && (
-                  <DeltaPill value={delta}/>
-                )}
+                {netDelta !== null && netDelta !== 0 && <DeltaPill value={netDelta}/>}
               </div>
-              <div style={{marginTop:8,fontSize:13,color:'#c8d4ee'}}>
-                Last month: <span style={{color:'#f0f4ff',fontWeight:600}}>{fmt$(stats.revenueLastMonth)}</span>
+              <div style={{marginTop:10,display:'flex',gap:18,flexWrap:'wrap',fontSize:13,color:'#c8d4ee'}}>
+                <span>Revenue: <span style={{color:'#2edf87',fontWeight:600}}>{fmt$(stats.revenueMonth)}</span></span>
+                <span>Expenses: <span style={{color:'#f26060',fontWeight:600}}>{fmt$(stats.expensesMonth)}</span></span>
+                <span style={{color:'#7a8db0'}}>Last month net: <span style={{color:'#f0f4ff',fontWeight:600}}>{fmt$(stats.netIncomeLastMonth)}</span></span>
               </div>
             </div>
           </div>
@@ -141,15 +160,20 @@ export default function Dashboard() {
 
         {/* Financial overview */}
         <SectionHeader title="Financials" subtitle="Year to date" />
+        <div className="finance-grid" style={{marginBottom:14}}>
+          <FinanceCard label="YTD Revenue"  value={fmt$(stats.ytdRevenue)}   color="#2edf87" sub={`${stats.ytdInvoiceCount} invoiced`} onClick={() => router.push('/invoices')}/>
+          <FinanceCard label="YTD Expenses" value={fmt$(stats.ytdExpenses)}  color="#f26060" onClick={() => router.push('/expenses')}/>
+          <FinanceCard label="YTD Net Income" value={fmt$(stats.ytdNetIncome)} color={ytdNetColor}/>
+          <FinanceCard label="Est. Tax YTD" value={fmt$(estTaxYtd)}          color="#fbbf24" sub={`${taxRate}% of net`} onClick={() => router.push('/tax')}/>
+        </div>
+
         <div className="finance-grid" style={{marginBottom:28}}>
-          <FinanceCard label="YTD Revenue"        value={fmt$(stats.ytdRevenue)} color="#2edf87"/>
-          <FinanceCard label="Outstanding"        value={fmt$(stats.outstandingSum)} color="#fbbf24" sub={`${stats.unpaidCount} unpaid`}/>
-          <FinanceCard label="Avg Invoice"        value={fmt$(stats.avgInvoice)} color="#4f9eff" sub={`${stats.ytdInvoiceCount} invoiced`}/>
-          <FinanceCard label="Est. Tax YTD"       value={fmt$(estTaxYtd)} color="#f26060" sub={`${taxRate}% of revenue`} onClick={() => router.push('/tax')}/>
+          <FinanceCard label="Outstanding"  value={fmt$(stats.outstandingSum)} color="#fbbf24" sub={`${stats.unpaidCount} unpaid`} onClick={() => router.push('/invoices')}/>
+          <FinanceCard label="Avg Invoice"  value={fmt$(stats.avgInvoice)}     color="#4f9eff" sub={`${stats.ytdInvoiceCount} invoiced`}/>
         </div>
 
         {/* Chart */}
-        <SectionHeader title="Revenue trend" subtitle="Last 6 months" />
+        <SectionHeader title="Revenue + Expenses" subtitle="Last 6 months" />
         <div style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,padding:'20px 18px 14px',marginBottom:28}}>
           <RevenueChart monthly={stats.monthly}/>
         </div>
@@ -226,37 +250,58 @@ function DeltaPill({ value }) {
 }
 
 function RevenueChart({ monthly }) {
-  const max = Math.max(1, ...monthly.map(m => m.amount));
+  const max = Math.max(1, ...monthly.flatMap(m => [m.revenue, m.expenses]));
   return (
-    <div style={{display:'flex',alignItems:'flex-end',gap:8,height:180}}>
-      {monthly.map((m, i) => {
-        const pct = (m.amount / max);
-        const h = Math.max(6, pct * 100);
-        const isCurrent = i === monthly.length - 1;
-        const c = isCurrent ? '#2edf87' : '#4f9eff';
-        return (
-          <div key={m.key} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:6,height:'100%'}}>
-            <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'flex-end',width:'100%'}}>
-              <div style={{
-                background: c + '33',
-                border: '1px solid ' + c + '88',
-                borderRadius:6,
-                width:'100%',
-                height: pct === 0 ? 6 : `${h}%`,
-                minHeight: 6,
-                position:'relative',
-              }}>
-                {m.amount > 0 && (
-                  <div style={{position:'absolute',top:-22,left:0,right:0,textAlign:'center',fontSize:10,fontWeight:700,color:c,letterSpacing:'.02em'}}>
-                    {fmt$(m.amount).replace(/\.00$/, '')}
-                  </div>
-                )}
+    <div>
+      <div style={{display:'flex',gap:14,marginBottom:14,fontSize:11,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase'}}>
+        <span style={{color:'#2edf87'}}>● Revenue</span>
+        <span style={{color:'#f26060'}}>● Expenses</span>
+      </div>
+      <div style={{display:'flex',alignItems:'flex-end',gap:8,height:180}}>
+        {monthly.map(m => {
+          const revPct = m.revenue / max;
+          const expPct = m.expenses / max;
+          const revH = Math.max(4, revPct * 100);
+          const expH = Math.max(4, expPct * 100);
+          return (
+            <div key={m.key} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:6,height:'100%'}}>
+              <div style={{flex:1,display:'flex',justifyContent:'center',alignItems:'flex-end',gap:3,width:'100%'}}>
+                <div style={{
+                  width:'45%',
+                  background:'#2edf8733',
+                  border:'1px solid #2edf8788',
+                  borderRadius:4,
+                  height: m.revenue === 0 ? 4 : `${revH}%`,
+                  minHeight:4,
+                  position:'relative',
+                }}>
+                  {m.revenue > 0 && (
+                    <div style={{position:'absolute',top:-18,left:-4,right:-4,textAlign:'center',fontSize:9,fontWeight:700,color:'#2edf87'}}>
+                      {fmt$(m.revenue).replace(/\.00$/, '')}
+                    </div>
+                  )}
+                </div>
+                <div style={{
+                  width:'45%',
+                  background:'#f2606033',
+                  border:'1px solid #f2606088',
+                  borderRadius:4,
+                  height: m.expenses === 0 ? 4 : `${expH}%`,
+                  minHeight:4,
+                  position:'relative',
+                }}>
+                  {m.expenses > 0 && (
+                    <div style={{position:'absolute',top:-18,left:-4,right:-4,textAlign:'center',fontSize:9,fontWeight:700,color:'#f26060'}}>
+                      {fmt$(m.expenses).replace(/\.00$/, '')}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
             <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.06em',fontWeight:600,textTransform:'uppercase'}}>{m.label}</div>
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

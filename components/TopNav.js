@@ -8,6 +8,7 @@ const TABS = [
   { label:'Leads',     route:'/leads' },
   { label:'Customers', route:'/customers' },
   { label:'Jobs',      route:'/jobs' },
+  { label:'Expenses',  route:'/expenses' },
   { label:'Invoices',  route:'/invoices' },
   { label:'Tax',       route:'/tax' },
   { label:'Crew',      route:'/crew' },

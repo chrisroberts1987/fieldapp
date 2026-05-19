@@ -17,6 +17,14 @@ const EMPTY = {
   status:'scheduled', scheduled_date: todayStr(), price:'', notes:''
 };
 
+const EXPENSE_CATEGORIES = [
+  { key:'materials',  label:'Materials' },
+  { key:'fuel',       label:'Fuel' },
+  { key:'labor',      label:'Labor / Subs' },
+  { key:'equipment',  label:'Equipment' },
+  { key:'other',      label:'Other' },
+];
+
 export default function Jobs() {
   const router = useRouter();
   const [user, setUser] = useState(null);
@@ -28,6 +36,9 @@ export default function Jobs() {
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState('all');
   const [form, setForm] = useState(EMPTY);
+  const [jobExpenses, setJobExpenses] = useState([]);
+  const [quickExp, setQuickExp] = useState({ amount:'', category:'materials', vendor:'' });
+  const [addingExp, setAddingExp] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -55,7 +66,7 @@ export default function Jobs() {
   const customerName = id => customers.find(c => c.id === id)?.name || '—';
 
   const openNew = () => { setForm(EMPTY); setSheet('new'); };
-  const openEdit = (j) => {
+  const openEdit = async (j) => {
     setForm({
       customer_id: j.customer_id || '',
       title: j.title || '',
@@ -65,7 +76,34 @@ export default function Jobs() {
       price: j.price ?? '',
       notes: j.notes || '',
     });
+    setQuickExp({ amount:'', category:'materials', vendor:'' });
     setSheet(j);
+    const { data } = await supabase.from('expenses').select('*').eq('job_id', j.id).order('expense_date', { ascending:false });
+    setJobExpenses(data || []);
+  };
+
+  const addQuickExpense = async () => {
+    if (!sheet || sheet === 'new' || !orgId) return;
+    const amount = Number(quickExp.amount);
+    if (isNaN(amount) || amount <= 0) return;
+    setAddingExp(true);
+    const { data } = await supabase.from('expenses').insert({
+      org_id: orgId,
+      owner_id: user.id,
+      job_id: sheet.id,
+      amount,
+      category: quickExp.category,
+      vendor: quickExp.vendor.trim() || null,
+      expense_date: todayStr(),
+    }).select('*').single();
+    if (data) setJobExpenses(prev => [data, ...prev]);
+    setQuickExp({ amount:'', category:quickExp.category, vendor:'' });
+    setAddingExp(false);
+  };
+
+  const removeJobExpense = async (id) => {
+    await supabase.from('expenses').delete().eq('id', id);
+    setJobExpenses(prev => prev.filter(e => e.id !== id));
   };
 
   const save = async () => {
@@ -216,6 +254,47 @@ export default function Jobs() {
                 placeholder="Crew callouts, access, parts needed..."
                 style={{...inputStyle, resize:'vertical', minHeight:60, fontFamily:'inherit'}}/>
             </div>
+
+            {sheet !== 'new' && (
+              <div style={{margin:'14px 16px 4px',padding:'12px 12px',background:'#111827',border:'1px solid #2e3f60',borderRadius:10}}>
+                <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:8}}>
+                  <div style={{fontSize:11,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0'}}>Expenses on this job</div>
+                  <div style={{fontSize:12,color:'#f26060',fontWeight:700}}>
+                    {fmt$(jobExpenses.reduce((s,e) => s + Number(e.amount||0), 0))}
+                  </div>
+                </div>
+
+                {jobExpenses.length > 0 && (
+                  <div style={{display:'flex',flexDirection:'column',gap:4,marginBottom:10}}>
+                    {jobExpenses.map(e => (
+                      <div key={e.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6,fontSize:12,color:'#c8d4ee'}}>
+                        <span style={{color:'#7a8db0',textTransform:'uppercase',fontWeight:700,fontSize:10,letterSpacing:'.05em',minWidth:60}}>{e.category}</span>
+                        <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.vendor || e.description || '—'}</span>
+                        <span style={{color:'#f26060',fontWeight:600,whiteSpace:'nowrap'}}>{fmt$(e.amount||0)}</span>
+                        <button onClick={() => removeJobExpense(e.id)} style={{background:'none',border:'none',color:'#f26060',cursor:'pointer',fontSize:10,padding:'0 4px'}}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{display:'flex',gap:6}}>
+                  <input type="number" inputMode="decimal" placeholder="$"
+                    value={quickExp.amount} onChange={e => setQuickExp(p => ({...p, amount:e.target.value}))}
+                    style={{...inputStyle, padding:'8px 10px', fontSize:13, width:90, flexShrink:0}}/>
+                  <select value={quickExp.category} onChange={e => setQuickExp(p => ({...p, category:e.target.value}))}
+                    style={{...inputStyle, padding:'8px 10px', fontSize:13, width:120, flexShrink:0}}>
+                    {EXPENSE_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                  </select>
+                  <input type="text" placeholder="Vendor (optional)"
+                    value={quickExp.vendor} onChange={e => setQuickExp(p => ({...p, vendor:e.target.value}))}
+                    style={{...inputStyle, padding:'8px 10px', fontSize:13, flex:1}}/>
+                  <button onClick={addQuickExpense} disabled={addingExp || !Number(quickExp.amount)}
+                    style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'8px 12px',fontWeight:700,cursor:'pointer',fontSize:13,opacity:(addingExp||!Number(quickExp.amount))?0.4:1}}>
+                    Add
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div style={{padding:'8px 16px 0',display:'flex',gap:8}}>
               <button onClick={save} disabled={saving || !form.title.trim()}
