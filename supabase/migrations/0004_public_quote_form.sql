@@ -69,26 +69,14 @@ create unique index if not exists organizations_slug_unique
 -- ============================================================
 create or replace function public.get_public_org_by_slug(p_slug text)
 returns jsonb
-language plpgsql
+language sql
+stable
 security definer
 set search_path = public
 as $$
-declare
-  v_id       uuid;
-  v_name     text;
-  v_logo_url text;
-begin
-  select id, name, logo_url
-    into v_id, v_name, v_logo_url
-    from public.organizations
-    where slug = p_slug;
-
-  if v_id is null then
-    return null;
-  end if;
-
-  return jsonb_build_object('id', v_id, 'name', v_name, 'logo_url', v_logo_url);
-end;
+  select jsonb_build_object('id', id, 'name', name, 'logo_url', logo_url)
+  from public.organizations
+  where slug = p_slug;
 $$;
 
 revoke all on function public.get_public_org_by_slug(text) from public;
