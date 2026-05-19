@@ -19,7 +19,7 @@ declare
   suffix int := 0;
 begin
   base_slug := lower(regexp_replace(coalesce(p_name, ''), '[^a-zA-Z0-9]+', '-', 'g'));
-  base_slug := regexp_replace(base_slug, '^-+|-+$', '', 'g');
+  base_slug := btrim(base_slug, '-');
   base_slug := substring(base_slug from 1 for 40);
   if base_slug = '' then base_slug := 'company'; end if;
 
