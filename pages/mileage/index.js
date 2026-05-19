@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
 import { useRefetchOnFocus } from '../../lib/useFocus';
+import { isCrew } from '../../lib/role';
 import { fmt$, fmtDate, todayStr, IRS_RATE } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 
@@ -137,7 +138,13 @@ export default function Mileage() {
       end_lng:   form.end_lng   ?? null,
     };
     if (sheet === 'manual' || sheet === 'save-trip') {
-      await supabase.from('mileage_logs').insert({ ...payload, owner_id: user.id, org_id: orgId, user_id: user.id });
+      const status = isCrew(role) ? 'pending' : 'approved';
+      await supabase.from('mileage_logs').insert({
+        ...payload, org_id: orgId, user_id: user.id,
+        approval_status: status,
+        approved_by: status === 'approved' ? user.id : null,
+        approved_at: status === 'approved' ? new Date().toISOString() : null,
+      });
       if (sheet === 'save-trip') cancelTrip();
     } else {
       await supabase.from('mileage_logs').update(payload).eq('id', sheet.id);

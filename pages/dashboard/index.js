@@ -3,14 +3,16 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
 import { useRefetchOnFocus } from '../../lib/useFocus';
-import { fmt$ } from '../../lib/helpers';
+import { isForeman, isSupervisor, isCrew, isOffice, roleLabel } from '../../lib/role';
+import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState(null);
-  const { orgId, org, loading: orgLoading } = useOrg(user);
+  const { orgId, org, role, loading: orgLoading } = useOrg(user);
   const [stats, setStats] = useState(null);
+  const [crewData, setCrewData] = useState(null); // for supervisor/crew views
 
   const loadStats = async (oid) => {
     const now = new Date();
@@ -86,29 +88,76 @@ export default function Dashboard() {
     });
   };
 
-  const refetchStats = () => { if (orgId) loadStats(orgId); };
+  const loadCrewData = async (oid) => {
+    const today = todayStr();
+    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0,10);
+    const [myJobs, todayJobs, poolJobs, pendingExp, pendingMi, myMileage, members] = await Promise.all([
+      supabase.from('jobs').select('id, title, status, scheduled_date, customer_id, price').eq('org_id', oid).eq('assigned_to_user_id', user.id).in('status', ['scheduled','in_progress']).order('scheduled_date', { ascending:true, nullsFirst:false }),
+      supabase.from('jobs').select('id, title, customer_id, status').eq('org_id', oid).eq('assigned_to_user_id', user.id).eq('scheduled_date', today),
+      supabase.from('jobs').select('id', { count:'exact', head:true }).eq('org_id', oid).is('assigned_to_user_id', null).in('status', ['scheduled','in_progress']),
+      supabase.from('expenses').select('id', { count:'exact', head:true }).eq('org_id', oid).eq('approval_status', 'pending'),
+      supabase.from('mileage_logs').select('id', { count:'exact', head:true }).eq('org_id', oid).eq('approval_status', 'pending'),
+      supabase.from('mileage_logs').select('miles').eq('org_id', oid).eq('user_id', user.id).gte('log_date', monthStart),
+      supabase.from('org_members').select('user_id', { count:'exact', head:true }).eq('org_id', oid),
+    ]);
+    setCrewData({
+      myJobs: myJobs.data || [],
+      todayJobs: todayJobs.data || [],
+      poolCount: poolJobs.count || 0,
+      pendingExpenses: pendingExp.count || 0,
+      pendingMileage: pendingMi.count || 0,
+      myMilesMonth: (myMileage.data || []).reduce((s, m) => s + Number(m.miles || 0), 0),
+      crewSize: members.count || 0,
+    });
+  };
+
+  const refetchStats = () => {
+    if (!orgId) return;
+    if (isForeman(role)) loadStats(orgId);
+    else loadCrewData(orgId);
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.push('/login'); return; }
       setUser(session.user);
+      const token = typeof sessionStorage !== 'undefined'
+        ? sessionStorage.getItem('myforeman_post_signup_invite') : null;
+      if (token) {
+        supabase.rpc('accept_invite', { p_token: token }).finally(() => {
+          sessionStorage.removeItem('myforeman_post_signup_invite');
+        });
+      }
     });
   }, []);
 
   useEffect(() => {
-    if (orgId) loadStats(orgId);
-    else if (user && !orgLoading) router.push('/onboarding');
-  }, [orgId, orgLoading]);
+    if (!orgId) {
+      if (user && !orgLoading) router.push('/onboarding');
+      return;
+    }
+    if (!role) return;
+    if (isForeman(role)) loadStats(orgId);
+    else loadCrewData(orgId);
+  }, [orgId, orgLoading, role]);
 
-  useRefetchOnFocus(refetchStats, !!orgId);
+  useRefetchOnFocus(refetchStats, !!(orgId && role));
 
-  if (!user || orgLoading || !stats) {
+  // Foreman uses the rich financial stats; others use crewData.
+  const ready = isForeman(role) ? stats : crewData;
+
+  if (!user || orgLoading || !ready) {
     return (
       <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif"}}>
         <TopNav active="/dashboard"/>
         <div style={{padding:'80px 20px',textAlign:'center',color:'#7a8db0',fontSize:14}}>Loading dashboard...</div>
       </div>
     );
+  }
+
+  // Crew / Supervisor get a slimmed dashboard. No revenue, no tax estimates.
+  if (!isForeman(role)) {
+    return <SimpleDashboard role={role} user={user} org={org} crewData={crewData} router={router}/>;
   }
 
   const taxRate    = Number(org?.income_tax_rate || 25);
@@ -200,6 +249,98 @@ export default function Dashboard() {
           .finance-grid { grid-template-columns: repeat(4, 1fr); gap: 14px; }
         }
       `}</style>
+    </div>
+  );
+}
+
+function SimpleDashboard({ role, user, org, crewData, router }) {
+  const supervisor = isSupervisor(role);
+  const greeting = supervisor ? 'Supervisor view' : 'Your day';
+
+  return (
+    <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif",paddingBottom:80}}>
+      <TopNav active="/dashboard"/>
+
+      <main style={{maxWidth:1080,margin:'0 auto',padding:'28px 20px 0'}}>
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase'}}>{greeting}</div>
+          <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,letterSpacing:'.04em',margin:'4px 0 0',color:'#f0f4ff'}}>
+            {(org?.name || 'Your business').toUpperCase()}
+          </h1>
+          <div style={{fontSize:13,color:'#7a8db0',marginTop:2}}>Signed in as {user.email} · <span style={{color:'#4f9eff',fontWeight:600}}>{roleLabel(role)}</span></div>
+        </div>
+
+        <div className="kpi-strip" style={{marginBottom:18}}>
+          <Kpi label="My Jobs Today"      value={crewData.todayJobs.length}  color="#4f9eff" onClick={() => router.push('/jobs')}/>
+          <Kpi label="Active Jobs"        value={crewData.myJobs.length}     color="#2edf87" onClick={() => router.push('/jobs')}/>
+          {supervisor
+            ? <Kpi label="Pending Approvals" value={crewData.pendingExpenses + crewData.pendingMileage} color="#fbbf24" onClick={() => router.push('/approvals')}/>
+            : <Kpi label="Jobs in Pool"      value={crewData.poolCount}      color="#fbbf24" onClick={() => router.push('/jobs')}/>}
+          {supervisor
+            ? <Kpi label="Crew Size"      value={crewData.crewSize}          color="#b197fc" onClick={() => router.push('/crew')}/>
+            : <Kpi label="Miles This Month" value={crewData.myMilesMonth.toFixed(1)} color="#54d4f8" onClick={() => router.push('/mileage')}/>}
+        </div>
+
+        {/* Today's jobs */}
+        <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.06em',color:'#f0f4ff',marginBottom:10}}>{supervisor ? "TODAY'S CREW JOBS" : "TODAY'S JOBS"}</div>
+        {crewData.todayJobs.length === 0 ? (
+          <div style={{background:'#1e2a42',border:'1px dashed #2e3f60',borderRadius:12,padding:'20px',textAlign:'center',color:'#7a8db0',fontSize:13,marginBottom:18}}>
+            Nothing scheduled for today.
+            {!supervisor && crewData.poolCount > 0 && <> <a onClick={() => router.push('/jobs')} style={{color:'#4f9eff',cursor:'pointer',fontWeight:700}}>{crewData.poolCount} job{crewData.poolCount===1?'':'s'} in the pool</a> waiting to be claimed.</>}
+          </div>
+        ) : (
+          <div style={{display:'grid',gridTemplateColumns:'1fr',gap:6,marginBottom:18}}>
+            {crewData.todayJobs.map(j => (
+              <div key={j.id} onClick={() => router.push('/jobs')}
+                style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,padding:'12px 14px',cursor:'pointer'}}>
+                <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.04em',color:'#f0f4ff'}}>{j.title}</div>
+                <div style={{fontSize:11,color:'#7a8db0',marginTop:2,textTransform:'uppercase',letterSpacing:'.06em',fontWeight:700}}>{j.status}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Active jobs list */}
+        {crewData.myJobs.length > 0 && (
+          <>
+            <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.06em',color:'#f0f4ff',marginBottom:10}}>{supervisor ? 'ACTIVE JOBS' : 'MY ACTIVE JOBS'}</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr',gap:6,marginBottom:18}}>
+              {crewData.myJobs.slice(0, 8).map(j => (
+                <div key={j.id} onClick={() => router.push('/jobs')}
+                  style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,padding:'10px 14px',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <div style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{j.title}</div>
+                  <div style={{fontSize:11,color:'#7a8db0',whiteSpace:'nowrap'}}>{j.scheduled_date ? fmtDate(j.scheduled_date) : 'No date'}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Quick actions */}
+        <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.06em',color:'#f0f4ff',marginBottom:10}}>QUICK ACTIONS</div>
+        <div className="kpi-strip" style={{marginBottom:24}}>
+          <ActionTile label="Log Mileage"  onClick={() => router.push('/mileage')}  color="#54d4f8"/>
+          <ActionTile label="Log Expense"  onClick={() => router.push('/expenses')} color="#f26060"/>
+          <ActionTile label="See Jobs"     onClick={() => router.push('/jobs')}     color="#4f9eff"/>
+          {supervisor && <ActionTile label="Review Approvals" onClick={() => router.push('/approvals')} color="#fbbf24"/>}
+        </div>
+      </main>
+
+      <style jsx global>{`
+        .kpi-strip { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        @media (min-width: 720px) { .kpi-strip { grid-template-columns: repeat(4, 1fr); gap: 14px; } }
+      `}</style>
+    </div>
+  );
+}
+
+function ActionTile({ label, onClick, color }) {
+  return (
+    <div onClick={onClick}
+      style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:12,padding:'18px 14px',cursor:'pointer',transition:'border-color .15s',textAlign:'center'}}
+      onMouseOver={e => e.currentTarget.style.borderColor = color}
+      onMouseOut={e => e.currentTarget.style.borderColor = '#2e3f60'}>
+      <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.06em',color}}>{label.toUpperCase()}</div>
     </div>
   );
 }

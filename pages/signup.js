@@ -13,7 +13,12 @@ export default function Signup() {
 
   const signUp = async () => {
     setError('');
-    if (!company.trim()) { setError('Company name required'); return; }
+    // If they're accepting an invite, they don't need to enter a company name —
+    // they're joining an existing one.
+    const inviteToken = typeof sessionStorage !== 'undefined'
+      ? sessionStorage.getItem('myforeman_post_signup_invite') : null;
+
+    if (!inviteToken && !company.trim()) { setError('Company name required'); return; }
     if (!email.trim() || !password) { setError('Email and password required'); return; }
     if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
 
@@ -22,16 +27,22 @@ export default function Signup() {
     const { data: authData, error: authErr } = await supabase.auth.signUp({ email, password });
     if (authErr) { setError(authErr.message); setLoading(false); return; }
 
-    // If email confirmation is required, signUp returns a user but no session.
-    // The org_id must be created when the user is actually authenticated, so
-    // wait briefly and try to get the session.
     if (!authData.session) {
-      setError('Account created. Check your email to confirm, then sign in.');
+      setError('Account created. Check your email to confirm, then sign in — your invite will be accepted automatically.');
       setLoading(false);
       return;
     }
 
-    const { data: orgId, error: rpcErr } = await supabase.rpc('create_org', { p_name: company });
+    // Accept invite path: skip create_org.
+    if (inviteToken) {
+      const { error: invErr } = await supabase.rpc('accept_invite', { p_token: inviteToken });
+      sessionStorage.removeItem('myforeman_post_signup_invite');
+      if (invErr) { setError('Account created but invite acceptance failed: ' + invErr.message); setLoading(false); return; }
+      router.push('/dashboard');
+      return;
+    }
+
+    const { error: rpcErr } = await supabase.rpc('create_org', { p_name: company });
     if (rpcErr) { setError('Account created but company setup failed: ' + rpcErr.message); setLoading(false); return; }
 
     router.push('/dashboard');

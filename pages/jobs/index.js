@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
 import { useRefetchOnFocus } from '../../lib/useFocus';
+import { isCrew, isOffice } from '../../lib/role';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 
 const STATUSES = [
@@ -15,7 +16,8 @@ const statusMeta = k => STATUSES.find(s => s.key === k) || STATUSES[0];
 
 const EMPTY = {
   customer_id:'', title:'', description:'',
-  status:'scheduled', scheduled_date: todayStr(), price:'', notes:''
+  status:'scheduled', scheduled_date: todayStr(), price:'', notes:'',
+  assigned_to_user_id:'',
 };
 
 const EXPENSE_CATEGORIES = [
@@ -29,9 +31,10 @@ const EXPENSE_CATEGORIES = [
 export default function Jobs() {
   const router = useRouter();
   const [user, setUser] = useState(null);
-  const { orgId, loading: orgLoading } = useOrg(user);
+  const { orgId, role, loading: orgLoading } = useOrg(user);
   const [jobs, setJobs] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sheet, setSheet] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -43,12 +46,14 @@ export default function Jobs() {
 
   const loadAll = async () => {
     setLoading(true);
-    const [{ data: j }, { data: c }] = await Promise.all([
+    const [{ data: j }, { data: c }, { data: m }] = await Promise.all([
       supabase.from('jobs').select('*').eq('org_id', orgId).order('scheduled_date', { ascending:false, nullsFirst:false }),
       supabase.from('customers').select('id,name').eq('org_id', orgId).order('name'),
+      supabase.rpc('list_org_members', { p_org_id: orgId }),
     ]);
     setJobs(j || []);
     setCustomers(c || []);
+    setMembers(Array.isArray(m) ? m : []);
     setLoading(false);
   };
 
@@ -78,6 +83,7 @@ export default function Jobs() {
       scheduled_date: j.scheduled_date || todayStr(),
       price: j.price ?? '',
       notes: j.notes || '',
+      assigned_to_user_id: j.assigned_to_user_id || '',
     });
     setQuickExp({ amount:'', category:'materials', vendor:'' });
     setSheet(j);
@@ -90,6 +96,7 @@ export default function Jobs() {
     const amount = Number(quickExp.amount);
     if (isNaN(amount) || amount <= 0) return;
     setAddingExp(true);
+    const status = isCrew(role) ? 'pending' : 'approved';
     const { data } = await supabase.from('expenses').insert({
       org_id: orgId,
       owner_id: user.id,
@@ -98,6 +105,9 @@ export default function Jobs() {
       category: quickExp.category,
       vendor: quickExp.vendor.trim() || null,
       expense_date: todayStr(),
+      approval_status: status,
+      approved_by: status === 'approved' ? user.id : null,
+      approved_at: status === 'approved' ? new Date().toISOString() : null,
     }).select('*').single();
     if (data) setJobExpenses(prev => [data, ...prev]);
     setQuickExp({ amount:'', category:quickExp.category, vendor:'' });
@@ -112,11 +122,15 @@ export default function Jobs() {
   const save = async () => {
     if (!form.title.trim() || !orgId) return;
     setSaving(true);
+    const prevAssignee = sheet !== 'new' ? sheet?.assigned_to_user_id : null;
+    const newAssignee = form.assigned_to_user_id || null;
     const payload = {
       ...form,
       customer_id: form.customer_id || null,
       scheduled_date: form.scheduled_date || null,
       price: form.price === '' ? 0 : Number(form.price),
+      assigned_to_user_id: newAssignee,
+      assigned_at: (newAssignee && newAssignee !== prevAssignee) ? new Date().toISOString() : (sheet !== 'new' ? sheet?.assigned_at : null),
     };
     let savedJobId = null;
     const wasCompleted = sheet !== 'new' && sheet?.status === 'completed';
@@ -167,7 +181,24 @@ export default function Jobs() {
     setJobs(j => j.filter(x => x.id !== id));
   };
 
-  const visible = jobs.filter(j => filter === 'all' || j.status === filter);
+  const claim = async (job) => {
+    await supabase.from('jobs').update({
+      assigned_to_user_id: user.id,
+      assigned_at: new Date().toISOString(),
+    }).eq('id', job.id);
+    await loadAll();
+  };
+
+  // Crew sees only jobs assigned to them + unassigned pool.
+  const roleFiltered = isCrew(role)
+    ? jobs.filter(j => j.assigned_to_user_id === user?.id || !j.assigned_to_user_id)
+    : jobs;
+  const visible = roleFiltered.filter(j => filter === 'all' || j.status === filter);
+
+  const memberLabel = uid => {
+    const m = members.find(x => x.user_id === uid);
+    return m?.email || 'Unknown';
+  };
 
   if (loading) return (
     <div style={{minHeight:'100vh',background:'#111827',display:'flex',alignItems:'center',justifyContent:'center',color:'#f0f4ff',fontFamily:'sans-serif'}}>Loading...</div>
@@ -178,7 +209,7 @@ export default function Jobs() {
       <div style={{background:'#1a2236',borderBottom:'1.5px solid #2e3f60',padding:'12px 16px',display:'flex',alignItems:'center',gap:12,position:'sticky',top:0,zIndex:50}}>
         <button onClick={() => router.push('/dashboard')} style={{background:'none',border:'none',color:'#7a8db0',cursor:'pointer',fontSize:20,padding:'0 4px'}}>←</button>
         <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'.08em',flex:1}}>JOBS</div>
-        <button onClick={openNew} style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'8px 16px',fontWeight:700,cursor:'pointer',fontSize:13}}>+ New</button>
+        {isOffice(role) && <button onClick={openNew} style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'8px 16px',fontWeight:700,cursor:'pointer',fontSize:13}}>+ New</button>}
       </div>
 
       <div style={{display:'flex',gap:6,padding:'10px 12px',overflowX:'auto'}}>
@@ -204,20 +235,35 @@ export default function Jobs() {
 
       {visible.map(j => {
         const s = statusMeta(j.status);
+        const unassigned = !j.assigned_to_user_id;
+        const mine = j.assigned_to_user_id === user?.id;
         return (
           <div key={j.id} onClick={() => openEdit(j)}
-            style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,margin:'6px 16px',padding:'13px 14px',cursor:'pointer'}}>
+            style={{background:'#1e2a42',border:'1px solid '+(unassigned && isCrew(role)?'#fbbf2466':'#2e3f60'),borderRadius:10,margin:'6px 16px',padding:'13px 14px',cursor:'pointer'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:3,gap:8}}>
               <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.04em',color:'#f0f4ff',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{j.title}</div>
               <span style={{background:s.color+'22',color:s.color,border:'1px solid '+s.color+'66',borderRadius:999,padding:'2px 8px',fontSize:10,fontWeight:700,letterSpacing:'.05em',whiteSpace:'nowrap'}}>{s.label}</span>
-              <button onClick={e => { e.stopPropagation(); del(j.id); }} style={{background:'none',border:'none',color:'#f26060',cursor:'pointer',fontSize:12,fontWeight:700,padding:'2px 4px'}}>✕</button>
+              {isOffice(role) && <button onClick={e => { e.stopPropagation(); del(j.id); }} style={{background:'none',border:'none',color:'#f26060',cursor:'pointer',fontSize:12,fontWeight:700,padding:'2px 4px'}}>✕</button>}
             </div>
             <div style={{fontSize:12,color:'#c8d4ee'}}>{customerName(j.customer_id)}</div>
-            <div style={{display:'flex',justifyContent:'space-between',marginTop:4,fontSize:11,color:'#7a8db0'}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginTop:4,fontSize:11,color:'#7a8db0',gap:8,flexWrap:'wrap'}}>
               <span>{fmtDate(j.scheduled_date)}</span>
-              <span style={{color:'#2edf87',fontWeight:600}}>{fmt$(j.price || 0)}</span>
+              <span>
+                {unassigned
+                  ? <span style={{color:'#fbbf24',fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase',fontSize:10}}>● Pool — unassigned</span>
+                  : mine
+                    ? <span style={{color:'#2edf87',fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase',fontSize:10}}>● Assigned to you</span>
+                    : <span>Assigned to {memberLabel(j.assigned_to_user_id)}</span>}
+              </span>
+              {!isCrew(role) && <span style={{color:'#2edf87',fontWeight:600}}>{fmt$(j.price || 0)}</span>}
             </div>
             {j.notes && <div style={{fontSize:11,color:'#fbbf24',marginTop:3}}>Note: {j.notes}</div>}
+            {isCrew(role) && unassigned && (
+              <button onClick={e => { e.stopPropagation(); claim(j); }}
+                style={{marginTop:8,width:'100%',background:'#2edf8722',border:'1px solid #2edf8766',borderRadius:8,color:'#2edf87',padding:'7px 0',fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>
+                CLAIM THIS JOB
+              </button>
+            )}
           </div>
         );
       })}
@@ -244,6 +290,18 @@ export default function Jobs() {
                 {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
+
+            {isOffice(role) && (
+              <div style={{margin:'10px 16px'}}>
+                <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Assigned to</div>
+                <select value={form.assigned_to_user_id}
+                  onChange={e => setForm(p => ({...p, assigned_to_user_id:e.target.value}))}
+                  style={inputStyle}>
+                  <option value="">— Crew pool (unassigned) —</option>
+                  {members.map(m => <option key={m.user_id} value={m.user_id}>{m.email}</option>)}
+                </select>
+              </div>
+            )}
 
             <div style={{margin:'10px 16px'}}>
               <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Status</div>

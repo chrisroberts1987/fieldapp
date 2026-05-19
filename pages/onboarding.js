@@ -29,6 +29,21 @@ export default function Onboarding() {
     if (orgId && user && !saving) router.push('/dashboard');
   }, [orgId, user]);
 
+  // If the user landed here while holding a pending invite token (i.e. they
+  // signed up via /invite/[token] and email confirmation interrupted), accept
+  // the invite now that they're authenticated.
+  useEffect(() => {
+    if (!user || orgId || saving) return;
+    const token = typeof sessionStorage !== 'undefined'
+      ? sessionStorage.getItem('myforeman_post_signup_invite') : null;
+    if (!token) return;
+    (async () => {
+      const { error } = await supabase.rpc('accept_invite', { p_token: token });
+      sessionStorage.removeItem('myforeman_post_signup_invite');
+      if (!error) router.push('/dashboard');
+    })();
+  }, [user, orgId]);
+
   const pickLogo = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;

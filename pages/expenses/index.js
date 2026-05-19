@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
 import { useRefetchOnFocus } from '../../lib/useFocus';
+import { isCrew } from '../../lib/role';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 
@@ -26,7 +27,7 @@ const EMPTY = {
 export default function Expenses() {
   const router = useRouter();
   const [user, setUser] = useState(null);
-  const { orgId, loading: orgLoading } = useOrg(user);
+  const { orgId, role, loading: orgLoading } = useOrg(user);
   const [expenses, setExpenses] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -87,7 +88,13 @@ export default function Expenses() {
       description: form.description.trim() || null,
     };
     if (sheet === 'new') {
-      await supabase.from('expenses').insert({ ...payload, owner_id: user.id, org_id: orgId });
+      const status = isCrew(role) ? 'pending' : 'approved';
+      await supabase.from('expenses').insert({
+        ...payload, owner_id: user.id, org_id: orgId,
+        approval_status: status,
+        approved_by: status === 'approved' ? user.id : null,
+        approved_at: status === 'approved' ? new Date().toISOString() : null,
+      });
     } else {
       await supabase.from('expenses').update(payload).eq('id', sheet.id);
     }
@@ -102,7 +109,9 @@ export default function Expenses() {
     setExpenses(e => e.filter(x => x.id !== id));
   };
 
-  const visible = expenses.filter(e => filter === 'all' || e.category === filter);
+  // Crew only sees their own expenses; office sees everyone's.
+  const ownFiltered = isCrew(role) ? expenses.filter(e => e.owner_id === user?.id) : expenses;
+  const visible = ownFiltered.filter(e => filter === 'all' || e.category === filter);
   const totalAll      = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
   const totalFiltered = visible.reduce((s, e) => s + Number(e.amount || 0), 0);
 
@@ -153,12 +162,16 @@ export default function Expenses() {
         <div style={{display:'grid',gridTemplateColumns:'1fr',gap:8}}>
           {visible.map(e => {
             const c = catMeta(e.category);
+            const status = e.approval_status || 'approved';
+            const statusC = status === 'approved' ? '#2edf87' : status === 'pending' ? '#fbbf24' : '#f26060';
+            const showStatus = status !== 'approved';
             return (
               <div key={e.id} onClick={() => openEdit(e)}
-                style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,padding:'12px 14px',cursor:'pointer'}}>
+                style={{background:'#1e2a42',border:'1px solid '+(showStatus?statusC+'66':'#2e3f60'),borderRadius:10,padding:'12px 14px',cursor:'pointer'}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:3}}>
                   <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0,flex:1}}>
                     <span style={{background:c.color+'22',color:c.color,border:'1px solid '+c.color+'66',borderRadius:6,padding:'2px 8px',fontSize:10,fontWeight:700,letterSpacing:'.05em',whiteSpace:'nowrap'}}>{c.label.toUpperCase()}</span>
+                    {showStatus && <span style={{background:statusC+'22',color:statusC,border:'1px solid '+statusC+'66',borderRadius:6,padding:'2px 8px',fontSize:10,fontWeight:700,letterSpacing:'.05em',whiteSpace:'nowrap'}}>{status.toUpperCase()}</span>}
                     <span style={{fontSize:14,color:'#f0f4ff',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.vendor || e.description || '(no vendor)'}</span>
                   </div>
                   <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:20,color:'#f26060',whiteSpace:'nowrap'}}>{fmt$(e.amount || 0)}</span>
@@ -168,6 +181,9 @@ export default function Expenses() {
                   <span>{fmtDate(e.expense_date)}{e.job_id ? ` · Job: ${jobTitle(e.job_id)}` : ' · Overhead'}</span>
                   {e.description && e.vendor && <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'50%'}}>{e.description}</span>}
                 </div>
+                {status === 'rejected' && e.rejected_reason && (
+                  <div style={{marginTop:6,fontSize:11,color:'#f26060'}}>Rejected: {e.rejected_reason}</div>
+                )}
               </div>
             );
           })}

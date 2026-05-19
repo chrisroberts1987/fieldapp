@@ -2,21 +2,33 @@ import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useRefetchOnFocus } from '../lib/useFocus';
+import { useOrg } from '../lib/org';
+import { isForeman, isOffice } from '../lib/role';
 import Logo from './Logo';
 
-const TABS = [
-  { label:'Dashboard', route:'/dashboard' },
-  { label:'Leads',     route:'/leads' },
-  { label:'Quotes',    route:'/quotes' },
-  { label:'Customers', route:'/customers' },
-  { label:'Jobs',      route:'/jobs' },
-  { label:'Mileage',   route:'/mileage' },
-  { label:'Expenses',  route:'/expenses' },
-  { label:'Invoices',  route:'/invoices' },
-  { label:'Tax',       route:'/tax' },
-  { label:'Crew',      route:'/crew' },
-  { label:'Insights',  route:'/insights' },
+const ALL_TABS = [
+  { label:'Dashboard', route:'/dashboard', showFor:'all' },
+  { label:'Leads',     route:'/leads',     showFor:'office' },
+  { label:'Quotes',    route:'/quotes',    showFor:'foreman' },
+  { label:'Customers', route:'/customers', showFor:'office' },
+  { label:'Jobs',      route:'/jobs',      showFor:'all' },
+  { label:'Mileage',   route:'/mileage',   showFor:'all' },
+  { label:'Expenses',  route:'/expenses',  showFor:'all' },
+  { label:'Approvals', route:'/approvals', showFor:'office' },
+  { label:'Invoices',  route:'/invoices',  showFor:'foreman' },
+  { label:'Tax',       route:'/tax',       showFor:'foreman' },
+  { label:'Crew',      route:'/crew',      showFor:'all' },
+  { label:'Insights',  route:'/insights',  showFor:'foreman' },
 ];
+
+function visibleTabs(role) {
+  return ALL_TABS.filter(t => {
+    if (t.showFor === 'all') return true;
+    if (t.showFor === 'office') return isOffice(role);
+    if (t.showFor === 'foreman') return isForeman(role);
+    return false;
+  });
+}
 
 export default function TopNav({ active }) {
   const router = useRouter();
@@ -24,6 +36,8 @@ export default function TopNav({ active }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifs, setNotifs] = useState([]);
   const [user, setUser] = useState(null);
+  const { role } = useOrg(user);
+  const TABS = visibleTabs(role);
 
   const loadNotifs = async () => {
     if (!user) return;
