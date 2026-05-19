@@ -77,11 +77,11 @@ language sql
 stable
 security definer
 set search_path = public
-as $$
+as $get_pub_org$
   select id, name, logo_url
   from public.organizations
   where slug = p_slug;
-$$;
+$get_pub_org$;
 
 revoke all on function public.get_public_org_by_slug(text) from public;
 grant execute on function public.get_public_org_by_slug(text) to anon, authenticated;
@@ -104,7 +104,7 @@ returns uuid
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $create_lead_quote$
 declare
   v_org_id  uuid;
   v_lead_id uuid;
@@ -129,7 +129,7 @@ begin
 
   return v_lead_id;
 end;
-$$;
+$create_lead_quote$;
 
 revoke all on function public.create_lead_from_quote(text, text, text, text, text, text) from public;
 grant execute on function public.create_lead_from_quote(text, text, text, text, text, text) to anon, authenticated;
