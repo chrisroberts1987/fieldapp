@@ -247,7 +247,7 @@ begin
       -- ~5 months ago — holidays
       (155, c_chen,       v_crew1_id,       'Holiday lighting install',   'Hung exterior holiday lighting per customer specification.',                  380.00),
       (150, c_anderson,   v_crew2_id,       'Kitchen sink P-trap',        'Cleared kitchen drain, replaced P-trap and supply lines.',                    720.00)
-    ) as t(days_ago integer, customer uuid, assigned uuid, title text, description text, price numeric)
+    ) as t(days_ago, customer, assigned, title, description, price)
   loop
     v_hourly := case
                   when v_hist_row.assigned = v_supervisor_id then 32.00
