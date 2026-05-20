@@ -93,8 +93,9 @@ return (
 
 {customers.map(c => (
 <div key={c.id} style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,margin:'6px 16px',padding:'13px 14px',cursor:'pointer'}} onClick={() => openEdit(c)}>
-<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:3}}>
-<div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.04em',color:'#f0f4ff'}}>{c.name}</div>
+<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6,gap:8}}>
+<div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.04em',color:'#f0f4ff',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.name}</div>
+<ContactActions phone={c.phone} email={c.email}/>
 <button onClick={e => { e.stopPropagation(); del(c.id); }} style={{background:'none',border:'none',color:'#f26060',cursor:'pointer',fontSize:12,fontWeight:700,padding:'2px 6px'}}>✕</button>
 </div>
 {c.phone && <div style={{fontSize:12,color:'#c8d4ee'}}>{c.phone}</div>}
@@ -104,6 +105,7 @@ return (
 </div>
 ))}
 
+{/* contact-action component declared below the component */}
 {sheet && (
 <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.72)',zIndex:200,display:'flex',alignItems:'flex-end',backdropFilter:'blur(3px)'}} onClick={e => e.target===e.currentTarget && setSheet(null)}>
 <div style={{background:'#1a2236',borderTop:'2px solid #2e3f60',borderRadius:'20px 20px 0 0',width:'100%',maxWidth:480,margin:'0 auto',maxHeight:'90vh',overflowY:'auto',paddingBottom:24}}>
@@ -145,4 +147,38 @@ Cancel
 )}
 </div>
 );
+}
+
+function ContactActions({ phone, email }) {
+  if (!phone && !email) return null;
+  const stop = e => e.stopPropagation();
+  const telHref  = phone ? `tel:${phone.replace(/[^+\d]/g, '')}` : null;
+  const smsHref  = phone ? `sms:${phone.replace(/[^+\d]/g, '')}` : null;
+  const mailHref = email ? `mailto:${email}` : null;
+  return (
+    <div style={{display:'flex',gap:6}} onClick={stop}>
+      {telHref && (
+        <a href={telHref} onClick={stop} title={`Call ${phone}`}
+          style={iconBtn('#2edf87')}>📞</a>
+      )}
+      {smsHref && (
+        <a href={smsHref} onClick={stop} title={`Text ${phone}`}
+          style={iconBtn('#4f9eff')}>💬</a>
+      )}
+      {mailHref && (
+        <a href={mailHref} onClick={stop} title={`Email ${email}`}
+          style={iconBtn('#fbbf24')}>✉️</a>
+      )}
+    </div>
+  );
+}
+
+function iconBtn(color) {
+  return {
+    display:'inline-flex', alignItems:'center', justifyContent:'center',
+    width:30, height:30, borderRadius:8,
+    background: color + '22', border: '1px solid ' + color + '66',
+    color: color, fontSize:14, textDecoration:'none',
+    lineHeight:1, cursor:'pointer',
+  };
 }
