@@ -105,6 +105,10 @@ export default function TopNav({ active }) {
             <span style={{fontSize:12,color:'#c8d4ee',flex:1,minWidth:0}}>
               You're viewing a live demo — sign up free to create your own account.
             </span>
+            <button onClick={async () => { await supabase.auth.signOut(); router.push('/'); }}
+              style={{background:'transparent',border:'1px solid #2edf8766',borderRadius:8,color:'#2edf87',padding:'6px 12px',fontSize:11,fontWeight:700,letterSpacing:'.06em',cursor:'pointer',whiteSpace:'nowrap'}}>
+              EXIT DEMO
+            </button>
             <button onClick={() => router.push('/signup')}
               style={{background:'#2edf87',border:'none',borderRadius:8,color:'#0d1726',padding:'6px 12px',fontSize:11,fontWeight:700,letterSpacing:'.06em',cursor:'pointer',whiteSpace:'nowrap'}}>
               START FREE TRIAL →

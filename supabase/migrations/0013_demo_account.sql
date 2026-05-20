@@ -119,6 +119,11 @@ declare
   j_crestview_mar uuid; j_anderson_mar uuid; j_park_apr uuid; j_foster_apr uuid;
   j_thornton_now uuid; j_chen_overdue uuid;
   j_anderson_active uuid; j_park_active uuid; j_robinson_today uuid;
+
+  -- For the historical-jobs FOR LOOP further down
+  v_job_id     uuid;
+  v_hist_row   record;
+  v_hourly     numeric;
 begin
   -- 1. Auth users -------------------------------------------------
   v_demo_user_id  := public.ensure_demo_auth_user(v_demo_email, v_demo_password);
@@ -205,6 +210,72 @@ begin
   insert into public.customers (org_id, owner_id, name, phone, email, address, notes) values
     (v_org_id, v_demo_user_id, 'Sandra Mitchell', '512-555-0221', 'smitchell@example.com', '9012 Great Hills Trail, Austin, TX 78759', null)
     returning id into c_mitchell;
+
+  -- 5b. HISTORICAL COMPLETED JOBS (5-12 months back) ------------
+  -- A FOR LOOP keeps this readable: each row becomes a job + paid
+  -- invoice + one labor entry + one materials expense, with the
+  -- job ultimately ending in 'completed' status (we insert it as
+  -- 'in_progress' first so the auto-invoice trigger from migration
+  -- 0012 doesn't fire before we've added our pre-dated invoice).
+  -- Seasonal mix: AC/HVAC heavy in summer, lighting in winter, etc.
+  -- --------------------------------------------------------------
+  for v_hist_row in
+    select * from (values
+      -- ~12 months ago — pre-summer prep
+      (360, c_foster,     v_crew1_id,       'AC pre-summer service',      'Annual AC tune-up, capacitor check, filter swap.',                            850.00),
+      (354, c_anderson,   v_supervisor_id,  'Deck staining',              'Power-wash and stain back deck. Two-day cure.',                              1200.00),
+      -- ~11 months ago — peak summer begins
+      (330, c_crestview,  v_crew2_id,       'Rental #3 disposal repair',  'Replaced under-sink garbage disposal at Westgate unit 3.',                    475.00),
+      (325, c_park,       v_crew1_id,       'Ceiling fan installs (3)',   'Hung three Hampton Bay 52" fans in living room and bedrooms.',                620.00),
+      -- ~10 months ago — peak summer
+      (300, c_robinson,   v_crew1_id,       'AC condenser repair',        'Replaced condenser fan motor and start capacitor on outdoor unit.',          1850.00),
+      (295, c_thornton,   v_crew2_id,       'Condo AC tune-up',           'Service call on 4th-floor unit — coil cleaning and filter.',                  325.00),
+      -- ~9 months ago — heat wave, emergency work
+      (270, c_whitaker,   v_supervisor_id,  'Pool pump replacement',      'Removed Hayward Super II, installed new 1.5HP variable-speed.',              1620.00),
+      (264, c_foster,     v_crew1_id,       'Emergency AC repair',        'After-hours compressor replacement during heat wave.',                       2950.00),
+      (260, c_chen,       v_crew2_id,       'Garage outlets x4',          'Added four 20A GFCI outlets in garage for workbench setup.',                  580.00),
+      -- ~8 months ago — start of fall
+      (240, c_anderson,   v_crew1_id,       'Gutter replacement',         'Removed bent aluminum gutter on east side. New seamless run.',               1450.00),
+      (235, c_crestview,  v_crew2_id,       'Rental #5 toilet swap',      'Replaced cracked Kohler toilet at Cedar Ridge unit 5.',                        890.00),
+      -- ~7 months ago — fall maintenance
+      (215, c_robinson,   v_crew1_id,       'Water heater anode rod',     'Replaced sacrificial anode on Bradford White 50-gal tank.',                   290.00),
+      (210, c_park,       v_crew2_id,       'Doorbell + camera install',  'Hard-wired Ring doorbell with chime kit. Two-camera setup.',                  480.00),
+      (205, c_foster,     v_supervisor_id,  'Weatherstripping package',   'Replaced weatherstripping on 4 exterior doors. New door sweep on garage.',    640.00),
+      -- ~6 months ago — slow stretch
+      (185, c_whitaker,   v_crew1_id,       'Outdoor lighting',           'Low-voltage path lighting around front and side walkways.',                  1100.00),
+      (180, c_crestview,  v_crew2_id,       'Rental #8 dishwasher',       'Removed and replaced dishwasher at Pinehurst unit 8.',                        510.00),
+      -- ~5 months ago — holidays
+      (155, c_chen,       v_crew1_id,       'Holiday lighting install',   'Hung exterior holiday lighting per customer specification.',                  380.00),
+      (150, c_anderson,   v_crew2_id,       'Kitchen sink P-trap',        'Cleared kitchen drain, replaced P-trap and supply lines.',                    720.00)
+    ) as t(days_ago integer, customer uuid, assigned uuid, title text, description text, price numeric)
+  loop
+    v_hourly := case
+                  when v_hist_row.assigned = v_supervisor_id then 32.00
+                  when v_hist_row.assigned = v_crew1_id      then 24.00
+                  else                                            22.00
+                end;
+
+    insert into public.jobs (org_id, owner_id, customer_id, assigned_to_user_id, title, description, status, scheduled_date, price, created_at)
+    values (v_org_id, v_demo_user_id, v_hist_row.customer, v_hist_row.assigned, v_hist_row.title, v_hist_row.description,
+            'in_progress', v_today - v_hist_row.days_ago, v_hist_row.price, (v_today - v_hist_row.days_ago - 2)::timestamptz)
+    returning id into v_job_id;
+
+    insert into public.invoices (org_id, owner_id, job_id, customer_id, amount, status, issued_date, paid_date, notes)
+    values (v_org_id, v_demo_user_id, v_job_id, v_hist_row.customer, v_hist_row.price, 'paid',
+            v_today - v_hist_row.days_ago, v_today - v_hist_row.days_ago + 7, v_hist_row.title);
+
+    insert into public.job_labor (org_id, job_id, user_id, work_date, hours, hourly_rate, notes)
+    values (v_org_id, v_job_id, v_hist_row.assigned, v_today - v_hist_row.days_ago,
+            round((v_hist_row.price * 0.22 / v_hourly)::numeric, 1), v_hourly, 'Historical job');
+
+    insert into public.expenses (org_id, owner_id, job_id, category, amount, expense_date, vendor, description)
+    values (v_org_id, v_demo_user_id, v_job_id, 'materials',
+            round((v_hist_row.price * 0.24)::numeric, 2),
+            v_today - v_hist_row.days_ago - 1, 'Home Depot',
+            'Materials — ' || v_hist_row.title);
+
+    update public.jobs set status = 'completed' where id = v_job_id;
+  end loop;
 
   -- 6. Completed jobs (in chronological order, all status=in_progress
   --    initially so the auto-invoice trigger doesn't fire; we'll add
@@ -300,21 +371,55 @@ begin
     j_thornton_now, j_chen_overdue
   );
 
-  -- 10. Quotes (sent, awaiting customer response) ---------------
-  insert into public.quotes (org_id, owner_id, customer_id, customer_name, customer_email, customer_phone, title, description, amount, status, sent_at, valid_until, notes) values
-    (v_org_id, v_demo_user_id, c_chen, 'Patricia Chen', 'patricia.chen@example.com', '512-555-0189',
+  -- 10. Quotes (sent + historical approved/declined/expired) ----
+  insert into public.quotes (org_id, owner_id, customer_id, customer_name, customer_email, customer_phone, title, description, amount, status, sent_at, approved_at, declined_at, valid_until, notes, created_at) values
+    -- Currently awaiting customer response
+    (v_org_id, v_demo_user_id, c_chen,     'Patricia Chen',          'patricia.chen@example.com', '512-555-0189',
      'Master bath remodel — phase 1', 'Demolition, plumbing rough-in, new shower valve, sub-floor inspection. Materials estimate separate.',
-     3500, 'sent', (v_today - 5)::timestamptz, v_today + 25, null),
-    (v_org_id, v_demo_user_id, c_thornton, 'Robert Thornton', 'rthornton@example.com', '512-555-0278',
+     3500, 'sent',     (v_today - 5)::timestamptz, null, null, v_today + 25, null, (v_today - 5)::timestamptz),
+    (v_org_id, v_demo_user_id, c_thornton, 'Robert Thornton',        'rthornton@example.com',     '512-555-0278',
      'AC system replacement', '3-ton Trane variable-speed unit, removal + disposal of existing, refrigerant line set inspection.',
-     1850, 'sent', (v_today - 2)::timestamptz, v_today + 28, null);
+     1850, 'sent',     (v_today - 2)::timestamptz, null, null, v_today + 28, null, (v_today - 2)::timestamptz),
+    -- Historical approvals (customer said yes; job was scheduled)
+    (v_org_id, v_demo_user_id, c_foster,   'James & Linda Foster',   'foster.j@example.com',      '512-555-0234',
+     'Emergency AC repair', 'After-hours compressor replacement during heat wave.',
+     2950, 'approved', (v_today - 268)::timestamptz, (v_today - 266)::timestamptz, null, v_today - 235, null, (v_today - 268)::timestamptz),
+    (v_org_id, v_demo_user_id, c_whitaker, 'Diana Whitaker',         'diana.w@example.com',       '512-555-0167',
+     'Pool pump replacement', 'Variable-speed Hayward 1.5HP swap.',
+     1620, 'approved', (v_today - 274)::timestamptz, (v_today - 272)::timestamptz, null, v_today - 240, null, (v_today - 274)::timestamptz),
+    (v_org_id, v_demo_user_id, c_anderson, 'Anderson Family Trust',  'anderson.trust@example.com','512-555-0345',
+     'Gutter replacement (east side)', 'Removal of bent aluminum, new seamless run east elevation.',
+     1450, 'approved', (v_today - 244)::timestamptz, (v_today - 242)::timestamptz, null, v_today - 210, null, (v_today - 244)::timestamptz),
+    -- Declined
+    (v_org_id, v_demo_user_id, null,       'Brad Henson',            'bh@example.com',            '512-555-0512',
+     'Kitchen full re-plumb', 'Re-route supply + drain, fixtures by customer.',
+     2200, 'declined', (v_today - 252)::timestamptz, null, (v_today - 247)::timestamptz, v_today - 220, 'Went with cheaper bid.', (v_today - 252)::timestamptz),
+    -- Expired (customer never responded)
+    (v_org_id, v_demo_user_id, null,       'Marcus DeWitt',          'md@example.com',            '512-555-0571',
+     'Workshop outlets + circuit', 'Sub-panel feeder + 6 outlets in detached workshop.',
+      600, 'expired',  (v_today - 148)::timestamptz, null, null, v_today - 117, null, (v_today - 148)::timestamptz);
 
-  -- 11. Leads ---------------------------------------------------
+  -- 11. Leads (active + historical for conversion-rate metric) --
   insert into public.leads (org_id, owner_id, name, phone, email, address, source, status, estimated_value, follow_up_date, notes, created_at) values
-    (v_org_id, v_demo_user_id, 'Vincent Alvarez',  '512-555-0193', 'valvarez@example.com', '1547 Cherry Creek Dr, Austin, TX 78745',
+    -- Active
+    (v_org_id, v_demo_user_id, 'Vincent Alvarez',  '512-555-0193', 'valvarez@example.com',  '1547 Cherry Creek Dr, Austin, TX 78745',
      'referral', 'new',       400, v_today + 2, 'Referred by Patricia Chen. Wants kitchen sink valve replaced.',     (v_today - 4)::timestamptz),
     (v_org_id, v_demo_user_id, 'Sandra Mitchell',  '512-555-0221', 'smitchell@example.com', '9012 Great Hills Trail, Austin, TX 78759',
-     'website',  'contacted', 250, v_today,     'Called back Tue. Wants panel inspection — old FPE breakers concern.', (v_today - 6)::timestamptz);
+     'website',  'contacted', 250, v_today,     'Called back Tue. Wants panel inspection — old FPE breakers concern.', (v_today - 6)::timestamptz),
+    -- Historical — won
+    (v_org_id, v_demo_user_id, 'Eduardo Mendoza',  '512-555-0461', 'em@example.com',        '4500 Bull Creek Rd, Austin, TX 78731',
+     'referral', 'won',      1500, null,        'Converted — became regular handyman client.',                       (v_today - 320)::timestamptz),
+    (v_org_id, v_demo_user_id, 'Karen Walsh',      '512-555-0488', 'kw@example.com',        '1124 W 38th St, Austin, TX 78705',
+     'website',  'won',       800, null,        'Outlet add — moved to job same week.',                              (v_today - 280)::timestamptz),
+    (v_org_id, v_demo_user_id, 'Olivia Park',      '512-555-0534', 'op@example.com',        '503 Brentwood St, Austin, TX 78757',
+     'call',     'won',       450, null,        'Quick handyman job — done.',                                        (v_today - 195)::timestamptz),
+    (v_org_id, v_demo_user_id, 'Tina Brookfield',  '512-555-0598', 'tb@example.com',        '4101 Avenue D, Austin, TX 78751',
+     'referral', 'won',      1100, null,        'Referred by Anderson Trust.',                                       (v_today - 110)::timestamptz),
+    -- Historical — lost
+    (v_org_id, v_demo_user_id, 'Brad Henson',      '512-555-0512', 'bh@example.com',        '8800 Anderson Mill Rd, Austin, TX 78759',
+     'website',  'lost',     2200, null,        'Went with cheaper bid.',                                            (v_today - 250)::timestamptz),
+    (v_org_id, v_demo_user_id, 'Marcus DeWitt',    '512-555-0571', 'md@example.com',        '7218 Brodie Ln, Austin, TX 78745',
+     'walk_in',  'lost',      600, null,        'Wanted same-day, couldn''t fit it in.',                             (v_today - 145)::timestamptz);
 
   -- 12. Expenses (mix of categories, job-tied and overhead) -----
   -- 4 months back
@@ -350,6 +455,50 @@ begin
     (v_org_id, v_demo_user_id, null,           'fuel',       66.85, v_today - 3,   'Chevron',           'Truck #2'),
     (v_org_id, v_demo_user_id, null,           'insurance', 410.00, v_today - 1,   'Hartford',          'Monthly GL premium');
 
+  -- 12b. OVERHEAD EXPENSES for the older 5-12 months ------------
+  -- Monthly insurance — 8 entries to fill out the year
+  insert into public.expenses (org_id, owner_id, category, amount, expense_date, vendor, description)
+  select v_org_id, v_demo_user_id, 'insurance', 410.00, (v_today - (n * 30) - 5)::date, 'Hartford', 'Monthly GL premium'
+  from generate_series(5, 12) as n;
+
+  -- Fuel — roughly every 12 days going back the year (older months only,
+  -- the recent months are already itemized above)
+  insert into public.expenses (org_id, owner_id, category, amount, expense_date, vendor, description)
+  select v_org_id, v_demo_user_id, 'fuel',
+         round((58 + (n % 5) * 6)::numeric, 2),
+         (v_today - 130 - n * 12)::date,
+         case when n % 2 = 0 then 'Shell' else 'Chevron' end,
+         'Truck #' || (1 + (n % 2))::text || ' fill'
+  from generate_series(0, 19) as n;
+
+  -- Quarterly marketing spend
+  insert into public.expenses (org_id, owner_id, category, amount, expense_date, vendor, description) values
+    (v_org_id, v_demo_user_id, null, 'marketing',   280.00, v_today - 350, 'Google Ads',       'Local services ads — Q1 last year'),
+    (v_org_id, v_demo_user_id, null, 'marketing',   320.00, v_today - 260, 'Google Ads',       'Local services ads — summer push'),
+    (v_org_id, v_demo_user_id, null, 'advertising', 195.00, v_today - 195, 'Yard sign printer','Yard sign reorder (50)'),
+    (v_org_id, v_demo_user_id, null, 'marketing',   295.00, v_today - 170, 'Google Ads',       'Local services ads — Q4 last year'),
+    (v_org_id, v_demo_user_id, null, 'advertising', 125.00, v_today - 145, 'Nextdoor',         'Neighborhood promo'),
+    (v_org_id, v_demo_user_id, null, 'marketing',   260.00, v_today - 80,  'Google Ads',       'Local services ads — Q1 this year');
+
+  -- Equipment one-offs across the year
+  insert into public.expenses (org_id, owner_id, category, amount, expense_date, vendor, description) values
+    (v_org_id, v_demo_user_id, null, 'equipment', 425.00, v_today - 320, 'Northern Tool', 'Cordless drill set (Milwaukee M18)'),
+    (v_org_id, v_demo_user_id, null, 'equipment', 540.00, v_today - 235, 'Home Depot',    'Replacement ladder + safety harness'),
+    (v_org_id, v_demo_user_id, null, 'equipment', 312.50, v_today - 165, 'Harbor Freight','Power tool kit replenishment');
+
+  -- Office overhead spread out
+  insert into public.expenses (org_id, owner_id, category, amount, expense_date, vendor, description) values
+    (v_org_id, v_demo_user_id, null, 'office',     85.00, v_today - 245, 'Adobe',         'Acrobat subscription'),
+    (v_org_id, v_demo_user_id, null, 'office',    149.99, v_today - 200, 'QuickBooks',    'QuickBooks Online — annual'),
+    (v_org_id, v_demo_user_id, null, 'office',     65.00, v_today - 100, 'Office Depot',  'Receipt paper + printer ink'),
+    (v_org_id, v_demo_user_id, null, 'office',     42.00, v_today - 75,  'Amazon',        'Filing supplies');
+
+  -- Meals (deductible at 50%) — periodic crew lunches
+  insert into public.expenses (org_id, owner_id, category, amount, expense_date, vendor, description) values
+    (v_org_id, v_demo_user_id, null, 'meals',      52.10, v_today - 295, 'Torchy''s Tacos','Crew lunch — heat wave run'),
+    (v_org_id, v_demo_user_id, null, 'meals',      38.40, v_today - 180, 'Whataburger',   'Crew lunch — gutter day'),
+    (v_org_id, v_demo_user_id, null, 'meals',      44.85, v_today - 115, 'Torchy''s Tacos','Crew lunch — Crestview run');
+
   -- 13. Job labor (per-crew hours on jobs) ----------------------
   insert into public.job_labor (org_id, job_id, user_id, work_date, hours, hourly_rate, notes) values
     (v_org_id, j_robinson_jan,    v_crew1_id,      v_today - 122, 4.5, 24.00, 'Sink repair'),
@@ -380,6 +529,25 @@ begin
     (v_org_id, v_crew1_id,      v_today - 2,  12.7, 'business', '123 Congress Ave, Austin, TX', '7409 Spicewood Springs Rd, Austin, TX','Park bath job materials',  'pending'),
     (v_org_id, v_supervisor_id, v_today,      6.0,  'business', '123 Congress Ave, Austin, TX', '2030 S Lamar Blvd, Austin, TX',   'Anderson fence start',         'approved'),
     (v_org_id, v_crew2_id,      v_today,      3.8,  'business', '123 Congress Ave, Austin, TX', '4521 Travis Heights Blvd, Austin, TX','Robinson gutter clean',     'approved');
+
+  -- 14b. HISTORICAL MILEAGE (5-12 months back) ------------------
+  insert into public.mileage_logs (org_id, user_id, log_date, miles, purpose, start_address, end_address, notes, approval_status)
+  select v_org_id,
+         case when n % 3 = 0 then v_supervisor_id when n % 3 = 1 then v_crew1_id else v_crew2_id end,
+         (v_today - 120 - n * 14)::date,
+         round((4 + (n % 7) * 2.3)::numeric, 1),
+         'business',
+         '123 Congress Ave, Austin, TX',
+         case (n % 5)
+           when 0 then '4521 Travis Heights Blvd, Austin, TX'
+           when 1 then '1138 Oak Hill Pkwy, Austin, TX'
+           when 2 then '7409 Spicewood Springs Rd, Austin, TX'
+           when 3 then '6021 Lake Austin Blvd, Austin, TX'
+           else        '2030 S Lamar Blvd, Austin, TX'
+         end,
+         'Job site visit',
+         'approved'
+  from generate_series(0, 17) as n;
 
   -- 15. Sample AI Coach recommendations for the current month ---
   -- Hardcoded so the demo shows the Coach output without an API call.
