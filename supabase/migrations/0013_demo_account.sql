@@ -472,7 +472,7 @@ begin
   from generate_series(0, 19) as n;
 
   -- Quarterly marketing spend
-  insert into public.expenses (org_id, owner_id, category, amount, expense_date, vendor, description) values
+  insert into public.expenses (org_id, owner_id, job_id, category, amount, expense_date, vendor, description) values
     (v_org_id, v_demo_user_id, null, 'marketing',   280.00, v_today - 350, 'Google Ads',       'Local services ads — Q1 last year'),
     (v_org_id, v_demo_user_id, null, 'marketing',   320.00, v_today - 260, 'Google Ads',       'Local services ads — summer push'),
     (v_org_id, v_demo_user_id, null, 'advertising', 195.00, v_today - 195, 'Yard sign printer','Yard sign reorder (50)'),
@@ -481,20 +481,20 @@ begin
     (v_org_id, v_demo_user_id, null, 'marketing',   260.00, v_today - 80,  'Google Ads',       'Local services ads — Q1 this year');
 
   -- Equipment one-offs across the year
-  insert into public.expenses (org_id, owner_id, category, amount, expense_date, vendor, description) values
+  insert into public.expenses (org_id, owner_id, job_id, category, amount, expense_date, vendor, description) values
     (v_org_id, v_demo_user_id, null, 'equipment', 425.00, v_today - 320, 'Northern Tool', 'Cordless drill set (Milwaukee M18)'),
     (v_org_id, v_demo_user_id, null, 'equipment', 540.00, v_today - 235, 'Home Depot',    'Replacement ladder + safety harness'),
     (v_org_id, v_demo_user_id, null, 'equipment', 312.50, v_today - 165, 'Harbor Freight','Power tool kit replenishment');
 
   -- Office overhead spread out
-  insert into public.expenses (org_id, owner_id, category, amount, expense_date, vendor, description) values
+  insert into public.expenses (org_id, owner_id, job_id, category, amount, expense_date, vendor, description) values
     (v_org_id, v_demo_user_id, null, 'office',     85.00, v_today - 245, 'Adobe',         'Acrobat subscription'),
     (v_org_id, v_demo_user_id, null, 'office',    149.99, v_today - 200, 'QuickBooks',    'QuickBooks Online — annual'),
     (v_org_id, v_demo_user_id, null, 'office',     65.00, v_today - 100, 'Office Depot',  'Receipt paper + printer ink'),
     (v_org_id, v_demo_user_id, null, 'office',     42.00, v_today - 75,  'Amazon',        'Filing supplies');
 
   -- Meals (deductible at 50%) — periodic crew lunches
-  insert into public.expenses (org_id, owner_id, category, amount, expense_date, vendor, description) values
+  insert into public.expenses (org_id, owner_id, job_id, category, amount, expense_date, vendor, description) values
     (v_org_id, v_demo_user_id, null, 'meals',      52.10, v_today - 295, 'Torchy''s Tacos','Crew lunch — heat wave run'),
     (v_org_id, v_demo_user_id, null, 'meals',      38.40, v_today - 180, 'Whataburger',   'Crew lunch — gutter day'),
     (v_org_id, v_demo_user_id, null, 'meals',      44.85, v_today - 115, 'Torchy''s Tacos','Crew lunch — Crestview run');
