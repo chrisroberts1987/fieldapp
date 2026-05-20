@@ -7,6 +7,7 @@ import { isForeman, isSupervisor, isCrew, isOffice, roleLabel, roleColor } from 
 import { fmt$, fmtDate } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import SubNav from '../../components/SubNav';
+import { sendEmail } from '../../lib/email/client';
 
 export default function Crew() {
   const router = useRouter();
@@ -103,6 +104,19 @@ export default function Crew() {
     setSaving(false);
     if (e) { setError(e.message); return; }
     setNewInvite(data);
+
+    // Fire the invite email if we have one. Best-effort — the invite
+    // exists either way, so the foreman can still copy/share the link.
+    if (data.invite_email) {
+      const url = `${window.location.origin}/invite/${data.token}`;
+      const r = await sendEmail({
+        type: 'crew_invite',
+        to: data.invite_email,
+        data: { role: data.role, inviteUrl: url, payRate: data.hourly_pay_rate },
+      });
+      if (!r.ok) setError('Invite created but email didn\'t send: ' + r.error);
+    }
+
     await loadAll();
   };
 

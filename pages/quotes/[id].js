@@ -5,6 +5,7 @@ import { useOrg } from '../../lib/org';
 import { useRefetchOnFocus } from '../../lib/useFocus';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import { sendEmail } from '../../lib/email/client';
 
 export default function QuoteDetail() {
   const router = useRouter();
@@ -78,8 +79,22 @@ export default function QuoteDetail() {
   const markSent = async () => {
     await save();
     await supabase.from('quotes').update({ status:'sent', sent_at: new Date().toISOString() }).eq('id', id);
-    // Stub: when Resend/Twilio are wired up, fire the send here.
-    // For now, the contractor copies the link and shares it themselves.
+
+    if (quote?.customer_email) {
+      const approvalUrlNow = `${window.location.origin}/q/${quote.approval_token}`;
+      const r = await sendEmail({
+        type: 'quote_sent',
+        to: quote.customer_email,
+        data: {
+          customerName: quote.customer_name,
+          quoteTitle:   quote.title,
+          amount:       quote.amount,
+          approvalUrl:  approvalUrlNow,
+          validUntil:   quote.valid_until ? fmtDate(quote.valid_until) : null,
+        },
+      });
+      if (!r.ok) alert('Quote marked sent, but the email didn\'t go out: ' + r.error);
+    }
     await load();
   };
 

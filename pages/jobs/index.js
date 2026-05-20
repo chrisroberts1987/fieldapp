@@ -6,6 +6,7 @@ import { useRefetchOnFocus } from '../../lib/useFocus';
 import { isCrew, isOffice } from '../../lib/role';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import { sendEmail } from '../../lib/email/client';
 
 const STATUSES = [
   { key:'scheduled',   label:'Scheduled',   color:'#54d4f8' },
@@ -174,10 +175,26 @@ export default function Jobs() {
     };
     // A trigger in migration 0012 auto-creates the invoice when a job hits
     // 'completed' status, so the client side just persists the change.
+    const wasCompleted = sheet !== 'new' && sheet?.status === 'completed';
+    const nowCompleted = payload.status === 'completed';
     if (sheet === 'new') {
       await supabase.from('jobs').insert({ ...payload, owner_id: user.id, org_id: orgId });
     } else {
       await supabase.from('jobs').update(payload).eq('id', sheet.id);
+    }
+
+    // Fire the "your job is complete" email to the customer on the
+    // status transition into completed. Best-effort — the in-app
+    // notification and invoice are still created by the trigger.
+    if (nowCompleted && !wasCompleted && payload.customer_id) {
+      const cust = customers.find(c => c.id === payload.customer_id);
+      if (cust?.email) {
+        await sendEmail({
+          type: 'job_completed',
+          to: cust.email,
+          data: { customerName: cust.name, jobTitle: payload.title, description: payload.description || null },
+        });
+      }
     }
 
     await loadAll();

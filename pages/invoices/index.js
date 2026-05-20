@@ -5,6 +5,7 @@ import { useOrg } from '../../lib/org';
 import { useRefetchOnFocus } from '../../lib/useFocus';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import { sendEmail } from '../../lib/email/client';
 
 const FILTERS = [
   { key:'all',    label:'All' },
@@ -125,16 +126,18 @@ export default function Invoices() {
   };
 
   const onInvoicePaid = async (invoiceId, custId, amount) => {
-    const custName = customers.find(c => c.id === custId)?.name || 'Customer';
+    const cust = customers.find(c => c.id === custId);
+    const custName = cust?.name || 'Customer';
     // Ensure we only create one feedback record per invoice.
-    const { data: existing } = await supabase.from('feedback').select('id').eq('invoice_id', invoiceId).maybeSingle();
+    let { data: existing } = await supabase.from('feedback').select('id, token').eq('invoice_id', invoiceId).maybeSingle();
     if (!existing) {
-      await supabase.from('feedback').insert({
+      const { data: inserted } = await supabase.from('feedback').insert({
         org_id: orgId,
         invoice_id: invoiceId,
         customer_id: custId,
         customer_name: custName,
-      });
+      }).select('id, token').single();
+      existing = inserted;
     }
     await supabase.from('notifications').insert({
       org_id: orgId,
@@ -144,6 +147,17 @@ export default function Invoices() {
       body: `${custName} just paid ${'$'+Number(amount||0).toFixed(2)}. Feedback link generated.`,
       link: '/invoices',
     });
+    // Fire the feedback-request email to the customer (if we have an
+    // email on file). Best-effort — a failure here doesn't unwind the
+    // "marked paid" save.
+    if (cust?.email && existing?.token) {
+      const feedbackUrl = `${window.location.origin}/feedback/${existing.token}`;
+      await sendEmail({
+        type: 'invoice_paid_feedback',
+        to: cust.email,
+        data: { customerName: custName, amount, feedbackUrl },
+      });
+    }
   };
 
   const del = async (id) => {
