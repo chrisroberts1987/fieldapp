@@ -16,11 +16,19 @@ export default function Dashboard() {
 
   const loadStats = async (oid) => {
     const now = new Date();
-    const monthStart   = new Date(now.getFullYear(), now.getMonth(),     1);
+    const today = todayStr();
     const ytdStart     = new Date(now.getFullYear(), 0,                  1).toISOString().slice(0,10);
-    const sixMoStart   = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().slice(0,10);
+    const monthStartIso = new Date(now.getFullYear(), now.getMonth(),    1).toISOString().slice(0,10);
+    const lastMonthStartIso = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0,10);
+    const thirtyAgo    = new Date(now.getTime() - 30*24*3600*1000).toISOString().slice(0,10);
+    const sevenAgo     = new Date(now.getTime() -  7*24*3600*1000).toISOString().slice(0,10);
 
-    const [activeJobs, openLeads, customers, unpaidInvoices, paidLast6mo, expensesLast6mo] = await Promise.all([
+    const [
+      activeJobs, openLeads, customers, unpaidInvoices,
+      paidThisMonth, paidLastMonth, paidYtd, expThisMonth, expLastMonth, expYtd,
+      overdueInvoices, sentQuotes, staleLeads, pendingExp, pendingMi,
+      completedJobs, invoicedJobIds, todayJobs,
+    ] = await Promise.all([
       supabase.from('jobs').select('id', { count:'exact', head:true })
         .eq('org_id', oid).in('status', ['scheduled','in_progress']),
       supabase.from('leads').select('id', { count:'exact', head:true })
@@ -29,52 +37,54 @@ export default function Dashboard() {
         .eq('org_id', oid),
       supabase.from('invoices').select('amount')
         .eq('org_id', oid).eq('status', 'unpaid'),
-      supabase.from('invoices').select('amount, paid_date')
-        .eq('org_id', oid).eq('status', 'paid')
-        .gte('paid_date', sixMoStart),
-      supabase.from('expenses').select('amount, expense_date')
-        .eq('org_id', oid).gte('expense_date', sixMoStart),
+      supabase.from('invoices').select('amount').eq('org_id', oid).eq('status', 'paid').gte('paid_date', monthStartIso),
+      supabase.from('invoices').select('amount').eq('org_id', oid).eq('status', 'paid').gte('paid_date', lastMonthStartIso).lt('paid_date', monthStartIso),
+      supabase.from('invoices').select('amount').eq('org_id', oid).eq('status', 'paid').gte('paid_date', ytdStart),
+      supabase.from('expenses').select('amount').eq('org_id', oid).gte('expense_date', monthStartIso),
+      supabase.from('expenses').select('amount').eq('org_id', oid).gte('expense_date', lastMonthStartIso).lt('expense_date', monthStartIso),
+      supabase.from('expenses').select('amount').eq('org_id', oid).gte('expense_date', ytdStart),
+      supabase.from('invoices').select('id, amount, issued_date')
+        .eq('org_id', oid).eq('status', 'unpaid').lt('issued_date', thirtyAgo)
+        .order('issued_date', { ascending:true }).limit(50),
+      supabase.from('quotes').select('id, customer_name, amount, sent_at')
+        .eq('org_id', oid).eq('status', 'sent')
+        .order('sent_at', { ascending:true }).limit(50),
+      supabase.from('leads').select('id, name, status, created_at, follow_up_date')
+        .eq('org_id', oid).in('status', ['new','contacted'])
+        .or(`created_at.lt.${sevenAgo},follow_up_date.lte.${today}`)
+        .order('created_at', { ascending:true }).limit(50),
+      supabase.from('expenses').select('id', { count:'exact', head:true })
+        .eq('org_id', oid).eq('approval_status', 'pending'),
+      supabase.from('mileage_logs').select('id', { count:'exact', head:true })
+        .eq('org_id', oid).eq('approval_status', 'pending'),
+      supabase.from('jobs').select('id, title, price')
+        .eq('org_id', oid).eq('status', 'completed').gt('price', 0)
+        .order('created_at', { ascending:false }).limit(200),
+      supabase.from('invoices').select('job_id').eq('org_id', oid).not('job_id', 'is', null),
+      supabase.from('jobs').select('id, title, customer_id, status')
+        .eq('org_id', oid).eq('scheduled_date', today).in('status', ['scheduled','in_progress'])
+        .order('created_at', { ascending:true }).limit(20),
     ]);
 
-    // Bucket paid invoices + expenses by YYYY-MM for the trailing 6 months.
-    const monthly = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      monthly.push({
-        key: d.toISOString().slice(0,7),
-        label: d.toLocaleString(undefined, { month:'short' }),
-        revenue: 0,
-        expenses: 0,
-      });
-    }
-    const paid = paidLast6mo.data || [];
-    for (const inv of paid) {
-      const k = (inv.paid_date || '').slice(0,7);
-      const b = monthly.find(x => x.key === k);
-      if (b) b.revenue += Number(inv.amount || 0);
-    }
-    const exps = expensesLast6mo.data || [];
-    for (const exp of exps) {
-      const k = (exp.expense_date || '').slice(0,7);
-      const b = monthly.find(x => x.key === k);
-      if (b) b.expenses += Number(exp.amount || 0);
-    }
-    for (const b of monthly) b.netIncome = b.revenue - b.expenses;
+    const sumAmt = rs => (rs.data || []).reduce((s, r) => s + Number(r.amount || 0), 0);
+    const revenueMonth      = sumAmt(paidThisMonth);
+    const revenueLastMonth  = sumAmt(paidLastMonth);
+    const ytdRevenue        = sumAmt(paidYtd);
+    const expensesMonth     = sumAmt(expThisMonth);
+    const expensesLastMonth = sumAmt(expLastMonth);
+    const ytdExpenses       = sumAmt(expYtd);
+    const outstandingSum    = sumAmt(unpaidInvoices);
+    const ytdPaidCount      = (paidYtd.data || []).length;
 
-    const ytdPaid       = paid.filter(p => p.paid_date >= ytdStart);
-    const ytdRevenue    = ytdPaid.reduce((s, r) => s + Number(r.amount || 0), 0);
-    const avgInvoice    = ytdPaid.length > 0 ? ytdRevenue / ytdPaid.length : 0;
-    const ytdExpenses   = exps.filter(e => e.expense_date >= ytdStart).reduce((s, r) => s + Number(r.amount || 0), 0);
-    const outstandingSum = (unpaidInvoices.data || []).reduce((s, r) => s + Number(r.amount || 0), 0);
+    // Completed jobs that don't have a linked invoice yet.
+    const invoicedSet = new Set((invoicedJobIds.data || []).map(r => r.job_id));
+    const completedNoInvoice = (completedJobs.data || []).filter(j => !invoicedSet.has(j.id)).slice(0, 50);
 
     setStats({
-      revenueMonth:     monthly[5].revenue,
-      revenueLastMonth: monthly[4].revenue,
-      expensesMonth:    monthly[5].expenses,
-      expensesLastMonth:monthly[4].expenses,
-      netIncomeMonth:   monthly[5].netIncome,
-      netIncomeLastMonth: monthly[4].netIncome,
-      monthly,
+      revenueMonth, revenueLastMonth,
+      expensesMonth, expensesLastMonth,
+      netIncomeMonth:     revenueMonth - expensesMonth,
+      netIncomeLastMonth: revenueLastMonth - expensesLastMonth,
       openLeads:        openLeads.count || 0,
       activeJobs:       activeJobs.count || 0,
       unpaidCount:      unpaidInvoices.data?.length || 0,
@@ -83,8 +93,15 @@ export default function Dashboard() {
       ytdRevenue,
       ytdExpenses,
       ytdNetIncome:     ytdRevenue - ytdExpenses,
-      ytdInvoiceCount:  ytdPaid.length,
-      avgInvoice,
+      ytdInvoiceCount:  ytdPaidCount,
+      avgInvoice:       ytdPaidCount > 0 ? ytdRevenue / ytdPaidCount : 0,
+      // Action-needed feed
+      overdue:          overdueInvoices.data || [],
+      sentQuotes:       sentQuotes.data || [],
+      staleLeads:       staleLeads.data || [],
+      pendingApprovals: (pendingExp.count || 0) + (pendingMi.count || 0),
+      completedNoInvoice,
+      todayJobs:        todayJobs.data || [],
     });
   };
 
@@ -226,11 +243,8 @@ export default function Dashboard() {
           <FinanceCard label="Avg Invoice"  value={fmt$(stats.avgInvoice)}     color="#4f9eff" sub={`${stats.ytdInvoiceCount} invoiced`}/>
         </div>
 
-        {/* Chart */}
-        <SectionHeader title="Revenue + Expenses" subtitle="Last 6 months" />
-        <div style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,padding:'20px 18px 14px',marginBottom:28}}>
-          <RevenueChart monthly={stats.monthly}/>
-        </div>
+        {/* Action feed */}
+        <ActionFeed stats={stats} router={router} />
       </main>
 
       <style jsx global>{`
@@ -395,59 +409,125 @@ function DeltaPill({ value }) {
   );
 }
 
-function RevenueChart({ monthly }) {
-  const max = Math.max(1, ...monthly.flatMap(m => [m.revenue, m.expenses]));
+function ActionFeed({ stats, router }) {
+  const today = todayStr();
+  const daysOverdue = iso => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000));
+
+  const items = [];
+
+  for (const inv of stats.overdue) {
+    items.push({
+      key: 'inv-' + inv.id,
+      color: '#f26060',
+      tag: 'Overdue',
+      title: `${fmt$(inv.amount)} unpaid · ${daysOverdue(inv.issued_date)} days`,
+      sub: `Invoice issued ${fmtDate(inv.issued_date)}`,
+      cta: 'Send reminder',
+      onClick: () => router.push(`/invoices/${inv.id}`),
+      sortBy: -daysOverdue(inv.issued_date), // most overdue first
+    });
+  }
+
+  for (const j of stats.completedNoInvoice) {
+    items.push({
+      key: 'job-' + j.id,
+      color: '#fbbf24',
+      tag: 'Bill it',
+      title: j.title,
+      sub: `Job completed · ${fmt$(j.price)} ready to invoice`,
+      cta: 'Create invoice',
+      onClick: () => router.push('/jobs'),
+      sortBy: -50,
+    });
+  }
+
+  if (stats.pendingApprovals > 0) {
+    items.push({
+      key: 'approvals',
+      color: '#fbbf24',
+      tag: 'Review',
+      title: `${stats.pendingApprovals} crew submission${stats.pendingApprovals === 1 ? '' : 's'} waiting`,
+      sub: 'Expenses and mileage from your crew',
+      cta: 'Open approvals',
+      onClick: () => router.push('/approvals'),
+      sortBy: -40,
+    });
+  }
+
+  for (const q of stats.sentQuotes) {
+    const days = q.sent_at ? daysOverdue(q.sent_at) : 0;
+    items.push({
+      key: 'quote-' + q.id,
+      color: '#4f9eff',
+      tag: 'Awaiting',
+      title: `${q.customer_name} · ${fmt$(q.amount)}`,
+      sub: `Quote sent ${days} day${days === 1 ? '' : 's'} ago, no response`,
+      cta: 'Follow up',
+      onClick: () => router.push(`/quotes/${q.id}`),
+      sortBy: -(20 + days),
+    });
+  }
+
+  for (const l of stats.staleLeads) {
+    const days = daysOverdue(l.created_at);
+    const overdueFollowUp = l.follow_up_date && l.follow_up_date <= today;
+    items.push({
+      key: 'lead-' + l.id,
+      color: '#54d4f8',
+      tag: overdueFollowUp ? 'Follow up' : 'Stale',
+      title: l.name,
+      sub: overdueFollowUp
+        ? `Follow-up was scheduled for ${fmtDate(l.follow_up_date)}`
+        : `${l.status} for ${days} day${days === 1 ? '' : 's'} — no movement`,
+      cta: 'Open lead',
+      onClick: () => router.push('/leads'),
+      sortBy: -(10 + days),
+    });
+  }
+
+  for (const j of stats.todayJobs) {
+    items.push({
+      key: 'today-' + j.id,
+      color: '#2edf87',
+      tag: 'Today',
+      title: j.title,
+      sub: `Scheduled for today · ${j.status}`,
+      cta: 'View job',
+      onClick: () => router.push('/jobs'),
+      sortBy: 0,
+    });
+  }
+
+  items.sort((a, b) => a.sortBy - b.sortBy);
+
   return (
-    <div>
-      <div style={{display:'flex',gap:14,marginBottom:14,fontSize:11,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase'}}>
-        <span style={{color:'#2edf87'}}>● Revenue</span>
-        <span style={{color:'#f26060'}}>● Expenses</span>
-      </div>
-      <div style={{display:'flex',alignItems:'flex-end',gap:8,height:180}}>
-        {monthly.map(m => {
-          const revPct = m.revenue / max;
-          const expPct = m.expenses / max;
-          const revH = Math.max(4, revPct * 100);
-          const expH = Math.max(4, expPct * 100);
-          return (
-            <div key={m.key} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:6,height:'100%'}}>
-              <div style={{flex:1,display:'flex',justifyContent:'center',alignItems:'flex-end',gap:3,width:'100%'}}>
-                <div style={{
-                  width:'45%',
-                  background:'#2edf8733',
-                  border:'1px solid #2edf8788',
-                  borderRadius:4,
-                  height: m.revenue === 0 ? 4 : `${revH}%`,
-                  minHeight:4,
-                  position:'relative',
-                }}>
-                  {m.revenue > 0 && (
-                    <div style={{position:'absolute',top:-18,left:-4,right:-4,textAlign:'center',fontSize:9,fontWeight:700,color:'#2edf87'}}>
-                      {fmt$(m.revenue).replace(/\.00$/, '')}
-                    </div>
-                  )}
-                </div>
-                <div style={{
-                  width:'45%',
-                  background:'#f2606033',
-                  border:'1px solid #f2606088',
-                  borderRadius:4,
-                  height: m.expenses === 0 ? 4 : `${expH}%`,
-                  minHeight:4,
-                  position:'relative',
-                }}>
-                  {m.expenses > 0 && (
-                    <div style={{position:'absolute',top:-18,left:-4,right:-4,textAlign:'center',fontSize:9,fontWeight:700,color:'#f26060'}}>
-                      {fmt$(m.expenses).replace(/\.00$/, '')}
-                    </div>
-                  )}
-                </div>
-              </div>
-            <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.06em',fontWeight:600,textTransform:'uppercase'}}>{m.label}</div>
+    <>
+      <SectionHeader title="Action Needed" subtitle={items.length === 0 ? 'All caught up' : `${items.length} item${items.length === 1 ? '' : 's'}`} />
+      <div style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,marginBottom:28,overflow:'hidden'}}>
+        {items.length === 0 ? (
+          <div style={{padding:'40px 24px',textAlign:'center',color:'#7a8db0'}}>
+            <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.06em',color:'#2edf87',marginBottom:6}}>YOU'RE CLEAR</div>
+            <div style={{fontSize:13}}>Nothing overdue, no quotes hanging, no submissions waiting. Go run the business.</div>
           </div>
-        );
-      })}
+        ) : (
+          items.slice(0, 20).map(it => (
+            <div key={it.key} onClick={it.onClick}
+              style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',borderTop:'1px solid #2e3f60',cursor:'pointer'}}
+              onMouseOver={e => e.currentTarget.style.background = '#243355'}
+              onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+              <div style={{width:8,height:8,borderRadius:4,background:it.color,flexShrink:0}}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                  <span style={{background:it.color + '22',color:it.color,border:'1px solid ' + it.color + '66',borderRadius:999,padding:'2px 9px',fontSize:10,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase'}}>{it.tag}</span>
+                  <div style={{fontSize:14,color:'#f0f4ff',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{it.title}</div>
+                </div>
+                <div style={{fontSize:12,color:'#7a8db0',marginTop:3}}>{it.sub}</div>
+              </div>
+              <div style={{fontSize:11,color:it.color,fontWeight:700,letterSpacing:'.05em',textTransform:'uppercase',whiteSpace:'nowrap'}}>{it.cta} →</div>
+            </div>
+          ))
+        )}
       </div>
-    </div>
+    </>
   );
 }
