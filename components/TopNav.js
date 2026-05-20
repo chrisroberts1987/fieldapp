@@ -94,8 +94,24 @@ export default function TopNav({ active }) {
     router.push('/login');
   };
 
+  const isDemo = user?.email === 'demo@myforemanhq.com';
+
   return (
     <div style={{position:'sticky',top:0,zIndex:50,background:'#0d1726',borderBottom:'1px solid #1f2a40'}}>
+      {isDemo && (
+        <div style={{background:'linear-gradient(90deg,#1f3a2c 0%,#1a2236 100%)',borderBottom:'1px solid #2edf8744'}}>
+          <div style={{maxWidth:1280,margin:'0 auto',padding:'8px 16px',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+            <span style={{background:'#2edf8722',color:'#2edf87',border:'1px solid #2edf8766',borderRadius:999,padding:'2px 9px',fontSize:10,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase'}}>Live demo</span>
+            <span style={{fontSize:12,color:'#c8d4ee',flex:1,minWidth:0}}>
+              You're viewing a live demo — sign up free to create your own account.
+            </span>
+            <button onClick={() => router.push('/signup')}
+              style={{background:'#2edf87',border:'none',borderRadius:8,color:'#0d1726',padding:'6px 12px',fontSize:11,fontWeight:700,letterSpacing:'.06em',cursor:'pointer',whiteSpace:'nowrap'}}>
+              START FREE TRIAL →
+            </button>
+          </div>
+        </div>
+      )}
       <div style={{maxWidth:1280,margin:'0 auto',padding:'10px 16px',display:'flex',alignItems:'center',gap:14}}>
         <div onClick={() => router.push('/dashboard')} style={{cursor:'pointer',flexShrink:0}}>
           <Logo size="sm" />

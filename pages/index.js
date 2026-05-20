@@ -25,7 +25,7 @@ export default function Home() {
 
   return (
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',system-ui,sans-serif"}}>
-      <Hero router={router} />
+      <Hero router={router} supabase={supabase} />
       <Pain />
       <Workflow />
       <Pricing billing={billing} setBilling={setBilling} router={router} />
@@ -154,7 +154,19 @@ export default function Home() {
 /* =====================================================
    HERO
    ===================================================== */
-function Hero({ router }) {
+function Hero({ router, supabase }) {
+  const [demoBusy, setDemoBusy] = useState(false);
+  const [demoErr, setDemoErr] = useState(null);
+  const launchDemo = async () => {
+    setDemoErr(null); setDemoBusy(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: 'demo@myforemanhq.com',
+      password: 'demo1234',
+    });
+    if (error) { setDemoErr(error.message); setDemoBusy(false); return; }
+    router.push('/dashboard');
+  };
+
   return (
     <section className="hero-section">
       <div className="hero-grid-bg" />
@@ -189,14 +201,19 @@ function Hero({ router }) {
             style={{background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'15px 28px',cursor:'pointer',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.08em'}}>
             START 14-DAY FREE TRIAL
           </button>
+          <button onClick={launchDemo} disabled={demoBusy}
+            style={{background:'transparent',border:'1.5px solid #2edf87',borderRadius:10,color:'#2edf87',padding:'15px 28px',cursor:demoBusy?'wait':'pointer',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.08em',opacity:demoBusy?0.6:1}}>
+            {demoBusy ? 'OPENING DEMO…' : 'SEE LIVE DEMO →'}
+          </button>
           <a href="#workflow"
             style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:10,color:'#c8d4ee',padding:'15px 28px',cursor:'pointer',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.08em',textDecoration:'none',display:'inline-flex',alignItems:'center'}}>
             SEE HOW IT WORKS
           </a>
         </div>
         <div style={{marginTop:18,fontSize:12,color:'#7a8db0',letterSpacing:'.03em'}}>
-          Card required. Cancel anytime — no charge during your trial.
+          Card required for the free trial. The live demo opens instantly — no signup, no card.
         </div>
+        {demoErr && <div style={{marginTop:10,fontSize:12,color:'#f26060'}}>Couldn't open demo: {demoErr}</div>}
       </div>
     </section>
   );
