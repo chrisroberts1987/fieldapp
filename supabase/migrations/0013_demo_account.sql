@@ -37,22 +37,43 @@ begin
   end if;
 
   v_id := gen_random_uuid();
+  -- Explicitly set every text/varchar column to empty string instead of
+  -- leaving it default. GoTrue's "Database error querying schema" can fire
+  -- when those token columns are NULL because the Go side scans them
+  -- straight into string variables.
   insert into auth.users (
-    id, instance_id, aud, role, email, encrypted_password,
-    email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
-    created_at, updated_at
+    instance_id, id, aud, role,
+    email, encrypted_password, email_confirmed_at,
+    invited_at, confirmation_token, confirmation_sent_at,
+    recovery_token, recovery_sent_at,
+    email_change_token_new, email_change, email_change_sent_at,
+    email_change_token_current, email_change_confirm_status,
+    last_sign_in_at,
+    raw_app_meta_data, raw_user_meta_data,
+    is_super_admin, created_at, updated_at,
+    phone, phone_confirmed_at, phone_change, phone_change_token, phone_change_sent_at,
+    banned_until, reauthentication_token, reauthentication_sent_at,
+    is_sso_user, deleted_at, is_anonymous
   ) values (
-    v_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-    p_email, extensions.crypt(p_password, extensions.gen_salt('bf')),
-    now(), '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb,
-    now(), now()
+    '00000000-0000-0000-0000-000000000000', v_id, 'authenticated', 'authenticated',
+    p_email, extensions.crypt(p_password, extensions.gen_salt('bf')), now(),
+    null, '', null,
+    '', null,
+    '', '', null,
+    '', 0,
+    null,
+    '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb,
+    false, now(), now(),
+    null, null, '', '', null,
+    null, '', null,
+    false, null, false
   );
 
   insert into auth.identities (
     id, user_id, provider_id, identity_data, provider,
     last_sign_in_at, created_at, updated_at
   ) values (
-    gen_random_uuid(), v_id, p_email,
+    gen_random_uuid(), v_id, v_id::text,
     jsonb_build_object(
       'sub', v_id::text,
       'email', p_email,
