@@ -172,42 +172,12 @@ export default function Jobs() {
       assigned_to_user_id: newAssignee,
       assigned_at: (newAssignee && newAssignee !== prevAssignee) ? new Date().toISOString() : (sheet !== 'new' ? sheet?.assigned_at : null),
     };
-    let savedJobId = null;
-    const wasCompleted = sheet !== 'new' && sheet?.status === 'completed';
-    const nowCompleted = payload.status === 'completed';
-
+    // A trigger in migration 0012 auto-creates the invoice when a job hits
+    // 'completed' status, so the client side just persists the change.
     if (sheet === 'new') {
-      const { data } = await supabase.from('jobs').insert({ ...payload, owner_id: user.id, org_id: orgId }).select('id').single();
-      savedJobId = data?.id;
+      await supabase.from('jobs').insert({ ...payload, owner_id: user.id, org_id: orgId });
     } else {
       await supabase.from('jobs').update(payload).eq('id', sheet.id);
-      savedJobId = sheet.id;
-    }
-
-    // Auto-create invoice when a job transitions to completed (and we don't
-    // already have one for this job).
-    if (savedJobId && nowCompleted && !wasCompleted) {
-      const { data: existing } = await supabase.from('invoices').select('id').eq('job_id', savedJobId).maybeSingle();
-      if (!existing) {
-        await supabase.from('invoices').insert({
-          org_id: orgId,
-          owner_id: user.id,
-          job_id: savedJobId,
-          customer_id: payload.customer_id,
-          amount: payload.price || 0,
-          status: 'unpaid',
-          issued_date: todayStr(),
-          notes: payload.description || null,
-        });
-        await supabase.from('notifications').insert({
-          org_id: orgId,
-          user_id: user.id,
-          kind: 'job_completed',
-          title: 'Job completed → invoice created',
-          body: `"${payload.title}" is marked complete. Invoice drafted for ${payload.price ? '$'+Number(payload.price).toFixed(2) : '$0.00'}.`,
-          link: '/invoices',
-        });
-      }
     }
 
     await loadAll();

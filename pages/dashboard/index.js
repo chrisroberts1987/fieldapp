@@ -27,7 +27,7 @@ export default function Dashboard() {
       activeJobs, openLeads, customers, unpaidInvoices,
       paidThisMonth, paidLastMonth, paidYtd, expThisMonth, expLastMonth, expYtd,
       overdueInvoices, sentQuotes, staleLeads, pendingExp, pendingMi,
-      completedJobs, invoicedJobIds, todayJobs,
+      todayJobs,
     ] = await Promise.all([
       supabase.from('jobs').select('id', { count:'exact', head:true })
         .eq('org_id', oid).in('status', ['scheduled','in_progress']),
@@ -57,10 +57,6 @@ export default function Dashboard() {
         .eq('org_id', oid).eq('approval_status', 'pending'),
       supabase.from('mileage_logs').select('id', { count:'exact', head:true })
         .eq('org_id', oid).eq('approval_status', 'pending'),
-      supabase.from('jobs').select('id, title, price')
-        .eq('org_id', oid).eq('status', 'completed').gt('price', 0)
-        .order('created_at', { ascending:false }).limit(200),
-      supabase.from('invoices').select('job_id').eq('org_id', oid).not('job_id', 'is', null),
       supabase.from('jobs').select('id, title, customer_id, status')
         .eq('org_id', oid).eq('scheduled_date', today).in('status', ['scheduled','in_progress'])
         .order('created_at', { ascending:true }).limit(20),
@@ -75,10 +71,6 @@ export default function Dashboard() {
     const ytdExpenses       = sumAmt(expYtd);
     const outstandingSum    = sumAmt(unpaidInvoices);
     const ytdPaidCount      = (paidYtd.data || []).length;
-
-    // Completed jobs that don't have a linked invoice yet.
-    const invoicedSet = new Set((invoicedJobIds.data || []).map(r => r.job_id));
-    const completedNoInvoice = (completedJobs.data || []).filter(j => !invoicedSet.has(j.id)).slice(0, 50);
 
     setStats({
       revenueMonth, revenueLastMonth,
@@ -100,7 +92,6 @@ export default function Dashboard() {
       sentQuotes:       sentQuotes.data || [],
       staleLeads:       staleLeads.data || [],
       pendingApprovals: (pendingExp.count || 0) + (pendingMi.count || 0),
-      completedNoInvoice,
       todayJobs:        todayJobs.data || [],
     });
   };
@@ -425,19 +416,6 @@ function ActionFeed({ stats, router }) {
       cta: 'Send reminder',
       onClick: () => router.push(`/invoices/${inv.id}`),
       sortBy: -daysOverdue(inv.issued_date), // most overdue first
-    });
-  }
-
-  for (const j of stats.completedNoInvoice) {
-    items.push({
-      key: 'job-' + j.id,
-      color: '#fbbf24',
-      tag: 'Bill it',
-      title: j.title,
-      sub: `Job completed · ${fmt$(j.price)} ready to invoice`,
-      cta: 'Create invoice',
-      onClick: () => router.push('/jobs'),
-      sortBy: -50,
     });
   }
 
