@@ -100,19 +100,19 @@ export default function TopNav({ active }) {
     <>
     <div style={{position:'sticky',top:0,zIndex:50,background:'#0d1726',borderBottom:'1px solid #1f2a40'}}>
       {isDemo && (
-        <div style={{background:'linear-gradient(90deg,#1f3a2c 0%,#1a2236 100%)',borderBottom:'1px solid #2edf8744'}}>
-          <div style={{maxWidth:1280,margin:'0 auto',padding:'8px 16px',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-            <span style={{background:'#2edf8722',color:'#2edf87',border:'1px solid #2edf8766',borderRadius:999,padding:'2px 9px',fontSize:10,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase'}}>Live demo</span>
-            <span style={{fontSize:12,color:'#c8d4ee',flex:1,minWidth:0}}>
+        <div className="demo-banner" style={{background:'linear-gradient(90deg,#1f3a2c 0%,#1a2236 100%)',borderBottom:'1px solid #2edf8744'}}>
+          <div style={{maxWidth:1280,margin:'0 auto',padding:'6px 12px',display:'flex',alignItems:'center',gap:8}}>
+            <span style={{background:'#2edf8722',color:'#2edf87',border:'1px solid #2edf8766',borderRadius:999,padding:'2px 9px',fontSize:10,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',whiteSpace:'nowrap',flexShrink:0}}>Live demo</span>
+            <span className="demo-banner-msg" style={{fontSize:12,color:'#c8d4ee',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
               You're viewing a live demo — sign up free to create your own account.
             </span>
             <button onClick={async () => { await supabase.auth.signOut(); router.push('/'); }}
-              style={{background:'transparent',border:'1px solid #2edf8766',borderRadius:8,color:'#2edf87',padding:'6px 12px',fontSize:11,fontWeight:700,letterSpacing:'.06em',cursor:'pointer',whiteSpace:'nowrap'}}>
-              EXIT DEMO
+              style={{background:'transparent',border:'1px solid #2edf8766',borderRadius:6,color:'#2edf87',padding:'4px 9px',fontSize:10,fontWeight:700,letterSpacing:'.05em',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0,fontFamily:'inherit'}}>
+              EXIT
             </button>
             <button onClick={() => router.push('/signup')}
-              style={{background:'#2edf87',border:'none',borderRadius:8,color:'#0d1726',padding:'6px 12px',fontSize:11,fontWeight:700,letterSpacing:'.06em',cursor:'pointer',whiteSpace:'nowrap'}}>
-              START FREE TRIAL →
+              style={{background:'#2edf87',border:'none',borderRadius:6,color:'#0d1726',padding:'4px 9px',fontSize:10,fontWeight:700,letterSpacing:'.05em',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0,fontFamily:'inherit'}}>
+              FREE TRIAL →
             </button>
           </div>
         </div>
@@ -207,6 +207,7 @@ export default function TopNav({ active }) {
         @media (max-width: 767px) {
           .topnav-tabs { display: none !important; }
           body { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+          .demo-banner-msg { display: none; }
         }
         @media (min-width: 768px) {
           .mobile-bottom-nav { display: none !important; }
