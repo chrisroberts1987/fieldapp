@@ -6,6 +6,7 @@ import { useRefetchOnFocus } from '../../lib/useFocus';
 import { isOffice } from '../../lib/role';
 import { fmt$, fmtDate } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import SubNav from '../../components/SubNav';
 
 export default function Approvals() {
   const router = useRouter();
@@ -97,6 +98,11 @@ export default function Approvals() {
           <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,letterSpacing:'.04em',margin:'4px 0 0'}}>APPROVALS</h1>
           <div style={{fontSize:13,color:'#7a8db0',marginTop:2}}>{total} pending</div>
         </div>
+
+        <SubNav active="/approvals" items={[
+          { route:'/crew',      label:'Crew' },
+          { route:'/approvals', label:'Approvals', badge: total },
+        ]}/>
 
         {total === 0 && (
           <div style={{textAlign:'center',padding:'60px 24px',color:'#7a8db0'}}>

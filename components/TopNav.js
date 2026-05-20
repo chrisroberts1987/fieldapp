@@ -6,18 +6,21 @@ import { useOrg } from '../lib/org';
 import { isForeman, isOffice } from '../lib/role';
 import Logo from './Logo';
 
+// Funnel-ordered: Dashboard → Leads → Quotes → Customers → Jobs → Invoices →
+// then operational sections. Mileage is reachable from inside Expenses; the
+// Approvals queue is reachable from inside Crew.
 const ALL_TABS = [
   { label:'Dashboard', route:'/dashboard', showFor:'all' },
   { label:'Leads',     route:'/leads',     showFor:'office' },
   { label:'Quotes',    route:'/quotes',    showFor:'foreman' },
   { label:'Customers', route:'/customers', showFor:'office' },
   { label:'Jobs',      route:'/jobs',      showFor:'all' },
-  { label:'Mileage',   route:'/mileage',   showFor:'all' },
-  { label:'Expenses',  route:'/expenses',  showFor:'all' },
-  { label:'Approvals', route:'/approvals', showFor:'office' },
   { label:'Invoices',  route:'/invoices',  showFor:'foreman' },
+  { label:'Expenses',  route:'/expenses',  showFor:'all',     // also serves /mileage via inner sub-nav
+                                            alsoMatches:['/mileage'] },
   { label:'Tax',       route:'/tax',       showFor:'foreman' },
-  { label:'Crew',      route:'/crew',      showFor:'all' },
+  { label:'Crew',      route:'/crew',      showFor:'all',     // also serves /approvals via inner sub-nav
+                                            alsoMatches:['/approvals'] },
   { label:'Insights',  route:'/insights',  showFor:'foreman' },
 ];
 
@@ -28,6 +31,12 @@ function visibleTabs(role) {
     if (t.showFor === 'foreman') return isForeman(role);
     return false;
   });
+}
+
+function isActive(tab, active) {
+  if (tab.route === active) return true;
+  if (Array.isArray(tab.alsoMatches) && tab.alsoMatches.includes(active)) return true;
+  return false;
 }
 
 export default function TopNav({ active }) {
@@ -94,17 +103,17 @@ export default function TopNav({ active }) {
 
         <nav className="topnav-tabs" style={{display:'flex',gap:2,flex:1,overflowX:'auto',scrollbarWidth:'none'}}>
           {TABS.map(t => {
-            const isActive = t.route === active;
+            const on = isActive(t, active);
             return (
               <button key={t.route} onClick={() => router.push(t.route)}
                 style={{
-                  background: isActive ? 'rgba(79,158,255,0.12)' : 'transparent',
+                  background: on ? 'rgba(79,158,255,0.12)' : 'transparent',
                   border: 'none',
-                  borderBottom: isActive ? '2px solid #4f9eff' : '2px solid transparent',
-                  color: isActive ? '#f0f4ff' : '#7a8db0',
+                  borderBottom: on ? '2px solid #4f9eff' : '2px solid transparent',
+                  color: on ? '#f0f4ff' : '#7a8db0',
                   padding:'10px 14px',
                   fontSize:13,
-                  fontWeight: isActive ? 700 : 600,
+                  fontWeight: on ? 700 : 600,
                   letterSpacing:'.05em',
                   cursor:'pointer',
                   whiteSpace:'nowrap',

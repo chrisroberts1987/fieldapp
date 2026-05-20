@@ -6,6 +6,7 @@ import { useRefetchOnFocus } from '../../lib/useFocus';
 import { isCrew } from '../../lib/role';
 import { fmt$, fmtDate, todayStr, IRS_RATE } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import SubNav from '../../components/SubNav';
 
 const PURPOSES = [
   { key:'business', label:'Business' },
@@ -186,6 +187,11 @@ export default function Mileage() {
             <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,letterSpacing:'.04em',margin:'4px 0 0',color:'#f0f4ff'}}>MILEAGE</h1>
           </div>
         </div>
+
+        <SubNav active="/mileage" items={[
+          { route:'/expenses', label:'Expenses' },
+          { route:'/mileage',  label:'Mileage' },
+        ]}/>
 
         {/* Summary card */}
         <div style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,padding:'18px 18px',marginBottom:14,display:'grid',gridTemplateColumns: canSeeDeduction ? '1fr 1fr' : '1fr',gap:18}}>

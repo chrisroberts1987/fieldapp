@@ -6,6 +6,7 @@ import { useRefetchOnFocus } from '../../lib/useFocus';
 import { isForeman, isSupervisor, isCrew, isOffice, roleLabel, roleColor } from '../../lib/role';
 import { fmt$, fmtDate } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import SubNav from '../../components/SubNav';
 
 export default function Crew() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function Crew() {
   const [members, setMembers] = useState([]);
   const [invites, setInvites] = useState([]);
   const [jobsByUser, setJobsByUser] = useState({});
+  const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [sheet, setSheet] = useState(null);
   const [inviteForm, setInviteForm] = useState({ invite_email:'', invite_phone:'', role:'crew', hourly_pay_rate:'' });
@@ -48,6 +50,16 @@ export default function Crew() {
       }
     });
     setJobsByUser(map);
+
+    // Pending approvals badge for the SubNav (office only).
+    if (isOffice(role)) {
+      const [{ count: ec }, { count: mc }] = await Promise.all([
+        supabase.from('expenses').select('id', { count:'exact', head:true }).eq('org_id', orgId).eq('approval_status', 'pending'),
+        supabase.from('mileage_logs').select('id', { count:'exact', head:true }).eq('org_id', orgId).eq('approval_status', 'pending'),
+      ]);
+      setPendingCount((ec || 0) + (mc || 0));
+    }
+
     setLoading(false);
   };
 
@@ -165,6 +177,11 @@ export default function Crew() {
             </button>
           )}
         </div>
+
+        <SubNav active="/crew" items={[
+          { route:'/crew',      label:'Crew' },
+          { route:'/approvals', label:'Approvals', badge: pendingCount },
+        ]}/>
 
         {isForeman(role) && invites.length > 0 && (
           <div style={{marginBottom:18}}>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
 import { useOrg } from '../lib/org';
+import TopNav from '../components/TopNav';
 
 export default function Settings() {
   const router = useRouter();
@@ -131,9 +132,11 @@ export default function Settings() {
 
   return (
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif",paddingBottom:80}}>
-      <div style={{background:'#1a2236',borderBottom:'1.5px solid #2e3f60',padding:'12px 16px',display:'flex',alignItems:'center',gap:12,position:'sticky',top:0,zIndex:50}}>
-        <button onClick={() => router.push('/dashboard')} style={{background:'none',border:'none',color:'#7a8db0',cursor:'pointer',fontSize:20,padding:'0 4px'}}>←</button>
-        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'.08em',flex:1}}>SETTINGS</div>
+      <TopNav active="/settings"/>
+
+      <div style={{maxWidth:560,margin:'24px auto 14px',padding:'0 16px'}}>
+        <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase'}}>Settings</div>
+        <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:36,letterSpacing:'.04em',margin:'4px 0 0'}}>SETTINGS</h1>
       </div>
 
       <div style={{maxWidth:560,margin:'16px auto 0',padding:'0 16px'}}>

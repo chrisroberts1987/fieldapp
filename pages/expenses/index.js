@@ -6,6 +6,7 @@ import { useRefetchOnFocus } from '../../lib/useFocus';
 import { isCrew } from '../../lib/role';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import SubNav from '../../components/SubNav';
 
 // deductible: percentage of the expense that's tax-deductible (IRS rules).
 // Most business expenses are 100%; meals are 50% per IRC §274(n).
@@ -175,6 +176,11 @@ export default function Expenses() {
           </div>
           <button onClick={openNew} style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'10px 18px',fontWeight:700,cursor:'pointer',fontSize:13,letterSpacing:'.04em'}}>+ NEW EXPENSE</button>
         </div>
+
+        <SubNav active="/expenses" items={[
+          { route:'/expenses', label:'Expenses' },
+          { route:'/mileage',  label:'Mileage' },
+        ]}/>
 
         <div style={{display:'flex',gap:6,marginBottom:14,overflowX:'auto',paddingBottom:4}}>
           {[{ key:'all', label:'All' }, ...CATEGORIES].map(opt => (

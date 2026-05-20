@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
+import TopNav from '../../components/TopNav';
 
 export default function InvoiceDetail() {
   const router = useRouter();
@@ -84,8 +85,10 @@ export default function InvoiceDetail() {
         }
       `}</style>
 
-      <div className="no-print" style={{background:'#1a2236',borderBottom:'1.5px solid #2e3f60',padding:'12px 16px',display:'flex',alignItems:'center',gap:12,position:'sticky',top:0,zIndex:50}}>
-        <button onClick={() => router.push('/invoices')} style={backStyle}>←</button>
+      <div className="no-print"><TopNav active="/invoices"/></div>
+
+      <div className="no-print" style={{display:'flex',alignItems:'center',gap:12,margin:'18px 16px 0',flexWrap:'wrap'}}>
+        <button onClick={() => router.push('/invoices')} style={{...backStyle,fontSize:14}}>← Invoices</button>
         <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'.08em',flex:1}}>{invoiceNumber}</div>
         {paid
           ? <button onClick={markUnpaid} style={btnGhost}>Mark Unpaid</button>
