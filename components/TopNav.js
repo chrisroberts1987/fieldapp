@@ -11,9 +11,9 @@ import Logo from './Logo';
 // Approvals queue is reachable from inside Crew.
 const ALL_TABS = [
   { label:'Dashboard', route:'/dashboard', showFor:'all' },
+  { label:'Customers', route:'/customers', showFor:'office' },
   { label:'Leads',     route:'/leads',     showFor:'office' },
   { label:'Quotes',    route:'/quotes',    showFor:'foreman' },
-  { label:'Customers', route:'/customers', showFor:'office' },
   { label:'Jobs',      route:'/jobs',      showFor:'all' },
   { label:'Invoices',  route:'/invoices',  showFor:'foreman' },
   { label:'Expenses',  route:'/expenses',  showFor:'all',     // also serves /mileage via inner sub-nav
