@@ -171,6 +171,7 @@ as $$
 declare
   v_invite record;
   v_user_id uuid := auth.uid();
+  v_existing record;
 begin
   if v_user_id is null then
     raise exception 'must be authenticated';
@@ -187,18 +188,26 @@ begin
     raise exception 'invite has expired';
   end if;
 
-  -- Upsert membership.
+  -- Already-a-member guard: do NOT change role/pay for an existing member.
+  -- This is what was downgrading foremen who clicked their own crew-tier
+  -- invite link.
+  select * into v_existing from public.org_members
+    where org_id = v_invite.org_id and user_id = v_user_id;
+
+  if v_existing.user_id is not null then
+    update public.org_invitations
+      set accepted_at = now(), accepted_by = v_user_id
+      where id = v_invite.id;
+    return jsonb_build_object('ok', true, 'already_member', true, 'org_id', v_invite.org_id);
+  end if;
+
   insert into public.org_members (org_id, user_id, role, hourly_pay_rate, joined_at)
-    values (v_invite.org_id, v_user_id, v_invite.role, v_invite.hourly_pay_rate, now())
-    on conflict (org_id, user_id) do update set
-      role = excluded.role,
-      hourly_pay_rate = excluded.hourly_pay_rate;
+    values (v_invite.org_id, v_user_id, v_invite.role, v_invite.hourly_pay_rate, now());
 
   update public.org_invitations
     set accepted_at = now(), accepted_by = v_user_id
     where id = v_invite.id;
 
-  -- Notify the inviter.
   if v_invite.invited_by is not null then
     insert into public.notifications (org_id, user_id, kind, title, body, link)
       values (v_invite.org_id, v_invite.invited_by, 'invite_accepted',
