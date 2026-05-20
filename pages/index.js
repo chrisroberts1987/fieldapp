@@ -257,8 +257,8 @@ function Pain() {
 function Workflow() {
   const steps = [
     { label:'Lead',     color:'#54d4f8', icon:<PhoneIcon/>,  desc:'Capture every quote request from your shareable link, phone, or referrals.' },
-    { label:'Job',      color:'#4f9eff', icon:<WrenchIcon/>, desc:'Schedule the work. Track crew, status, dates, and pricing.' },
     { label:'Estimate', color:'#b197fc', icon:<ScrollIcon/>, desc:'Send a clean quote that closes. Convert it to a job when accepted.' },
+    { label:'Job',      color:'#4f9eff', icon:<WrenchIcon/>, desc:'Schedule the work. Track crew, status, dates, and pricing.' },
     { label:'Invoice',  color:'#fbbf24', icon:<DocIcon/>,    desc:'Branded invoices the customer can pay from their phone.' },
     { label:'Paid',     color:'#2edf87', icon:<CheckIcon/>,  desc:'Reconciled, recorded, and rolled into your monthly revenue.' },
   ];
