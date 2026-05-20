@@ -161,19 +161,36 @@ export default function Leads() {
 
       {org?.slug && typeof window !== 'undefined' && (() => {
         const url = `${window.location.origin}/quote/${org.slug}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(url)}&size=220x220&margin=12&color=0d1726&bgcolor=ffffff`;
         const copy = async () => {
           try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(()=>setCopied(false),1800); } catch {}
         };
+        const smsHref  = `sms:?body=${encodeURIComponent(`Quick way to request a quote from ${org?.name || 'us'}: ${url}`)}`;
+        const mailHref = `mailto:?subject=${encodeURIComponent(`Request a quote from ${org?.name || 'us'}`)}&body=${encodeURIComponent(`Tap this link any time to send us a quote request: ${url}`)}`;
         return (
-          <div style={{margin:'10px 16px 4px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,padding:'10px 12px',display:'flex',alignItems:'center',gap:10}}>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:11,letterSpacing:'.08em',fontWeight:600,color:'#7a8db0',textTransform:'uppercase',marginBottom:2}}>Get more leads</div>
-              <div style={{fontSize:12,color:'#c8d4ee',fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{url}</div>
+          <div style={{margin:'10px 16px 4px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'14px',display:'grid',gridTemplateColumns:'auto 1fr',gap:14,alignItems:'center'}}>
+            <a href={qrUrl} target="_blank" rel="noopener noreferrer" title="Open large QR in new tab — right-click to save"
+              style={{display:'block',background:'#fff',borderRadius:10,padding:6,lineHeight:0,flexShrink:0}}>
+              <img src={qrUrl} alt="Quote-request QR" width="120" height="120" style={{display:'block',borderRadius:6}}/>
+            </a>
+            <div style={{minWidth:0}}>
+              <div style={{fontSize:11,letterSpacing:'.1em',fontWeight:700,color:'#fbbf24',textTransform:'uppercase',marginBottom:4}}>Capture leads automatically</div>
+              <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.45,marginBottom:8}}>
+                Print this QR, put it on your truck, business cards, yard signs. Anyone who scans it lands on your quote form. Submissions appear here in Leads.
+              </div>
+              <div style={{display:'flex',gap:6,marginBottom:6,alignItems:'center'}}>
+                <input readOnly value={url} style={{flex:1,background:'#111827',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',fontSize:11,padding:'6px 8px',outline:'none',fontFamily:'monospace'}}/>
+                <button onClick={copy}
+                  style={{background:copied?'#2edf8722':'#4f9eff',border:copied?'1px solid #2edf87':'none',borderRadius:8,color:copied?'#2edf87':'#fff',padding:'6px 10px',fontSize:10,fontWeight:700,letterSpacing:'.05em',cursor:'pointer',whiteSpace:'nowrap'}}>
+                  {copied ? 'COPIED' : 'COPY'}
+                </button>
+              </div>
+              <div style={{display:'flex',gap:6}}>
+                <a href={smsHref}  style={{flex:1,background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'6px 0',fontSize:10,fontWeight:700,letterSpacing:'.06em',textAlign:'center',textDecoration:'none'}}>TEXT IT</a>
+                <a href={mailHref} style={{flex:1,background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'6px 0',fontSize:10,fontWeight:700,letterSpacing:'.06em',textAlign:'center',textDecoration:'none'}}>EMAIL IT</a>
+                <a href={qrUrl} download={`${org?.slug || 'myforeman'}-qr.png`} style={{flex:1,background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'6px 0',fontSize:10,fontWeight:700,letterSpacing:'.06em',textAlign:'center',textDecoration:'none'}}>SAVE QR</a>
+              </div>
             </div>
-            <button onClick={copy}
-              style={{background:copied?'#2edf8722':'#4f9eff',border:copied?'1px solid #2edf87':'none',borderRadius:8,color:copied?'#2edf87':'#fff',padding:'8px 12px',fontSize:11,fontWeight:700,letterSpacing:'.05em',cursor:'pointer',whiteSpace:'nowrap'}}>
-              {copied ? 'COPIED' : 'COPY'}
-            </button>
           </div>
         );
       })()}

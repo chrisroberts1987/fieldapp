@@ -41,8 +41,11 @@ export default function Jobs() {
   const [filter, setFilter] = useState('all');
   const [form, setForm] = useState(EMPTY);
   const [jobExpenses, setJobExpenses] = useState([]);
+  const [jobLabor, setJobLabor] = useState([]);
   const [quickExp, setQuickExp] = useState({ amount:'', category:'materials', vendor:'' });
+  const [quickLabor, setQuickLabor] = useState({ user_id:'', hours:'' });
   const [addingExp, setAddingExp] = useState(false);
+  const [addingLabor, setAddingLabor] = useState(false);
 
   const loadAll = async () => {
     setLoading(true);
@@ -86,9 +89,14 @@ export default function Jobs() {
       assigned_to_user_id: j.assigned_to_user_id || '',
     });
     setQuickExp({ amount:'', category:'materials', vendor:'' });
+    setQuickLabor({ user_id:'', hours:'' });
     setSheet(j);
-    const { data } = await supabase.from('expenses').select('*').eq('job_id', j.id).order('expense_date', { ascending:false });
-    setJobExpenses(data || []);
+    const [{ data: e }, { data: lb }] = await Promise.all([
+      supabase.from('expenses').select('*').eq('job_id', j.id).order('expense_date', { ascending:false }),
+      supabase.from('job_labor').select('*').eq('job_id', j.id).order('work_date', { ascending:false }),
+    ]);
+    setJobExpenses(e || []);
+    setJobLabor(lb || []);
   };
 
   const addQuickExpense = async () => {
@@ -118,6 +126,37 @@ export default function Jobs() {
     await supabase.from('expenses').delete().eq('id', id);
     setJobExpenses(prev => prev.filter(e => e.id !== id));
   };
+
+  const addQuickLabor = async () => {
+    if (!sheet || sheet === 'new' || !orgId) return;
+    const hours = Number(quickLabor.hours);
+    if (isNaN(hours) || hours <= 0 || !quickLabor.user_id) return;
+    const member = members.find(m => m.user_id === quickLabor.user_id);
+    const rate = member?.hourly_pay_rate;
+    if (rate == null) {
+      alert(`${member?.email || 'This member'} has no hourly rate set — open Crew → their card to set it before logging labor.`);
+      return;
+    }
+    setAddingLabor(true);
+    const { data } = await supabase.from('job_labor').insert({
+      org_id: orgId,
+      job_id: sheet.id,
+      user_id: quickLabor.user_id,
+      hours,
+      hourly_rate: rate,
+      work_date: todayStr(),
+    }).select('*').single();
+    if (data) setJobLabor(prev => [data, ...prev]);
+    setQuickLabor({ user_id:'', hours:'' });
+    setAddingLabor(false);
+  };
+
+  const removeJobLabor = async (id) => {
+    await supabase.from('job_labor').delete().eq('id', id);
+    setJobLabor(prev => prev.filter(l => l.id !== id));
+  };
+
+  const memberEmail = uid => members.find(m => m.user_id === uid)?.email || 'Unknown';
 
   const save = async () => {
     if (!form.title.trim() || !orgId) return;
@@ -349,8 +388,71 @@ export default function Jobs() {
                 style={{...inputStyle, resize:'vertical', minHeight:60, fontFamily:'inherit'}}/>
             </div>
 
+            {sheet !== 'new' && (() => {
+              const revenue = Number(form.price) || 0;
+              const laborCost = jobLabor.reduce((s, l) => s + Number(l.cost || 0), 0);
+              const expenseTotal = jobExpenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+              const profit = revenue - laborCost - expenseTotal;
+              const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+              const profitColor = profit >= 0 ? '#2edf87' : '#f26060';
+              return (
+                <div style={{margin:'14px 16px 4px',padding:'12px 12px',background:'#111827',border:'1px solid #2e3f60',borderRadius:10}}>
+                  <div style={{fontSize:11,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:8}}>Profitability</div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:4}}>
+                    <ProfitLine label="Revenue"  value={fmt$(revenue)}      color="#2edf87"/>
+                    <ProfitLine label="Labor"    value={'-' + fmt$(laborCost)}  color="#fbbf24"/>
+                    <ProfitLine label="Expenses" value={'-' + fmt$(expenseTotal)} color="#f26060"/>
+                    <ProfitLine label="Profit"   value={fmt$(profit)} color={profitColor} bold suffix={revenue > 0 ? `${margin.toFixed(0)}% margin` : null}/>
+                  </div>
+                </div>
+              );
+            })()}
+
             {sheet !== 'new' && (
-              <div style={{margin:'14px 16px 4px',padding:'12px 12px',background:'#111827',border:'1px solid #2e3f60',borderRadius:10}}>
+              <div style={{margin:'10px 16px 4px',padding:'12px 12px',background:'#111827',border:'1px solid #2e3f60',borderRadius:10}}>
+                <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:8}}>
+                  <div style={{fontSize:11,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0'}}>Labor on this job</div>
+                  <div style={{fontSize:12,color:'#fbbf24',fontWeight:700}}>
+                    {fmt$(jobLabor.reduce((s,l) => s + Number(l.cost||0), 0))}
+                  </div>
+                </div>
+
+                {jobLabor.length > 0 && (
+                  <div style={{display:'flex',flexDirection:'column',gap:4,marginBottom:10}}>
+                    {jobLabor.map(l => (
+                      <div key={l.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6,fontSize:12,color:'#c8d4ee'}}>
+                        <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{memberEmail(l.user_id)}</span>
+                        <span style={{fontSize:11,color:'#7a8db0',whiteSpace:'nowrap'}}>{Number(l.hours).toFixed(1)}h × {fmt$(l.hourly_rate)}</span>
+                        <span style={{color:'#fbbf24',fontWeight:600,whiteSpace:'nowrap'}}>{fmt$(l.cost||0)}</span>
+                        <button onClick={() => removeJobLabor(l.id)} style={{background:'none',border:'none',color:'#f26060',cursor:'pointer',fontSize:10,padding:'0 4px'}}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {isOffice(role) && (
+                  <div style={{display:'flex',gap:6}}>
+                    <select value={quickLabor.user_id} onChange={e => setQuickLabor(p => ({...p, user_id:e.target.value}))}
+                      style={{...inputStyle, padding:'8px 10px', fontSize:13, flex:1}}>
+                      <option value="">— Crew member —</option>
+                      {members.map(m => <option key={m.user_id} value={m.user_id} disabled={m.hourly_pay_rate == null}>
+                        {m.email}{m.hourly_pay_rate == null ? ' (no rate)' : ' · $' + Number(m.hourly_pay_rate).toFixed(2) + '/hr'}
+                      </option>)}
+                    </select>
+                    <input type="number" inputMode="decimal" step="0.25" placeholder="Hours"
+                      value={quickLabor.hours} onChange={e => setQuickLabor(p => ({...p, hours:e.target.value}))}
+                      style={{...inputStyle, padding:'8px 10px', fontSize:13, width:80, flexShrink:0}}/>
+                    <button onClick={addQuickLabor} disabled={addingLabor || !Number(quickLabor.hours) || !quickLabor.user_id}
+                      style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'8px 12px',fontWeight:700,cursor:'pointer',fontSize:13,opacity:(addingLabor||!Number(quickLabor.hours)||!quickLabor.user_id)?0.4:1}}>
+                      Add
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {sheet !== 'new' && (
+              <div style={{margin:'10px 16px 4px',padding:'12px 12px',background:'#111827',border:'1px solid #2e3f60',borderRadius:10}}>
                 <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:8}}>
                   <div style={{fontSize:11,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0'}}>Expenses on this job</div>
                   <div style={{fontSize:12,color:'#f26060',fontWeight:700}}>
@@ -403,6 +505,16 @@ export default function Jobs() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ProfitLine({ label, value, color, bold, suffix }) {
+  return (
+    <div>
+      <div style={{fontSize:10,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700}}>{label}</div>
+      <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize: bold ? 22 : 18, color, lineHeight:1.1}}>{value}</div>
+      {suffix && <div style={{fontSize:10,color:'#7a8db0',marginTop:1}}>{suffix}</div>}
     </div>
   );
 }

@@ -7,15 +7,21 @@ import { isCrew } from '../../lib/role';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 
+// deductible: percentage of the expense that's tax-deductible (IRS rules).
+// Most business expenses are 100%; meals are 50% per IRC §274(n).
 const CATEGORIES = [
-  { key:'materials',  label:'Materials',     color:'#4f9eff' },
-  { key:'fuel',       label:'Fuel',          color:'#fbbf24' },
-  { key:'labor',      label:'Labor / Subs',  color:'#b197fc' },
-  { key:'equipment',  label:'Equipment',     color:'#54d4f8' },
-  { key:'insurance',  label:'Insurance',     color:'#f26060' },
-  { key:'office',     label:'Office',        color:'#7a8db0' },
-  { key:'marketing',  label:'Marketing',     color:'#fb923c' },
-  { key:'other',      label:'Other',         color:'#c8d4ee' },
+  { key:'materials',   label:'Materials',     color:'#4f9eff', deductible:100 },
+  { key:'fuel',        label:'Fuel',          color:'#fbbf24', deductible:100 },
+  { key:'labor',       label:'Labor / Subs',  color:'#b197fc', deductible:100 },
+  { key:'equipment',   label:'Equipment',     color:'#54d4f8', deductible:100 },
+  { key:'vehicle',     label:'Vehicle',       color:'#fb923c', deductible:100 },
+  { key:'insurance',   label:'Insurance',     color:'#f26060', deductible:100 },
+  { key:'office',      label:'Office',        color:'#7a8db0', deductible:100 },
+  { key:'marketing',   label:'Marketing',     color:'#fb923c', deductible:100 },
+  { key:'advertising', label:'Advertising',   color:'#fb923c', deductible:100 },
+  { key:'meals',       label:'Meals',         color:'#f26060', deductible:50  },
+  { key:'lodging',     label:'Lodging',       color:'#b197fc', deductible:100 },
+  { key:'other',       label:'Other',         color:'#c8d4ee', deductible:100 },
 ];
 const catMeta = k => CATEGORIES.find(c => c.key === k) || CATEGORIES[CATEGORIES.length - 1];
 
@@ -35,6 +41,8 @@ export default function Expenses() {
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState('all');
   const [form, setForm] = useState(EMPTY);
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [receiptPreview, setReceiptPreview] = useState(null);
 
   const loadAll = async () => {
     setLoading(true);
@@ -63,7 +71,12 @@ export default function Expenses() {
 
   const jobTitle = id => jobs.find(j => j.id === id)?.title || '—';
 
-  const openNew = () => { setForm(EMPTY); setSheet('new'); };
+  const openNew = () => {
+    setForm(EMPTY);
+    setReceiptFile(null);
+    setReceiptPreview(null);
+    setSheet('new');
+  };
   const openEdit = (e) => {
     setForm({
       category: e.category || 'other',
@@ -73,7 +86,17 @@ export default function Expenses() {
       description: e.description || '',
       job_id: e.job_id || '',
     });
+    setReceiptFile(null);
+    setReceiptPreview(e.receipt_url || null);
     setSheet(e);
+  };
+
+  const pickReceipt = (ev) => {
+    const file = ev.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('Receipt must be under 5 MB.'); return; }
+    setReceiptFile(file);
+    setReceiptPreview(URL.createObjectURL(file));
   };
 
   const save = async () => {
@@ -87,6 +110,19 @@ export default function Expenses() {
       vendor: form.vendor.trim() || null,
       description: form.description.trim() || null,
     };
+    let receipt_url = (sheet !== 'new' && sheet?.receipt_url) || null;
+    if (receiptFile) {
+      const ext = (receiptFile.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `${orgId}/${user.id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('expense-receipts')
+        .upload(path, receiptFile, { upsert: false, contentType: receiptFile.type });
+      if (upErr) { alert('Receipt upload failed: ' + upErr.message); setSaving(false); return; }
+      const { data: pub } = supabase.storage.from('expense-receipts').getPublicUrl(path);
+      receipt_url = pub?.publicUrl || null;
+    }
+    payload.receipt_url = receipt_url;
+
     if (sheet === 'new') {
       const status = isCrew(role) ? 'pending' : 'approved';
       await supabase.from('expenses').insert({
@@ -99,6 +135,8 @@ export default function Expenses() {
       await supabase.from('expenses').update(payload).eq('id', sheet.id);
     }
     await loadAll();
+    setReceiptFile(null);
+    setReceiptPreview(null);
     setSaving(false);
     setSheet(null);
   };
@@ -149,6 +187,8 @@ export default function Expenses() {
           ))}
         </div>
 
+        <CategoryBreakdown expenses={ownFiltered}/>
+
         {visible.length === 0 && (
           <div style={{textAlign:'center',padding:'60px 24px',color:'#7a8db0'}}>
             <div style={{fontSize:36,marginBottom:8}}>🧾</div>
@@ -165,25 +205,33 @@ export default function Expenses() {
             const status = e.approval_status || 'approved';
             const statusC = status === 'approved' ? '#2edf87' : status === 'pending' ? '#fbbf24' : '#f26060';
             const showStatus = status !== 'approved';
+            const partialDeductible = c.deductible < 100;
             return (
               <div key={e.id} onClick={() => openEdit(e)}
-                style={{background:'#1e2a42',border:'1px solid '+(showStatus?statusC+'66':'#2e3f60'),borderRadius:10,padding:'12px 14px',cursor:'pointer'}}>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:3}}>
-                  <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0,flex:1}}>
-                    <span style={{background:c.color+'22',color:c.color,border:'1px solid '+c.color+'66',borderRadius:6,padding:'2px 8px',fontSize:10,fontWeight:700,letterSpacing:'.05em',whiteSpace:'nowrap'}}>{c.label.toUpperCase()}</span>
-                    {showStatus && <span style={{background:statusC+'22',color:statusC,border:'1px solid '+statusC+'66',borderRadius:6,padding:'2px 8px',fontSize:10,fontWeight:700,letterSpacing:'.05em',whiteSpace:'nowrap'}}>{status.toUpperCase()}</span>}
-                    <span style={{fontSize:14,color:'#f0f4ff',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.vendor || e.description || '(no vendor)'}</span>
-                  </div>
-                  <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:20,color:'#f26060',whiteSpace:'nowrap'}}>{fmt$(e.amount || 0)}</span>
-                  <button onClick={ev => { ev.stopPropagation(); del(e.id); }} style={{background:'none',border:'none',color:'#f26060',cursor:'pointer',fontSize:12,fontWeight:700,padding:'2px 4px'}}>✕</button>
-                </div>
-                <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#7a8db0',gap:8}}>
-                  <span>{fmtDate(e.expense_date)}{e.job_id ? ` · Job: ${jobTitle(e.job_id)}` : ' · Overhead'}</span>
-                  {e.description && e.vendor && <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'50%'}}>{e.description}</span>}
-                </div>
-                {status === 'rejected' && e.rejected_reason && (
-                  <div style={{marginTop:6,fontSize:11,color:'#f26060'}}>Rejected: {e.rejected_reason}</div>
+                style={{background:'#1e2a42',border:'1px solid '+(showStatus?statusC+'66':'#2e3f60'),borderRadius:10,padding:'12px 14px',cursor:'pointer',display:'flex',gap:10}}>
+                {e.receipt_url && (
+                  <img src={e.receipt_url} alt="" style={{width:48,height:48,objectFit:'cover',borderRadius:8,border:'1px solid #2e3f60',flexShrink:0}}/>
                 )}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:3,flexWrap:'wrap'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:6,minWidth:0,flex:1}}>
+                      <span style={{background:c.color+'22',color:c.color,border:'1px solid '+c.color+'66',borderRadius:6,padding:'2px 8px',fontSize:10,fontWeight:700,letterSpacing:'.05em',whiteSpace:'nowrap'}}>{c.label.toUpperCase()}</span>
+                      {showStatus && <span style={{background:statusC+'22',color:statusC,border:'1px solid '+statusC+'66',borderRadius:6,padding:'2px 8px',fontSize:10,fontWeight:700,letterSpacing:'.05em',whiteSpace:'nowrap'}}>{status.toUpperCase()}</span>}
+                      <span style={{fontSize:14,color:'#f0f4ff',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.vendor || e.description || '(no vendor)'}</span>
+                    </div>
+                    <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:20,color:'#f26060',whiteSpace:'nowrap'}}>{fmt$(e.amount || 0)}</span>
+                    <button onClick={ev => { ev.stopPropagation(); del(e.id); }} style={{background:'none',border:'none',color:'#f26060',cursor:'pointer',fontSize:12,fontWeight:700,padding:'2px 4px'}}>✕</button>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#7a8db0',gap:8,flexWrap:'wrap'}}>
+                    <span>{fmtDate(e.expense_date)}{e.job_id ? ` · Job: ${jobTitle(e.job_id)}` : ' · Overhead'}</span>
+                    {partialDeductible
+                      ? <span style={{color:'#fbbf24',fontWeight:700,letterSpacing:'.04em',fontSize:10,textTransform:'uppercase'}}>● {c.deductible}% deductible</span>
+                      : <span style={{color:'#2edf87',fontWeight:600,letterSpacing:'.04em',fontSize:10,textTransform:'uppercase'}}>● Deductible</span>}
+                  </div>
+                  {status === 'rejected' && e.rejected_reason && (
+                    <div style={{marginTop:6,fontSize:11,color:'#f26060'}}>Rejected: {e.rejected_reason}</div>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -246,6 +294,24 @@ export default function Expenses() {
                 style={{...inputStyle, resize:'vertical', minHeight:60, fontFamily:'inherit'}}/>
             </div>
 
+            <div style={{margin:'10px 16px'}}>
+              <div style={fieldLabel}>Receipt photo (optional)</div>
+              <div style={{display:'flex',gap:10,alignItems:'center'}}>
+                <div style={{width:64,height:64,borderRadius:10,background:'#111827',border:'1.5px solid #2e3f60',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0}}>
+                  {receiptPreview
+                    ? <img src={receiptPreview} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                    : <div style={{fontSize:10,color:'#7a8db0',textAlign:'center',padding:4}}>No photo</div>}
+                </div>
+                <label style={{flex:1}}>
+                  <input type="file" accept="image/*" capture="environment" onChange={pickReceipt} style={{display:'none'}}/>
+                  <div style={{background:'transparent',border:'1.5px solid #2e3f60',borderRadius:10,padding:'10px 12px',color:'#c8d4ee',fontSize:13,cursor:'pointer',textAlign:'center'}}>
+                    {receiptPreview ? 'Replace photo' : 'Snap or upload receipt'}
+                  </div>
+                </label>
+              </div>
+              <div style={{fontSize:11,color:'#7a8db0',marginTop:4}}>JPEG/PNG, under 5 MB. Use your phone's camera on mobile.</div>
+            </div>
+
             <div style={{padding:'8px 16px 0',display:'flex',gap:8}}>
               <button onClick={save} disabled={saving || form.amount === '' || isNaN(Number(form.amount))}
                 style={{flex:1,background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'13px 0',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.06em',cursor:'pointer',opacity:saving?0.6:1}}>
@@ -259,6 +325,45 @@ export default function Expenses() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function CategoryBreakdown({ expenses }) {
+  if (!expenses || expenses.length === 0) return null;
+  const totals = {};
+  for (const e of expenses) {
+    totals[e.category] = (totals[e.category] || 0) + Number(e.amount || 0);
+  }
+  const entries = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) return null;
+  const grand = entries.reduce((s, [,v]) => s + v, 0);
+  const max = entries[0][1];
+
+  return (
+    <div style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'14px 14px',marginBottom:14}}>
+      <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10}}>
+        <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:14,letterSpacing:'.1em',color:'#7a8db0',fontWeight:700}}>WHERE THE MONEY IS GOING</div>
+        <div style={{fontSize:11,color:'#7a8db0'}}>{fmt$(grand)} total</div>
+      </div>
+      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+        {entries.map(([key, val]) => {
+          const c = catMeta(key);
+          const pct = (val / grand) * 100;
+          const barPct = (val / max) * 100;
+          return (
+            <div key={key}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',fontSize:11,marginBottom:2}}>
+                <span style={{color:'#c8d4ee',fontWeight:600}}>{c.label}{c.deductible < 100 && <span style={{color:'#fbbf24',marginLeft:6}}>({c.deductible}% ded.)</span>}</span>
+                <span style={{color:'#f0f4ff',fontWeight:600,fontVariantNumeric:'tabular-nums'}}>{fmt$(val)} <span style={{color:'#7a8db0',fontSize:10}}>· {pct.toFixed(0)}%</span></span>
+              </div>
+              <div style={{height:8,background:'#111827',borderRadius:4,overflow:'hidden'}}>
+                <div style={{height:'100%',width:`${barPct}%`,background:c.color,opacity:0.85}}/>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
