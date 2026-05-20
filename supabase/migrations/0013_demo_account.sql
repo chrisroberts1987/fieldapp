@@ -5,6 +5,19 @@
 -- to invoke from pg_cron, an API endpoint, or the SQL editor.
 
 -- ============================================================
+-- Self-heal the expense category constraint so the seed below
+-- always passes regardless of which historical migration state
+-- this DB happens to be in (some projects ended up with the
+-- narrower 0006-era category list).
+-- ============================================================
+alter table public.expenses drop constraint if exists expenses_category_check;
+alter table public.expenses add constraint expenses_category_check
+  check (category in (
+    'materials','fuel','labor','equipment','insurance','office',
+    'marketing','meals','advertising','lodging','vehicle','other'
+  ));
+
+-- ============================================================
 -- Helper: ensure an auth user exists with a given email + password.
 -- Used by reset_demo_account() to materialize the demo foreman and
 -- the 3 crew accounts without forcing anyone to sign up first.
