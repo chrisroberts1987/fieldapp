@@ -321,7 +321,7 @@ export default function Mileage() {
 
             <div style={{margin:'10px 16px'}}>
               <div style={fieldLabel}>Notes</div>
-              <textarea value={form.notes} onChange={e => setForm(p => ({...p, notes:e.target.value}))}
+              <textarea maxLength={2000} value={form.notes} onChange={e => setForm(p => ({...p, notes:e.target.value}))}
                 placeholder="Where you went, why, anything memorable..."
                 style={{...inputStyle, resize:'vertical', minHeight:60, fontFamily:'inherit'}}/>
             </div>

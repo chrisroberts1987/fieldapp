@@ -331,7 +331,7 @@ export default function Leads() {
 
             <div style={{margin:'10px 16px'}}>
               <div style={fieldLabel}>Notes</div>
-              <textarea value={form.notes}
+              <textarea maxLength={2000} value={form.notes}
                 onChange={e => setForm(p => ({...p, notes:e.target.value}))}
                 placeholder="What they need, when, budget, special considerations..."
                 style={{...inputStyle, resize:'vertical', minHeight:60, fontFamily:'inherit'}}/>

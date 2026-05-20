@@ -1,5 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
+import { preflight, bearerToken } from '../../../lib/apiSecurity';
+
+export const config = {
+  api: {
+    bodyParser: { sizeLimit: '32kb' }, // empty body in practice; keep it tight
+  },
+};
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -171,14 +178,13 @@ function buildSnapshot({ org, invoices, jobs, expenses, labor, leads, customers 
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') { res.setHeader('Allow', ['POST']); return res.status(405).end(); }
+  if (preflight(req, res) === null) return;
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return res.status(500).json({ error: 'ANTHROPIC_API_KEY is not set on the server.' });
   }
 
-  const authHeader = req.headers.authorization || '';
-  const accessToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const accessToken = bearerToken(req);
   if (!accessToken) return res.status(401).json({ error: 'Missing auth token.' });
 
   const sb = createClient(SUPABASE_URL, SUPABASE_ANON, {

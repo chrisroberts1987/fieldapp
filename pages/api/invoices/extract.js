@@ -1,10 +1,24 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { createClient } from '@supabase/supabase-js';
+import { preflight, bearerToken } from '../../../lib/apiSecurity';
 
+// Server-enforced ceiling. Each base64-encoded file in the body is roughly
+// 1.37x its on-disk size, so 14mb on the wire ≈ 10mb on disk per file.
+// Combined with MAX_TOTAL_BYTES below and the per-request file count, this
+// keeps an abusive client from feeding the Anthropic SDK arbitrarily large
+// inputs.
 export const config = {
   api: {
-    bodyParser: { sizeLimit: '12mb' },
+    bodyParser: { sizeLimit: '14mb' },
   },
 };
+
+const MAX_FILE_BYTES  = 10 * 1024 * 1024; // 10 MB per file (after base64 decode)
+const MAX_TOTAL_BYTES = 30 * 1024 * 1024; // 30 MB combined per request
+const ALLOWED_MIMES   = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/heic', 'image/heif']);
+
+const SUPABASE_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 const client = new Anthropic();
 
@@ -54,14 +68,22 @@ const SCHEMA = {
 };
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', ['POST']);
-    return res.status(405).end();
-  }
+  if (preflight(req, res) === null) return;
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return res.status(500).json({ error: 'ANTHROPIC_API_KEY is not set on the server.' });
   }
+
+  // Require a valid Supabase session — previously anyone could POST here,
+  // burning Anthropic credits on the org's tab.
+  const token = bearerToken(req);
+  if (!token) return res.status(401).json({ error: 'Missing auth token.' });
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth:   { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: { user }, error: userErr } = await sb.auth.getUser();
+  if (userErr || !user) return res.status(401).json({ error: 'Not signed in.' });
 
   const { files } = req.body || {};
   if (!Array.isArray(files) || files.length === 0) {
@@ -69,6 +91,19 @@ export default async function handler(req, res) {
   }
   if (files.length > 10) {
     return res.status(400).json({ error: 'Max 10 files per request.' });
+  }
+
+  // Per-file + total size validation against base64 length.
+  let totalBytes = 0;
+  for (const f of files) {
+    const approxBytes = typeof f?.data === 'string' ? Math.floor(f.data.length * 3 / 4) : 0;
+    if (approxBytes > MAX_FILE_BYTES) {
+      return res.status(413).json({ error: `${f?.name || 'A file'} is over the 10 MB limit.` });
+    }
+    totalBytes += approxBytes;
+  }
+  if (totalBytes > MAX_TOTAL_BYTES) {
+    return res.status(413).json({ error: 'Combined upload size exceeds 30 MB.' });
   }
 
   const results = [];
@@ -83,20 +118,23 @@ export default async function handler(req, res) {
       continue;
     }
 
+    if (!ALLOWED_MIMES.has(mime)) {
+      results.push({ filename, success: false, error: `Unsupported file type: ${mime || 'unknown'}. Use PDF, JPG, PNG, or HEIC.` });
+      continue;
+    }
+
     const content = [];
     if (mime === 'application/pdf') {
-      content.push({
-        type: 'document',
-        source: { type: 'base64', media_type: 'application/pdf', data },
-      });
-    } else if (mime === 'image/png' || mime === 'image/jpeg' || mime === 'image/webp' || mime === 'image/gif') {
-      content.push({
-        type: 'image',
-        source: { type: 'base64', media_type: mime, data },
-      });
+      content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data } });
     } else {
-      results.push({ filename, success: false, error: `Unsupported file type: ${mime || 'unknown'}. Use PDF, PNG, JPG, GIF, or WebP.` });
-      continue;
+      // Anthropic's image input accepts jpeg/png/webp/gif. HEIC is not in that
+      // list — tell the user to convert. (Server-side conversion would need a
+      // native binary we don't ship here.)
+      if (mime === 'image/heic' || mime === 'image/heif') {
+        results.push({ filename, success: false, error: 'HEIC isn\'t supported by the AI extractor yet. Convert to JPG/PNG and re-upload.' });
+        continue;
+      }
+      content.push({ type: 'image', source: { type: 'base64', media_type: mime, data } });
     }
 
     content.push({ type: 'text', text: 'Extract the invoice fields from this document and return them as JSON matching the schema.' });

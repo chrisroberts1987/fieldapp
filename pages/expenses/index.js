@@ -7,6 +7,7 @@ import { isCrew } from '../../lib/role';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import SubNav from '../../components/SubNav';
+import { validateUpload, ACCEPT_ATTR } from '../../lib/uploads';
 
 // deductible: percentage of the expense that's tax-deductible (IRS rules).
 // Most business expenses are 100%; meals are 50% per IRC §274(n).
@@ -95,7 +96,8 @@ export default function Expenses() {
   const pickReceipt = (ev) => {
     const file = ev.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { alert('Receipt must be under 5 MB.'); return; }
+    const err = validateUpload(file, { images: true });
+    if (err) { alert(err); return; }
     setReceiptFile(file);
     setReceiptPreview(URL.createObjectURL(file));
   };
@@ -113,7 +115,8 @@ export default function Expenses() {
     };
     let receipt_url = (sheet !== 'new' && sheet?.receipt_url) || null;
     if (receiptFile) {
-      const ext = (receiptFile.name.split('.').pop() || 'jpg').toLowerCase();
+      const extByMime = { 'image/jpeg':'jpg', 'image/png':'png', 'image/heic':'heic', 'image/heif':'heif' };
+      const ext = extByMime[receiptFile.type] || 'jpg';
       const path = `${orgId}/${user.id}/${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from('expense-receipts')
@@ -294,7 +297,7 @@ export default function Expenses() {
 
             <div style={{margin:'10px 16px'}}>
               <div style={fieldLabel}>Description</div>
-              <textarea value={form.description}
+              <textarea maxLength={2000} value={form.description}
                 onChange={e => setForm(p => ({...p, description:e.target.value}))}
                 placeholder="What was purchased / receipt #"
                 style={{...inputStyle, resize:'vertical', minHeight:60, fontFamily:'inherit'}}/>
@@ -309,13 +312,13 @@ export default function Expenses() {
                     : <div style={{fontSize:10,color:'#7a8db0',textAlign:'center',padding:4}}>No photo</div>}
                 </div>
                 <label style={{flex:1}}>
-                  <input type="file" accept="image/*" capture="environment" onChange={pickReceipt} style={{display:'none'}}/>
+                  <input type="file" accept={ACCEPT_ATTR} capture="environment" onChange={pickReceipt} style={{display:'none'}}/>
                   <div style={{background:'transparent',border:'1.5px solid #2e3f60',borderRadius:10,padding:'10px 12px',color:'#c8d4ee',fontSize:13,cursor:'pointer',textAlign:'center'}}>
                     {receiptPreview ? 'Replace photo' : 'Snap or upload receipt'}
                   </div>
                 </label>
               </div>
-              <div style={{fontSize:11,color:'#7a8db0',marginTop:4}}>JPEG/PNG, under 5 MB. Use your phone's camera on mobile.</div>
+              <div style={{fontSize:11,color:'#7a8db0',marginTop:4}}>JPG/PNG/HEIC, under 10 MB. Use your phone's camera on mobile.</div>
             </div>
 
             <div style={{padding:'8px 16px 0',display:'flex',gap:8}}>

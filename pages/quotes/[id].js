@@ -161,7 +161,7 @@ export default function QuoteDetail() {
           </div>
           <div style={{marginTop:8}}>
             <div style={fieldLabel}>Description / Scope</div>
-            <textarea value={quote.description || ''} onChange={e => update('description', e.target.value)} style={{...inputStyle, minHeight:90, resize:'vertical', fontFamily:'inherit'}} disabled={isClosed} placeholder="What's included, dates, special considerations..."/>
+            <textarea maxLength={2000} value={quote.description || ''} onChange={e => update('description', e.target.value)} style={{...inputStyle, minHeight:90, resize:'vertical', fontFamily:'inherit'}} disabled={isClosed} placeholder="What's included, dates, special considerations..."/>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:8}}>
             <div>
@@ -175,7 +175,7 @@ export default function QuoteDetail() {
           </div>
           <div style={{marginTop:8}}>
             <div style={fieldLabel}>Internal Notes (not shown to customer)</div>
-            <textarea value={quote.notes || ''} onChange={e => update('notes', e.target.value)} style={{...inputStyle, minHeight:50, resize:'vertical', fontFamily:'inherit'}} disabled={isClosed}/>
+            <textarea maxLength={2000} value={quote.notes || ''} onChange={e => update('notes', e.target.value)} style={{...inputStyle, minHeight:50, resize:'vertical', fontFamily:'inherit'}} disabled={isClosed}/>
           </div>
         </Section>
 

@@ -128,7 +128,7 @@ style={{width:'100%',background:'#111827',border:'1.5px solid #2e3f60',borderRad
 
 <div style={{margin:'10px 16px'}}>
 <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Notes</div>
-<textarea value={form.notes} onChange={e => setForm(p=>({...p,notes:e.target.value}))} placeholder='Gate code, dogs, access notes...'
+<textarea maxLength={2000} value={form.notes} onChange={e => setForm(p=>({...p,notes:e.target.value}))} placeholder='Gate code, dogs, access notes...'
 style={{width:'100%',background:'#111827',border:'1.5px solid #2e3f60',borderRadius:10,color:'#f0f4ff',fontSize:14,padding:'10px 12px',outline:'none',fontFamily:'inherit',resize:'vertical',minHeight:72}}/>
 </div>
 

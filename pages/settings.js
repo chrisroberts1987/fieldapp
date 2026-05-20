@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
 import { useOrg } from '../lib/org';
 import TopNav from '../components/TopNav';
+import { validateUpload, ACCEPT_ATTR } from '../lib/uploads';
 
 export default function Settings() {
   const router = useRouter();
@@ -58,7 +59,8 @@ export default function Settings() {
   const pickLogo = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { setError('Logo must be under 2 MB'); return; }
+    const err = validateUpload(file, { images: true });
+    if (err) { setError(err); return; }
     setError('');
     setLogoFile(file);
     setLogoPreview(URL.createObjectURL(file));
@@ -80,7 +82,10 @@ export default function Settings() {
 
     let logo_url = org?.logo_url || null;
     if (logoFile) {
-      const ext = (logoFile.name.split('.').pop() || 'png').toLowerCase();
+      // Derive the extension from the MIME type (not the user-supplied
+      // filename) so we can't be tricked into writing a path like .html or .svg.
+      const extByMime = { 'image/jpeg':'jpg', 'image/png':'png', 'image/heic':'heic', 'image/heif':'heif' };
+      const ext = extByMime[logoFile.type] || 'png';
       const path = `${orgId}/logo.${ext}`;
       const { error: upErr } = await supabase.storage
         .from('org-logos')
@@ -186,7 +191,7 @@ export default function Settings() {
               onChange={e => setForm(p => ({...p, business_email:e.target.value}))}/>
           </Field>
           <Field label="Business Address">
-            <textarea style={{...inputStyle, minHeight:64, resize:'vertical'}}
+            <textarea maxLength={2000} style={{...inputStyle, minHeight:64, resize:'vertical'}}
               value={form.address} onChange={e => setForm(p => ({...p, address:e.target.value}))}/>
           </Field>
         </Section>
@@ -199,7 +204,7 @@ export default function Settings() {
                 : <div style={{fontSize:10,color:'#7a8db0',textAlign:'center',padding:4}}>No logo</div>}
             </div>
             <label style={{flex:1}}>
-              <input type="file" accept="image/*" onChange={pickLogo} style={{display:'none'}}/>
+              <input type="file" accept={ACCEPT_ATTR} onChange={pickLogo} style={{display:'none'}}/>
               <div style={{background:'transparent',border:'1.5px solid #2e3f60',borderRadius:10,padding:'10px 12px',color:'#c8d4ee',fontSize:13,cursor:'pointer',textAlign:'center'}}>
                 {logoFile ? 'Change logo' : (logoPreview ? 'Replace logo' : 'Upload logo')}
               </div>

@@ -95,7 +95,7 @@ export default function PublicFeedback() {
 
           <div style={{margin:'10px 0'}}>
             <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Anything to add? (optional)</div>
-            <textarea value={comment} onChange={e => setComment(e.target.value)}
+            <textarea maxLength={2000} value={comment} onChange={e => setComment(e.target.value)}
               placeholder="What we did well, what we could do better..."
               style={{width:'100%',background:'#111827',border:'1.5px solid #2e3f60',borderRadius:10,color:'#f0f4ff',fontSize:14,padding:'10px 12px',outline:'none',fontFamily:'inherit',minHeight:90,resize:'vertical'}}/>
           </div>

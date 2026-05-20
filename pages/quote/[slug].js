@@ -97,7 +97,7 @@ export default function PublicQuote() {
               value={form.address} onChange={e => setForm(p => ({...p, address:e.target.value}))}/>
           </Field>
           <Field label="What do you need?">
-            <textarea style={{...inputStyle, minHeight:90, resize:'vertical', fontFamily:'inherit'}}
+            <textarea maxLength={2000} style={{...inputStyle, minHeight:90, resize:'vertical', fontFamily:'inherit'}}
               placeholder="Describe the work and any details (timing, size of job, photos available, etc.)"
               value={form.notes} onChange={e => setForm(p => ({...p, notes:e.target.value}))}/>
           </Field>

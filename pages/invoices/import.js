@@ -4,10 +4,10 @@ import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import { ALLOWED_UPLOAD_MIMES, ALLOWED_UPLOAD_LABEL, MAX_UPLOAD_BYTES, ACCEPT_ATTR } from '../../lib/uploads';
 
-const ACCEPTED = '.pdf,.png,.jpg,.jpeg,.gif,.webp,application/pdf,image/png,image/jpeg,image/gif,image/webp';
+const ACCEPTED = ACCEPT_ATTR;
 const MAX_BATCH = 10;
-const MAX_FILE_MB = 10;
 
 export default function ImportInvoices() {
   const router = useRouter();
@@ -41,13 +41,12 @@ export default function ImportInvoices() {
 
     const newRows = [];
     for (const file of files) {
-      if (file.size > MAX_FILE_MB * 1024 * 1024) {
-        newRows.push({ id: rid(), filename: file.name, type: file.type, status: 'error', error: `Too large (>${MAX_FILE_MB} MB)` });
+      if (file.size > MAX_UPLOAD_BYTES) {
+        newRows.push({ id: rid(), filename: file.name, type: file.type, status: 'error', error: 'Too large (>10 MB)' });
         continue;
       }
-      const accept = ['application/pdf','image/png','image/jpeg','image/webp','image/gif'];
-      if (!accept.includes(file.type)) {
-        newRows.push({ id: rid(), filename: file.name, type: file.type, status: 'error', error: 'Unsupported type. Use PDF, PNG, JPG, GIF, or WebP.' });
+      if (!ALLOWED_UPLOAD_MIMES.includes((file.type || '').toLowerCase())) {
+        newRows.push({ id: rid(), filename: file.name, type: file.type, status: 'error', error: `Unsupported type. Use ${ALLOWED_UPLOAD_LABEL}.` });
         continue;
       }
       newRows.push({ id: rid(), filename: file.name, type: file.type, status: 'extracting', _file: file });
@@ -60,9 +59,11 @@ export default function ImportInvoices() {
       if (row.status !== 'extracting') continue;
       try {
         const base64 = await fileToBase64(row._file);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { patchRow(row.id, { status:'error', error:'Sign in expired — please reload.' }); continue; }
         const resp = await fetch('/api/invoices/extract', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
           body: JSON.stringify({ files: [{ name: row.filename, type: row.type, data: base64 }] }),
         });
         const json = await resp.json();

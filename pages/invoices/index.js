@@ -328,7 +328,7 @@ export default function Invoices() {
 
             <div style={{margin:'10px 16px'}}>
               <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Notes</div>
-              <textarea value={form.notes}
+              <textarea maxLength={2000} value={form.notes}
                 onChange={e => setForm(p => ({...p, notes:e.target.value}))}
                 placeholder="Internal notes, payment method, ref..."
                 style={{...inputStyle, resize:'vertical', minHeight:60, fontFamily:'inherit'}}/>
