@@ -346,7 +346,7 @@ begin
     (v_org_id, j_anderson_active, v_crew2_id,      v_today,       2.0, 22.00, 'Fence repair helper');
 
   -- 14. Mileage logs (business trips, mix of approved + pending) -
-  insert into public.mileage_logs (org_id, user_id, log_date, miles, purpose, from_address, to_address, notes, approval_status) values
+  insert into public.mileage_logs (org_id, user_id, log_date, miles, purpose, start_address, end_address, notes, approval_status) values
     (v_org_id, v_supervisor_id, v_today - 92, 14.8, 'business', '123 Congress Ave, Austin, TX', '1138 Oak Hill Pkwy, Austin, TX', 'Foster HVAC service',          'approved'),
     (v_org_id, v_crew1_id,      v_today - 88, 9.4,  'business', '123 Congress Ave, Austin, TX', '6021 Lake Austin Blvd, Austin, TX','Whitaker door install',        'approved'),
     (v_org_id, v_crew2_id,      v_today - 64, 7.2,  'business', '123 Congress Ave, Austin, TX', '3400 Burnet Rd, Austin, TX',      'Crestview rental toilet',      'approved'),
