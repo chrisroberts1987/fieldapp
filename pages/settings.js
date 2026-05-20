@@ -238,7 +238,40 @@ export default function Settings() {
           style={{width:'100%',background:'#4f9eff',color:'#fff',border:'none',borderRadius:10,padding:'13px 0',fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.08em',cursor:'pointer',marginBottom:24,opacity:saving?0.5:1}}>
           {saving ? 'Saving...' : 'SAVE CHANGES'}
         </button>
+
+        <DangerZone user={user} router={router}/>
       </div>
+    </div>
+  );
+}
+
+function DangerZone({ user, router }) {
+  const [deleting, setDeleting] = useState(false);
+  const [err, setErr] = useState('');
+
+  const remove = async () => {
+    const ok1 = confirm('Delete your account? This permanently removes your sign-in. Customer/job/invoice history you created stays with the business, but you will lose access immediately.');
+    if (!ok1) return;
+    const typed = prompt('Type DELETE to confirm.');
+    if ((typed || '').trim().toUpperCase() !== 'DELETE') return;
+    setDeleting(true); setErr('');
+    const { error } = await supabase.rpc('delete_my_account');
+    if (error) { setErr(error.message); setDeleting(false); return; }
+    await supabase.auth.signOut();
+    router.push('/');
+  };
+
+  return (
+    <div style={{marginTop:18,background:'rgba(242,96,96,0.04)',border:'1px solid rgba(242,96,96,0.25)',borderRadius:12,padding:'16px 14px'}}>
+      <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:'.1em',color:'#f26060',marginBottom:6}}>DANGER ZONE</div>
+      <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.5,marginBottom:12}}>
+        Deletes your sign-in for <strong style={{color:'#f0f4ff'}}>{user.email}</strong>. Customers, jobs, invoices, and other business records you created stay with the business — their "created by" reference just goes blank. This action is permanent and cannot be undone.
+      </div>
+      {err && <div style={{background:'rgba(242,96,96,.12)',border:'1px solid rgba(242,96,96,.3)',borderRadius:8,padding:'9px 12px',marginBottom:10,fontSize:12,color:'#f26060'}}>{err}</div>}
+      <button onClick={remove} disabled={deleting}
+        style={{background:'transparent',border:'1.5px solid #f26060',borderRadius:10,color:'#f26060',padding:'10px 16px',fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:'.08em',fontWeight:700,cursor:'pointer',opacity:deleting?0.5:1}}>
+        {deleting ? 'DELETING...' : 'DELETE MY ACCOUNT'}
+      </button>
     </div>
   );
 }

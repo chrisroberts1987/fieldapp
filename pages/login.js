@@ -57,7 +57,10 @@ onClick={() => router.push('/signup')}
 style={{width:'100%',background:'transparent',color:'#7a8db0',border:'1px solid #2e3f60',borderRadius:10,padding:'10px 0',fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:'.08em',cursor:'pointer'}}>
 CREATE ACCOUNT
 </button>
-<div style={{marginTop:16,fontSize:11,color:'#7a8db0',textAlign:'center'}}>
+<div style={{marginTop:14,textAlign:'center'}}>
+<a onClick={() => router.push('/reset')} style={{fontSize:12,color:'#4f9eff',cursor:'pointer',textDecoration:'underline'}}>Forgot your password?</a>
+</div>
+<div style={{marginTop:12,fontSize:11,color:'#7a8db0',textAlign:'center'}}>
 New here? Tap Create Account to start a free trial.
 </div>
 </div>
