@@ -188,7 +188,7 @@ function Hero({ router, supabase }) {
 
       <div style={{position:'relative',zIndex:2,maxWidth:900,margin:'0 auto',padding:'72px 20px 0',textAlign:'center'}}>
         <div style={{display:'inline-block',marginBottom:24,padding:'6px 14px',background:'rgba(79,158,255,0.10)',border:'1px solid rgba(79,158,255,0.3)',borderRadius:999,fontSize:11,letterSpacing:'.12em',fontWeight:700,color:'#4f9eff',textTransform:'uppercase'}}>
-          Built for handymen, contractors, and service crews
+          Real work deserves better tools.
         </div>
         <h1 className="hero-headline">
           FROM LEAD<br/>TO <span className="accent">PAID.</span>
