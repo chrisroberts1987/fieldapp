@@ -586,6 +586,16 @@ begin
     'demo-seed'
   );
 
+  -- 15b. Reset the onboarding-tour flags on the demo + crew so
+  -- the first-time walkthrough fires again. (The landing-page demo
+  -- button also wipes these on every login; this is a backstop for
+  -- anyone who signs in via /login with the demo credentials.)
+  update auth.users
+  set raw_user_meta_data = raw_user_meta_data
+    - 'onboarding_completed_at'
+    - 'onboarding_skipped_at'
+  where id in (v_demo_user_id, v_supervisor_id, v_crew1_id, v_crew2_id);
+
   -- 16. A few realistic notifications -----------------------
   insert into public.notifications (org_id, user_id, kind, title, body, link, created_at) values
     (v_org_id, v_demo_user_id, 'quote_sent',  'Quote sent to Patricia Chen',

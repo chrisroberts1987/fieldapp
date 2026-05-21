@@ -151,11 +151,20 @@ function Hero({ router, supabase }) {
   const [demoErr, setDemoErr] = useState(null);
   const launchDemo = async () => {
     setDemoErr(null); setDemoBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: 'demo@myforemanhq.com',
       password: 'demo1234',
     });
     if (error) { setDemoErr(error.message); setDemoBusy(false); return; }
+
+    // Wipe the onboarding-seen flags so every demo viewer gets the
+    // first-time tour, not just the first person of the day. The demo
+    // user has no real ongoing state worth preserving on these fields.
+    const meta = { ...(data?.user?.user_metadata || {}) };
+    delete meta.onboarding_completed_at;
+    delete meta.onboarding_skipped_at;
+    await supabase.auth.updateUser({ data: meta });
+
     router.push('/dashboard');
   };
 
