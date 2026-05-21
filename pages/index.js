@@ -502,9 +502,6 @@ function Automation() {
           ))}
         </div>
 
-        <div style={{marginTop:36,textAlign:'center',fontSize:12,letterSpacing:'.08em',color:'#7a8db0',textTransform:'uppercase',fontWeight:600}}>
-          AI features powered by <span style={{color:'#fbbf24'}}>Claude</span>
-        </div>
       </div>
 
       <style jsx>{`
