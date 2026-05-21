@@ -447,13 +447,13 @@ function Automation() {
       ai: true,
       icon: <AiSparkleIcon/>,
       title: 'AI invoice import',
-      body: 'Snap a photo of any invoice — vendor bill, receipt, contractor PDF. AI pulls the customer, total, dates, and line items in seconds. No more typing.',
+      body: 'Snap a photo of any invoice. Vendor bills, receipts, contractor PDFs all work. AI pulls the customer, total, dates, and line items in seconds. No more typing.',
     },
     {
       ai: true,
       icon: <CoachIcon/>,
       title: 'Monthly AI business coach',
-      body: 'Every month MyForeman analyzes your revenue, jobs, and customers and delivers 4–5 specific recommendations. Pricing, slow months, retention — actionable, not generic.',
+      body: 'Every month MyForeman analyzes your revenue, jobs, and customers and delivers 4 to 5 specific recommendations. Pricing, slow months, retention. Actionable, not generic.',
     },
     {
       icon: <BoltIcon/>,
@@ -468,7 +468,7 @@ function Automation() {
     {
       icon: <TruckIcon/>,
       title: 'Mileage + tax tracking',
-      body: 'Log trips, watch the IRS deduction calculate live. Quarterly tax estimates that account for income, expenses, and mileage — accountant-ready CSV when you need it.',
+      body: 'Log trips, watch the IRS deduction calculate live. Quarterly tax estimates that account for income, expenses, and mileage. Accountant-ready CSV when you need it.',
     },
     {
       icon: <MailIcon/>,
@@ -484,7 +484,7 @@ function Automation() {
           Built to run itself.
         </h2>
         <p className="section-lede" style={{textAlign:'center',margin:'0 auto 44px',maxWidth:640}}>
-          AI and automation that quietly handle the busywork — so you can spend your day on the job, not the laptop.
+          AI and automation that quietly handle the busywork so you can spend your day on the job, not the laptop.
         </p>
 
         <div className="auto-grid">
