@@ -146,7 +146,7 @@ export default function TopNav({ active }) {
           })}
         </nav>
 
-        <div style={{position:'relative',flexShrink:0}}>
+        <div style={{position:'relative',flexShrink:0,marginLeft:'auto'}}>
           <button onClick={() => setNotifOpen(v => !v)}
             style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'6px 10px',cursor:'pointer',position:'relative'}}>
             <BellIcon/>
@@ -159,7 +159,7 @@ export default function TopNav({ active }) {
           {notifOpen && (
             <>
               <div onClick={() => setNotifOpen(false)} style={{position:'fixed',inset:0,zIndex:60}}/>
-              <div style={{position:'absolute',right:0,top:'calc(100% + 6px)',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,width:340,maxWidth:'90vw',maxHeight:480,overflowY:'auto',zIndex:70,boxShadow:'0 8px 24px rgba(0,0,0,.4)'}}>
+              <div style={{position:'absolute',right:0,top:'calc(100% + 6px)',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,width:340,maxWidth:'calc(100vw - 24px)',maxHeight:'calc(100vh - 160px)',overflowY:'auto',zIndex:70,boxShadow:'0 8px 24px rgba(0,0,0,.4)'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',borderBottom:'1px solid #2e3f60'}}>
                   <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:14,letterSpacing:'.08em',color:'#f0f4ff'}}>NOTIFICATIONS</div>
                   {unreadCount > 0 && <button onClick={markAllRead} style={{background:'none',border:'none',color:'#4f9eff',fontSize:11,fontWeight:700,cursor:'pointer'}}>MARK ALL READ</button>}
