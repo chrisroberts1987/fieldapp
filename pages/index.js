@@ -28,6 +28,7 @@ export default function Home() {
       <Hero router={router} supabase={supabase} />
       <Compare router={router} />
       <Workflow />
+      <Automation />
       <Pricing billing={billing} setBilling={setBilling} router={router} />
       <FooterSection />
 
@@ -438,6 +439,125 @@ function Workflow() {
 }
 
 /* =====================================================
+   AUTOMATION / AI
+   ===================================================== */
+function Automation() {
+  const cards = [
+    {
+      ai: true,
+      icon: <AiSparkleIcon/>,
+      title: 'AI invoice import',
+      body: 'Snap a photo of any invoice — vendor bill, receipt, contractor PDF. AI pulls the customer, total, dates, and line items in seconds. No more typing.',
+    },
+    {
+      ai: true,
+      icon: <CoachIcon/>,
+      title: 'Monthly AI business coach',
+      body: 'Every month MyForeman analyzes your revenue, jobs, and customers and delivers 4–5 specific recommendations. Pricing, slow months, retention — actionable, not generic.',
+    },
+    {
+      icon: <BoltIcon/>,
+      title: 'Auto-invoice on completion',
+      body: 'Mark a job done. The invoice fires automatically with the right amount, customer, and notes. Zero clicks between the work and the bill.',
+    },
+    {
+      icon: <StarIcon/>,
+      title: 'Auto-feedback after payment',
+      body: 'The moment an invoice gets paid, the customer receives a personalized feedback link. Reviews roll in on autopilot.',
+    },
+    {
+      icon: <TruckIcon/>,
+      title: 'Mileage + tax tracking',
+      body: 'Log trips, watch the IRS deduction calculate live. Quarterly tax estimates that account for income, expenses, and mileage — accountant-ready CSV when you need it.',
+    },
+    {
+      icon: <MailIcon/>,
+      title: 'Branded customer emails',
+      body: 'Every quote, invoice, and feedback request goes out under your business name. Replies route to your inbox. MyForeman stays invisible to your customers.',
+    },
+  ];
+
+  return (
+    <section className="section">
+      <div className="section-inner">
+        <h2 className="section-headline" style={{textAlign:'center',maxWidth:760,margin:'0 auto 12px'}}>
+          Built to run itself.
+        </h2>
+        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 44px',maxWidth:640}}>
+          AI and automation that quietly handle the busywork — so you can spend your day on the job, not the laptop.
+        </p>
+
+        <div className="auto-grid">
+          {cards.map((c, i) => (
+            <div key={i} className={'auto-card ' + (c.ai ? 'auto-card-ai' : '')}>
+              {c.ai && <span className="auto-ai-tag">AI</span>}
+              <div className={'auto-icon ' + (c.ai ? 'auto-icon-ai' : '')}>{c.icon}</div>
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:24,letterSpacing:'.04em',color:'#f0f4ff',marginBottom:8,marginTop:4}}>
+                {c.title.toUpperCase()}
+              </div>
+              <div style={{fontSize:14,lineHeight:1.55,color:'#c8d4ee'}}>
+                {c.body}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{marginTop:36,textAlign:'center',fontSize:12,letterSpacing:'.08em',color:'#7a8db0',textTransform:'uppercase',fontWeight:600}}>
+          AI features powered by <span style={{color:'#fbbf24'}}>Claude</span>
+        </div>
+      </div>
+
+      <style jsx>{`
+        .auto-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 14px;
+        }
+        .auto-card {
+          background: #1e2a42;
+          border: 1px solid #2e3f60;
+          border-radius: 14px;
+          padding: 24px 22px;
+          position: relative;
+          transition: border-color .2s, transform .2s;
+        }
+        .auto-card:hover { border-color: #4f9eff; transform: translateY(-2px); }
+        .auto-card-ai {
+          background: linear-gradient(160deg, rgba(251,191,36,0.06) 0%, #1e2a42 55%);
+          border-color: rgba(251,191,36,0.35);
+        }
+        .auto-card-ai:hover { border-color: rgba(251,191,36,0.7); }
+        .auto-ai-tag {
+          position: absolute; top: 16px; right: 16px;
+          background: rgba(251,191,36,0.15); color: #fbbf24;
+          border: 1px solid rgba(251,191,36,0.45);
+          border-radius: 999px; padding: 2px 9px;
+          font-size: 10px; font-weight: 700; letter-spacing: .1em;
+        }
+        .auto-icon {
+          width: 44px; height: 44px; border-radius: 10px;
+          background: rgba(79,158,255,0.12);
+          border: 1px solid rgba(79,158,255,0.35);
+          color: #4f9eff;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .auto-icon-ai {
+          background: rgba(251,191,36,0.12);
+          border-color: rgba(251,191,36,0.45);
+          color: #fbbf24;
+        }
+        @media (min-width: 720px) {
+          .auto-grid { grid-template-columns: repeat(2, 1fr); gap: 18px; }
+        }
+        @media (min-width: 1024px) {
+          .auto-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+      `}</style>
+    </section>
+  );
+}
+
+/* =====================================================
    PRICING
    ===================================================== */
 function Pricing({ billing, setBilling, router }) {
@@ -604,5 +724,41 @@ function DocIcon() { return (
 function CheckIcon() { return (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M5 12l4 4 10-10"/>
+  </svg>
+);}
+function AiSparkleIcon() { return (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2l1.6 4.6L18 8l-4.4 1.4L12 14l-1.6-4.6L6 8l4.4-1.4L12 2z"/>
+    <path d="M19 14l.8 2.3L22 17l-2.2.7L19 20l-.8-2.3L16 17l2.2-.7L19 14z"/>
+  </svg>
+);}
+function CoachIcon() { return (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9"/>
+    <circle cx="12" cy="12" r="5"/>
+    <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
+  </svg>
+);}
+function BoltIcon() { return (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+  </svg>
+);}
+function StarIcon() { return (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9 12 2"/>
+  </svg>
+);}
+function TruckIcon() { return (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 16V4h13v12M14 8h5l3 4v4h-8"/>
+    <circle cx="6.5" cy="18" r="2"/>
+    <circle cx="17.5" cy="18" r="2"/>
+  </svg>
+);}
+function MailIcon() { return (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="4" width="20" height="16" rx="2"/>
+    <polyline points="2 7 12 13 22 7"/>
   </svg>
 );}
