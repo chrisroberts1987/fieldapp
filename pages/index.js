@@ -26,7 +26,7 @@ export default function Home() {
   return (
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',system-ui,sans-serif"}}>
       <Hero router={router} supabase={supabase} />
-      <Pain />
+      <Compare router={router} />
       <Workflow />
       <Pricing billing={billing} setBilling={setBilling} router={router} />
       <FooterSection />
@@ -107,15 +107,6 @@ export default function Home() {
           .section { padding: 110px 24px; }
           .section-headline { font-size: 56px; }
           .section-lede { font-size: 17px; }
-        }
-
-        .pain-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 14px;
-        }
-        @media (min-width: 720px) {
-          .pain-grid { grid-template-columns: repeat(3, 1fr); gap: 20px; }
         }
 
         .workflow-grid {
@@ -222,33 +213,185 @@ function Hero({ router, supabase }) {
 /* =====================================================
    PAIN
    ===================================================== */
-function Pain() {
-  const pains = [
-    { icon:<CashIcon/>,     text:'Chasing payments with no paper trail' },
-    { icon:<NotebookIcon/>, text:'Quoting jobs off the top of your head' },
-    { icon:<ChartIcon/>,    text:"No idea which jobs are actually profitable" },
+function Compare({ router }) {
+  // Each row: [label, [col1, col2, col3], { ai?: highlight as AI row }]
+  // Values: 'yes' | 'no' | 'partial' | any plain string (rendered as text).
+  const rows = [
+    { label:'Setup time',             values:['None',    '4–8 hrs',     '10 minutes'] },
+    { label:'Monthly cost',           values:['$0',      '$99–$300',    '$39'] },
+    { label:'Mobile-first',           values:['no',      'partial',     'yes'] },
+    { label:'Lead → Paid workflow',   values:['no',      'yes',         'yes'] },
+    { label:'AI invoice import',      values:['no',      'no',          'yes'], ai:true },
+    { label:'AI business coach',      values:['no',      'no',          'yes'], ai:true },
+    { label:'Auto-invoice on done',   values:['no',      'partial',     'yes'] },
+    { label:'Crew + approvals',       values:['Manual',  'yes',         'yes'] },
+    { label:'Mileage + tax',          values:['no',      'Add-on $$',   'yes'] },
+    { label:'Branded customer email', values:['no',      'yes',         'yes'] },
+    { label:'Live demo',              values:['—',       'Sales call',  'One tap'] },
   ];
+  const cols = ['Texts & sheets', 'Old-school field software', 'MyForeman'];
+
   return (
     <section className="section alt">
-      <div className="section-inner" style={{textAlign:'center'}}>
-        <h2 className="section-headline" style={{textAlign:'center',maxWidth:780,margin:'0 auto 40px'}}>
-          Still running your business from texts and spreadsheets?
+      <div className="section-inner">
+        <h2 className="section-headline" style={{textAlign:'center',maxWidth:820,margin:'0 auto 12px'}}>
+          Tools for the way you actually work.
         </h2>
-        <div className="pain-grid">
-          {pains.map((p, i) => (
-            <div key={i} style={{background:'#111827',border:'1px solid #2e3f60',borderRadius:14,padding:'28px 22px',textAlign:'left',display:'flex',flexDirection:'column',gap:14}}>
-              <div style={{width:48,height:48,borderRadius:10,background:'rgba(242,96,96,0.12)',border:'1px solid rgba(242,96,96,0.3)',display:'flex',alignItems:'center',justifyContent:'center',color:'#f26060'}}>
-                {p.icon}
+        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 40px',maxWidth:680}}>
+          Not built for enterprise. Not held together with tape.
+        </p>
+
+        {/* Desktop table */}
+        <div className="compare-table">
+          <div className="compare-row compare-header">
+            <div className="compare-feature">&nbsp;</div>
+            {cols.map((c, i) => (
+              <div key={c} className={'compare-col ' + (i === 2 ? 'compare-us' : '')}>
+                {i === 2 && <span style={{color:'#fbbf24',marginRight:6}}>⚡</span>}
+                {c.toUpperCase()}
               </div>
-              <div style={{fontSize:17,lineHeight:1.4,color:'#f0f4ff',fontWeight:500}}>
-                {p.text}
-              </div>
+            ))}
+          </div>
+          {rows.map((row, ri) => (
+            <div key={row.label} className={'compare-row ' + (row.ai ? 'compare-ai' : '')}>
+              <div className="compare-feature">{row.label}{row.ai && <span className="compare-tag">AI</span>}</div>
+              {row.values.map((v, ci) => (
+                <div key={ci} className={'compare-col ' + (ci === 2 ? 'compare-us' : '')}>
+                  <CompareCell value={v} isUs={ci === 2}/>
+                </div>
+              ))}
             </div>
           ))}
         </div>
+
+        {/* Mobile stacked cards */}
+        <div className="compare-mobile">
+          {rows.map(row => (
+            <div key={row.label} className={'compare-card ' + (row.ai ? 'compare-card-ai' : '')}>
+              <div className="compare-card-label">
+                {row.label}
+                {row.ai && <span className="compare-tag">AI</span>}
+              </div>
+              {row.values.map((v, i) => (
+                <div key={i} className={'compare-card-row ' + (i === 2 ? 'compare-card-us' : '')}>
+                  <span className="compare-card-col">{cols[i]}</span>
+                  <span className="compare-card-val"><CompareCell value={v} isUs={i === 2}/></span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap',marginTop:42}}>
+          <button onClick={() => router.push('/signup')}
+            style={{background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'15px 28px',cursor:'pointer',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.08em'}}>
+            START 14-DAY FREE TRIAL
+          </button>
+          <a href="#workflow"
+            style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:10,color:'#c8d4ee',padding:'15px 28px',cursor:'pointer',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.08em',textDecoration:'none',display:'inline-flex',alignItems:'center'}}>
+            SEE HOW IT WORKS
+          </a>
+        </div>
       </div>
+
+      <style jsx>{`
+        .compare-table { display: none; }
+        .compare-mobile { display: flex; flex-direction: column; gap: 12px; }
+        .compare-card {
+          background: #111827; border: 1px solid #2e3f60; border-radius: 12px;
+          padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;
+        }
+        .compare-card-ai { border-color: rgba(251,191,36,0.45); background: linear-gradient(180deg,rgba(251,191,36,0.05),transparent 60%),#111827; }
+        .compare-card-label {
+          font-family: 'Bebas Neue', Impact, sans-serif; font-size: 18px;
+          letter-spacing: .06em; color: #f0f4ff; display: flex; align-items: center; gap: 8px;
+          padding-bottom: 6px; border-bottom: 1px solid #2e3f60;
+        }
+        .compare-card-row {
+          display: flex; justify-content: space-between; align-items: center;
+          padding: 4px 0; gap: 12px;
+        }
+        .compare-card-us { background: rgba(79,158,255,0.07); border-radius: 6px; margin: 0 -8px; padding: 4px 8px; }
+        .compare-card-col { font-size: 12px; color: #7a8db0; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+        .compare-card-val { font-size: 14px; color: #f0f4ff; }
+        .compare-tag {
+          background: rgba(251,191,36,0.15); color: #fbbf24;
+          border: 1px solid rgba(251,191,36,0.4); border-radius: 999px;
+          padding: 1px 7px; font-size: 9px; font-weight: 700; letter-spacing: .08em; margin-left: 6px;
+        }
+        @media (min-width: 768px) {
+          .compare-mobile { display: none; }
+          .compare-table {
+            display: block;
+            background: #111827;
+            border: 1px solid #2e3f60; border-radius: 16px;
+            overflow: hidden; max-width: 920px; margin: 0 auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+          }
+          .compare-row {
+            display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr;
+            align-items: center;
+          }
+          .compare-header {
+            border-bottom: 1px solid #2e3f60; background: #0d1726;
+          }
+          .compare-header .compare-col {
+            font-family: 'Bebas Neue', Impact, sans-serif; font-size: 13px;
+            letter-spacing: .08em; color: #7a8db0;
+            padding: 18px 14px; text-align: center;
+          }
+          .compare-header .compare-us {
+            background: linear-gradient(180deg,rgba(79,158,255,0.20),rgba(79,158,255,0.06));
+            color: #f0f4ff; font-weight: 700;
+            border-left: 1px solid rgba(79,158,255,0.35);
+            border-right: 1px solid rgba(79,158,255,0.35);
+          }
+          .compare-row + .compare-row { border-top: 1px solid #1f2a40; }
+          .compare-row:nth-child(odd) { background: rgba(255,255,255,0.012); }
+          .compare-feature {
+            padding: 14px 18px;
+            font-size: 14px; color: #c8d4ee; font-weight: 500;
+            display: flex; align-items: center;
+          }
+          .compare-col {
+            padding: 14px;
+            text-align: center;
+            font-size: 14px; color: #c8d4ee;
+          }
+          .compare-us {
+            background: rgba(79,158,255,0.06);
+            border-left: 1px solid rgba(79,158,255,0.35);
+            border-right: 1px solid rgba(79,158,255,0.35);
+            color: #f0f4ff;
+          }
+          .compare-ai .compare-feature { color: #fbbf24; }
+          .compare-ai .compare-us { background: rgba(251,191,36,0.08); }
+        }
+      `}</style>
     </section>
   );
+}
+
+function CompareCell({ value, isUs }) {
+  if (value === 'yes') {
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={isUs ? '#2edf87' : '#7a8db0'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{display:'inline-block',verticalAlign:'middle'}}>
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    );
+  }
+  if (value === 'no') {
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f26060" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{display:'inline-block',verticalAlign:'middle',opacity:0.75}}>
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    );
+  }
+  if (value === 'partial') {
+    return <span style={{color:'#fbbf24',fontSize:13,fontWeight:600,letterSpacing:'.02em'}}>Partial</span>;
+  }
+  return <span style={{color:isUs?'#f0f4ff':'#c8d4ee',fontWeight:isUs?700:500}}>{value}</span>;
 }
 
 /* =====================================================
@@ -435,26 +578,6 @@ function FooterSection() {
 /* =====================================================
    ICONS
    ===================================================== */
-function CashIcon() { return (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="6" width="20" height="12" rx="2"/>
-    <circle cx="12" cy="12" r="3"/>
-    <path d="M6 12h.01M18 12h.01"/>
-  </svg>
-);}
-function NotebookIcon() { return (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4z"/>
-    <path d="M8 8h8M8 12h8M8 16h5"/>
-    <path d="M4 4v18"/>
-  </svg>
-);}
-function ChartIcon() { return (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 3v18h18"/>
-    <path d="M7 14l4-4 4 4 5-7"/>
-  </svg>
-);}
 function PhoneIcon() { return (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
