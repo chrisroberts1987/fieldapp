@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useOrg } from '../lib/org';
 import TopNav from '../components/TopNav';
 import { validateUpload, ACCEPT_ATTR } from '../lib/uploads';
+import { launchOnboarding } from '../components/OnboardingTour';
 
 export default function Settings() {
   const router = useRouter();
@@ -245,6 +246,11 @@ export default function Settings() {
         <button onClick={save} disabled={saving}
           style={{width:'100%',background:'#4f9eff',color:'#fff',border:'none',borderRadius:10,padding:'13px 0',fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.08em',cursor:'pointer',marginBottom:24,opacity:saving?0.5:1}}>
           {saving ? 'Saving...' : 'SAVE CHANGES'}
+        </button>
+
+        <button onClick={() => launchOnboarding(router)}
+          style={{width:'100%',background:'transparent',color:'#c8d4ee',border:'1px solid #2e3f60',borderRadius:10,padding:'11px 0',fontSize:13,fontWeight:600,letterSpacing:'.04em',cursor:'pointer',marginBottom:24}}>
+          Replay welcome tour
         </button>
 
         <DangerZone user={user} router={router}/>

@@ -6,6 +6,7 @@ import { useRefetchOnFocus } from '../../lib/useFocus';
 import { isForeman, isSupervisor, isCrew, isOffice, roleLabel } from '../../lib/role';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import OnboardingTour from '../../components/OnboardingTour';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -180,6 +181,7 @@ export default function Dashboard() {
   return (
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif",paddingBottom:80}}>
       <TopNav active="/dashboard"/>
+      <OnboardingTour/>
 
       <main style={{maxWidth:1280,margin:'0 auto',padding:'28px 20px 0'}}>
 
