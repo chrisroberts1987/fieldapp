@@ -218,7 +218,7 @@ function Compare({ router }) {
   // Values: 'yes' | 'no' | 'partial' | any plain string (rendered as text).
   const rows = [
     { label:'Setup time',             values:['None',    '4–8 hrs',     '10 minutes'] },
-    { label:'Monthly cost',           values:['$0',      '$99–$300',    '$39'] },
+    { label:'Monthly cost',           values:['$0',      '$99–$300',    '$29–$149'] },
     { label:'Mobile-first',           values:['no',      'partial',     'yes'] },
     { label:'Lead → Paid workflow',   values:['no',      'yes',         'yes'] },
     { label:'AI invoice import',      values:['no',      'no',          'yes'], ai:true },
