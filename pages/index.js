@@ -235,7 +235,7 @@ function Compare({ router }) {
     <section className="section alt">
       <div className="section-inner">
         <h2 className="section-headline" style={{textAlign:'center',maxWidth:820,margin:'0 auto 12px'}}>
-          Tools for the way you actually work.
+          The Way It Should Have Always Been
         </h2>
         <p className="section-lede" style={{textAlign:'center',margin:'0 auto 40px',maxWidth:680}}>
           Your work is professional. Your tools should be too.
