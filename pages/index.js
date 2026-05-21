@@ -186,7 +186,7 @@ function Hero({ router, supabase }) {
           FROM LEAD<br/>TO <span className="accent">PAID.</span>
         </h1>
         <p className="hero-subhead">
-          MyForeman runs your field service business from first call to final payment — with AI insights that help you grow.
+          MyForeman runs your field service business from first call to final payment, with AI insights that help you grow.
         </p>
         <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}>
           <button onClick={() => router.push('/signup')}
@@ -203,7 +203,7 @@ function Hero({ router, supabase }) {
           </a>
         </div>
         <div style={{marginTop:18,fontSize:12,color:'#7a8db0',letterSpacing:'.03em'}}>
-          Card required for the free trial. The live demo opens instantly — no signup, no card.
+          Card required for the free trial. The live demo opens instantly. No signup, no card.
         </div>
         {demoErr && <div style={{marginTop:10,fontSize:12,color:'#f26060'}}>Couldn't open demo: {demoErr}</div>}
       </div>
@@ -228,7 +228,7 @@ function Compare({ router }) {
     { label:'Crew + approvals',       values:['Manual',  'yes',         'yes'] },
     { label:'Mileage + tax',          values:['no',      'Add-on $$',   'yes'] },
     { label:'Branded customer email', values:['no',      'yes',         'yes'] },
-    { label:'Live demo',              values:['—',       'Sales call',  'One tap'] },
+    { label:'Live demo',              values:['N/A',     'Sales call',  'One tap'] },
   ];
   const cols = ['Texts & sheets', 'Old-school field software', 'MyForeman'];
 
