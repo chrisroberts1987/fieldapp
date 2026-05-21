@@ -238,7 +238,7 @@ function Compare({ router }) {
           Tools for the way you actually work.
         </h2>
         <p className="section-lede" style={{textAlign:'center',margin:'0 auto 40px',maxWidth:680}}>
-          Not built for enterprise. Not held together with tape.
+          Your work is professional. Your tools should be too.
         </p>
 
         {/* Desktop table */}
