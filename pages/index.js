@@ -10,8 +10,14 @@ export default function Home() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.push('/dashboard');
-      else setChecking(false);
+      // Real signed-in users go straight to their dashboard. Demo
+      // viewers stay on the marketing page so closing the tab and
+      // coming back doesn't dump them straight back into the demo.
+      if (session && session.user?.email !== 'demo@myforemanhq.com') {
+        router.push('/dashboard');
+      } else {
+        setChecking(false);
+      }
     });
   }, []);
 
