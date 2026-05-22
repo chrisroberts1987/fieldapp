@@ -196,6 +196,7 @@ export default function TopNav({ active }) {
               <div onClick={() => setMenuOpen(false)} style={{position:'fixed',inset:0,zIndex:60}}/>
               <div style={{position:'absolute',right:0,top:'calc(100% + 6px)',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,minWidth:160,padding:6,zIndex:70,boxShadow:'0 8px 24px rgba(0,0,0,.4)'}}>
                 <MenuItem label="Settings"  onClick={() => { setMenuOpen(false); router.push('/settings'); }} />
+                <MenuItem label="Contact"   onClick={() => { setMenuOpen(false); router.push('/contact'); }} />
                 <MenuItem label="Sign Out" onClick={signOut} danger />
               </div>
             </>
@@ -242,6 +243,7 @@ function MobileBottomNav({ role, active, router, onSignOut }) {
     { route:'/tax',       label:'Tax',       icon:<PieIcon/>,     showFor:'foreman' },
     { route:'/insights',  label:'Insights',  icon:<ChartIcon/>,   showFor:'foreman' },
     { route:'/settings',  label:'Settings',  icon:<GearIcon/>,    showFor:'all' },
+    { route:'/contact',   label:'Contact',   icon:<MailIcon/>,    showFor:'all' },
   ];
   const visible = items => items.filter(t => {
     if (t.showFor === 'all') return true;
@@ -366,6 +368,7 @@ function PieIcon()     { return svg(<><path d="M21 12A9 9 0 1 1 12 3v9z"/><path 
 function ChartIcon()   { return svg(<polyline points="3 17 9 11 13 15 21 7"/>); }
 function GearIcon()    { return svg(<><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></>); }
 function LogoutIcon()  { return svg(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>); }
+function MailIcon()    { return svg(<><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2 7 12 13 22 7"/></>); }
 
 function MenuItem({ label, onClick, danger }) {
   return (

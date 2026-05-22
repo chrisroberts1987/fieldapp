@@ -181,7 +181,7 @@ function Hero({ router, supabase }) {
 
       <nav style={{position:'relative',zIndex:2,display:'flex',justifyContent:'space-between',alignItems:'center',maxWidth:1200,margin:'0 auto',padding:'0 20px',gap:12}}>
         <Logo size="sm" />
-        <div style={{display:'flex',gap:10}}>
+        <div style={{display:'flex',gap:10,alignItems:'center'}}>
           <button onClick={() => router.push('/login')}
             style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'8px 14px',cursor:'pointer',fontSize:12,fontWeight:600,letterSpacing:'.06em'}}>
             SIGN IN
@@ -673,13 +673,16 @@ function FooterSection() {
             From lead to paid
           </div>
         </div>
-        <div style={{display:'flex',gap:24,fontSize:13,color:'#7a8db0'}}>
+        <div style={{display:'flex',gap:24,fontSize:13,color:'#7a8db0',flexWrap:'wrap',justifyContent:'center'}}>
+          <a href="/contact" style={{color:'#7a8db0',textDecoration:'none'}}>Contact</a>
           <a href="/privacy" style={{color:'#7a8db0',textDecoration:'none'}}>Privacy</a>
           <a href="/terms" style={{color:'#7a8db0',textDecoration:'none'}}>Terms</a>
-          <a href="mailto:hello@myforeman.app" style={{color:'#7a8db0',textDecoration:'none'}}>Contact</a>
         </div>
-        <div style={{fontSize:11,color:'#7a8db0'}}>
-          © {new Date().getFullYear()} MyForeman
+        <div style={{fontSize:11,color:'#7a8db0',textAlign:'center'}}>
+          <a href="mailto:support@myforemanhq.com" style={{color:'#7a8db0',textDecoration:'none'}}>support@myforemanhq.com</a>
+          <span style={{margin:'0 8px',color:'#3a4866'}}>·</span>
+          <a href="mailto:hello@myforemanhq.com" style={{color:'#7a8db0',textDecoration:'none'}}>hello@myforemanhq.com</a>
+          <div style={{marginTop:6}}>© {new Date().getFullYear()} MyForeman</div>
         </div>
       </div>
     </footer>
