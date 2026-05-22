@@ -83,7 +83,7 @@ export default function Quotes() {
             <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase'}}>Quotes</div>
             <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,letterSpacing:'.04em',margin:'4px 0 0',color:'#f0f4ff'}}>QUOTES</h1>
           </div>
-          <button onClick={createBlank} style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'10px 18px',fontWeight:700,cursor:'pointer',fontSize:13,letterSpacing:'.04em'}}>+ NEW QUOTE</button>
+          <button data-tour="page-cta" onClick={createBlank} style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'10px 18px',fontWeight:700,cursor:'pointer',fontSize:13,letterSpacing:'.04em'}}>+ NEW QUOTE</button>
         </div>
 
         <div style={{display:'flex',gap:6,marginBottom:14,overflowX:'auto'}}>

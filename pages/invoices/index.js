@@ -207,7 +207,7 @@ export default function Invoices() {
         </div>
       </div>
 
-      <div style={{margin:'12px 16px 6px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'12px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      <div data-tour="invoices-summary" style={{margin:'12px 16px 6px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'12px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div>
           <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.06em',textTransform:'uppercase'}}>Outstanding</div>
           <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:26,color:'#fbbf24',letterSpacing:'.04em'}}>{fmt$(unpaidTotal)}</div>

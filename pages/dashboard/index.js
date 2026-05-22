@@ -6,7 +6,6 @@ import { useRefetchOnFocus } from '../../lib/useFocus';
 import { isForeman, isSupervisor, isCrew, isOffice, roleLabel } from '../../lib/role';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
-import OnboardingTour from '../../components/OnboardingTour';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -181,7 +180,6 @@ export default function Dashboard() {
   return (
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif",paddingBottom:80}}>
       <TopNav active="/dashboard"/>
-      <OnboardingTour/>
 
       <main style={{maxWidth:1280,margin:'0 auto',padding:'28px 20px 0'}}>
 
@@ -483,7 +481,7 @@ function ActionFeed({ stats, router }) {
   return (
     <>
       <SectionHeader title="Action Needed" subtitle={items.length === 0 ? 'All caught up' : `${items.length} item${items.length === 1 ? '' : 's'}`} />
-      <div style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,marginBottom:28,overflow:'hidden'}}>
+      <div data-tour="action-feed" style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,marginBottom:28,overflow:'hidden'}}>
         {items.length === 0 ? (
           <div style={{padding:'40px 24px',textAlign:'center',color:'#7a8db0'}}>
             <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.06em',color:'#2edf87',marginBottom:6}}>YOU'RE CLEAR</div>

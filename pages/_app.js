@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import TourOverlay from '../components/TourOverlay';
 
 export default function MyApp({ Component, pageProps }) {
   return (
@@ -18,6 +19,7 @@ export default function MyApp({ Component, pageProps }) {
         <meta property="og:type" content="website" />
       </Head>
       <Component {...pageProps} />
+      <TourOverlay />
     </>
   );
 }

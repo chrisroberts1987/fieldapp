@@ -161,7 +161,7 @@ export default function Leads() {
           <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase'}}>Leads</div>
           <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:36,letterSpacing:'.04em',margin:'4px 0 0'}}>LEADS</h1>
         </div>
-        <button onClick={openNew} style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'10px 18px',fontWeight:700,cursor:'pointer',fontSize:13,letterSpacing:'.04em'}}>+ NEW</button>
+        <button data-tour="page-cta" onClick={openNew} style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'10px 18px',fontWeight:700,cursor:'pointer',fontSize:13,letterSpacing:'.04em'}}>+ NEW</button>
       </div>
 
       {org?.slug && typeof window !== 'undefined' && (() => {
@@ -173,7 +173,7 @@ export default function Leads() {
         const smsHref  = `sms:?body=${encodeURIComponent(`Quick way to request a quote from ${org?.name || 'us'}: ${url}`)}`;
         const mailHref = `mailto:?subject=${encodeURIComponent(`Request a quote from ${org?.name || 'us'}`)}&body=${encodeURIComponent(`Tap this link any time to send us a quote request: ${url}`)}`;
         return (
-          <div style={{margin:'10px 16px 4px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'14px',display:'grid',gridTemplateColumns:'auto 1fr',gap:14,alignItems:'center'}}>
+          <div data-tour="lead-share-card" style={{margin:'10px 16px 4px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'14px',display:'grid',gridTemplateColumns:'auto 1fr',gap:14,alignItems:'center'}}>
             <a href={qrUrl} target="_blank" rel="noopener noreferrer" title="Open large QR in new tab — right-click to save"
               style={{display:'block',background:'#fff',borderRadius:10,padding:6,lineHeight:0,flexShrink:0}}>
               <img src={qrUrl} alt="Quote-request QR" width="120" height="120" style={{display:'block',borderRadius:6}}/>

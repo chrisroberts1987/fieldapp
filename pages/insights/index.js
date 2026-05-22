@@ -446,7 +446,9 @@ export default function Insights() {
         </Section>
 
         <Section title="AI Coach">
-          <CoachCard status={coachStatus} row={coachRow}/>
+          <div data-tour="ai-coach">
+            <CoachCard status={coachStatus} row={coachRow}/>
+          </div>
         </Section>
       </main>
     </div>
