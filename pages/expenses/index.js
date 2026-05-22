@@ -177,7 +177,7 @@ export default function Expenses() {
               Total <strong style={{color:'#f26060'}}>{fmt$(totalAll)}</strong>{filter!=='all' && <> · {catMeta(filter).label}: <strong style={{color:catMeta(filter).color}}>{fmt$(totalFiltered)}</strong></>}
             </div>
           </div>
-          <button onClick={openNew} style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'10px 18px',fontWeight:700,cursor:'pointer',fontSize:13,letterSpacing:'.04em'}}>+ NEW EXPENSE</button>
+          <button data-tour="expenses-header" onClick={openNew} style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'10px 18px',fontWeight:700,cursor:'pointer',fontSize:13,letterSpacing:'.04em'}}>+ NEW EXPENSE</button>
         </div>
 
         <SubNav active="/expenses" items={[

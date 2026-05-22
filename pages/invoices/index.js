@@ -202,7 +202,7 @@ export default function Invoices() {
           <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:36,letterSpacing:'.04em',margin:'4px 0 0'}}>INVOICES</h1>
         </div>
         <div style={{display:'flex',gap:8}}>
-          <button onClick={() => router.push('/invoices/import')} style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'10px 14px',fontWeight:700,cursor:'pointer',fontSize:12,letterSpacing:'.04em'}}>IMPORT</button>
+          <button data-tour="import-cta" onClick={() => router.push('/invoices/import')} style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'10px 14px',fontWeight:700,cursor:'pointer',fontSize:12,letterSpacing:'.04em'}}>IMPORT</button>
           <button onClick={openNew} style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'10px 18px',fontWeight:700,cursor:'pointer',fontSize:13,letterSpacing:'.04em'}}>+ NEW</button>
         </div>
       </div>

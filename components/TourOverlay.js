@@ -84,9 +84,16 @@ export default function TourOverlay() {
     const el = document.querySelector(current.target);
     if (!el) { setRect(null); return false; }
     const r = el.getBoundingClientRect();
+    // Round so the spotlight rectangle aligns cleanly with the
+    // device pixel grid — sub-pixel values were leaving a faint gap
+    // on mobile.
     setRect({
-      top: r.top, left: r.left, width: r.width, height: r.height,
-      bottom: r.bottom, right: r.right,
+      top:    Math.round(r.top),
+      left:   Math.round(r.left),
+      width:  Math.round(r.width),
+      height: Math.round(r.height),
+      bottom: Math.round(r.bottom),
+      right:  Math.round(r.right),
     });
     setMissing(false);
     return true;
@@ -127,13 +134,15 @@ export default function TourOverlay() {
     };
   }, [active, current?.target, measure]);
 
-  // ----- 6. Scroll target into view -----
+  // ----- 6. Scroll target into view (instant, not smooth — a smooth
+  // scroll meant the spotlight was chasing the moving element which
+  // looked off on mobile) -----
   useEffect(() => {
     if (!rect) return;
     const vh = window.innerHeight;
-    if (rect.top < 80 || rect.bottom > vh - 80) {
+    if (rect.top < 80 || rect.bottom > vh - 220) {
       const el = document.querySelector(current.target);
-      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el?.scrollIntoView({ behavior: 'auto', block: 'center' });
     }
   }, [rect, current?.target]);
 
@@ -274,7 +283,7 @@ function ModalCard({ step, total, progressPct, title, body, primary, secondary, 
 // on whichever side of the target has more room.
 // =============================================================
 function Spotlight({ rect, missing, step, total, progressPct, title, body, primary, onPrimary, onSkip }) {
-  const PAD = 8;
+  const PAD = 4;
 
   if (missing) {
     // Element didn't render in time — fall back to a centered card so

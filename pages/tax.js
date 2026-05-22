@@ -259,7 +259,7 @@ export default function Tax() {
         </div>
 
         {/* Revenue / Expenses summary row */}
-        <div className="annual-row" style={{marginBottom:14}}>
+        <div data-tour="tax-summary" className="annual-row" style={{marginBottom:14}}>
           <SummaryTile label="Revenue"   value={fmt$(ytdRevenue)}            color="#2edf87" sub={`${totalPaid} paid invoice${totalPaid===1?'':'s'}`}/>
           <SummaryTile label="Expenses (deductible)" value={fmt$(ytdExpensesDeductible)} color="#f26060" sub={`${expenses.length} logged · ${fmt$(ytdExpensesRaw)} raw`}/>
           <SummaryTile label="Mileage deduction" value={fmt$(ytdMileageDeduction)} color="#4f9eff" sub={`${ytdMiles.toFixed(1)} biz mi × $${IRS_RATE.toFixed(2)}`}/>
