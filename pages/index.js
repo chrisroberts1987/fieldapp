@@ -239,7 +239,8 @@ function Compare({ router }) {
     { label:'Branded customer email', values:['no',      'yes',         'yes'] },
     { label:'Live demo',              values:['N/A',     'Sales call',  'One tap'] },
   ];
-  const cols = ['Texts & sheets', 'Old-school field software', 'MyForeman'];
+  const cols       = ['Texts & sheets', 'Old-school field software', 'MyForeman'];
+  const colsShort  = ['Texts',         'Old-school',                'MyForeman'];
 
   return (
     <section className="section alt">
@@ -251,41 +252,23 @@ function Compare({ router }) {
           Your work is professional. Your tools should be too.
         </p>
 
-        {/* Desktop table */}
         <div className="compare-table">
           <div className="compare-row compare-header">
             <div className="compare-feature">&nbsp;</div>
             {cols.map((c, i) => (
               <div key={c} className={'compare-col ' + (i === 2 ? 'compare-us' : '')}>
-                {i === 2 && <span style={{color:'#fbbf24',marginRight:6}}>⚡</span>}
-                {c.toUpperCase()}
+                {i === 2 && <span style={{color:'#fbbf24',marginRight:4}}>⚡</span>}
+                <span className="compare-col-full">{c.toUpperCase()}</span>
+                <span className="compare-col-short">{colsShort[i].toUpperCase()}</span>
               </div>
             ))}
           </div>
-          {rows.map((row, ri) => (
+          {rows.map((row) => (
             <div key={row.label} className={'compare-row ' + (row.ai ? 'compare-ai' : '')}>
               <div className="compare-feature">{row.label}{row.ai && <span className="compare-tag">AI</span>}</div>
               {row.values.map((v, ci) => (
                 <div key={ci} className={'compare-col ' + (ci === 2 ? 'compare-us' : '')}>
                   <CompareCell value={v} isUs={ci === 2}/>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-
-        {/* Mobile stacked cards */}
-        <div className="compare-mobile">
-          {rows.map(row => (
-            <div key={row.label} className={'compare-card ' + (row.ai ? 'compare-card-ai' : '')}>
-              <div className="compare-card-label">
-                {row.label}
-                {row.ai && <span className="compare-tag">AI</span>}
-              </div>
-              {row.values.map((v, i) => (
-                <div key={i} className={'compare-card-row ' + (i === 2 ? 'compare-card-us' : '')}>
-                  <span className="compare-card-col">{cols[i]}</span>
-                  <span className="compare-card-val"><CompareCell value={v} isUs={i === 2}/></span>
                 </div>
               ))}
             </div>
@@ -305,77 +288,73 @@ function Compare({ router }) {
       </div>
 
       <style jsx>{`
-        .compare-table { display: none; }
-        .compare-mobile { display: flex; flex-direction: column; gap: 12px; }
-        .compare-card {
-          background: #111827; border: 1px solid #2e3f60; border-radius: 12px;
-          padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;
+        .compare-table {
+          background: #111827;
+          border: 1px solid #2e3f60; border-radius: 14px;
+          overflow: hidden; max-width: 920px; margin: 0 auto;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.25);
         }
-        .compare-card-ai { border-color: rgba(251,191,36,0.45); background: linear-gradient(180deg,rgba(251,191,36,0.05),transparent 60%),#111827; }
-        .compare-card-label {
-          font-family: 'Bebas Neue', Impact, sans-serif; font-size: 18px;
-          letter-spacing: .06em; color: #f0f4ff; display: flex; align-items: center; gap: 8px;
-          padding-bottom: 6px; border-bottom: 1px solid #2e3f60;
+        .compare-row {
+          display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr;
+          align-items: stretch;
         }
-        .compare-card-row {
-          display: flex; justify-content: space-between; align-items: center;
-          padding: 4px 0; gap: 12px;
+        .compare-header { border-bottom: 1px solid #2e3f60; background: #0d1726; }
+        .compare-header .compare-col {
+          font-family: 'Bebas Neue', Impact, sans-serif;
+          letter-spacing: .06em; color: #7a8db0;
+          text-align: center;
+          display: flex; align-items: center; justify-content: center;
         }
-        .compare-card-us { background: rgba(79,158,255,0.07); border-radius: 6px; margin: 0 -8px; padding: 4px 8px; }
-        .compare-card-col { font-size: 12px; color: #7a8db0; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
-        .compare-card-val { font-size: 14px; color: #f0f4ff; }
+        .compare-header .compare-us {
+          background: linear-gradient(180deg,rgba(79,158,255,0.20),rgba(79,158,255,0.06));
+          color: #f0f4ff; font-weight: 700;
+          border-left: 1px solid rgba(79,158,255,0.35);
+          border-right: 1px solid rgba(79,158,255,0.35);
+        }
+        .compare-row + .compare-row { border-top: 1px solid #1f2a40; }
+        .compare-row:nth-child(odd) { background: rgba(255,255,255,0.012); }
+        .compare-feature {
+          color: #c8d4ee; font-weight: 500;
+          display: flex; align-items: center;
+        }
+        .compare-col {
+          text-align: center;
+          color: #c8d4ee;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .compare-us {
+          background: rgba(79,158,255,0.06);
+          border-left: 1px solid rgba(79,158,255,0.35);
+          border-right: 1px solid rgba(79,158,255,0.35);
+          color: #f0f4ff;
+        }
+        .compare-ai .compare-feature { color: #fbbf24; }
+        .compare-ai .compare-us { background: rgba(251,191,36,0.08); }
         .compare-tag {
           background: rgba(251,191,36,0.15); color: #fbbf24;
           border: 1px solid rgba(251,191,36,0.4); border-radius: 999px;
           padding: 1px 7px; font-size: 9px; font-weight: 700; letter-spacing: .08em; margin-left: 6px;
         }
+
+        /* Show only the short header label on narrow screens, full label on desktop */
+        .compare-col-short { display: inline; }
+        .compare-col-full  { display: none; }
         @media (min-width: 768px) {
-          .compare-mobile { display: none; }
-          .compare-table {
-            display: block;
-            background: #111827;
-            border: 1px solid #2e3f60; border-radius: 16px;
-            overflow: hidden; max-width: 920px; margin: 0 auto;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-          }
-          .compare-row {
-            display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr;
-            align-items: center;
-          }
-          .compare-header {
-            border-bottom: 1px solid #2e3f60; background: #0d1726;
-          }
-          .compare-header .compare-col {
-            font-family: 'Bebas Neue', Impact, sans-serif; font-size: 13px;
-            letter-spacing: .08em; color: #7a8db0;
-            padding: 18px 14px; text-align: center;
-          }
-          .compare-header .compare-us {
-            background: linear-gradient(180deg,rgba(79,158,255,0.20),rgba(79,158,255,0.06));
-            color: #f0f4ff; font-weight: 700;
-            border-left: 1px solid rgba(79,158,255,0.35);
-            border-right: 1px solid rgba(79,158,255,0.35);
-          }
-          .compare-row + .compare-row { border-top: 1px solid #1f2a40; }
-          .compare-row:nth-child(odd) { background: rgba(255,255,255,0.012); }
-          .compare-feature {
-            padding: 14px 18px;
-            font-size: 14px; color: #c8d4ee; font-weight: 500;
-            display: flex; align-items: center;
-          }
-          .compare-col {
-            padding: 14px;
-            text-align: center;
-            font-size: 14px; color: #c8d4ee;
-          }
-          .compare-us {
-            background: rgba(79,158,255,0.06);
-            border-left: 1px solid rgba(79,158,255,0.35);
-            border-right: 1px solid rgba(79,158,255,0.35);
-            color: #f0f4ff;
-          }
-          .compare-ai .compare-feature { color: #fbbf24; }
-          .compare-ai .compare-us { background: rgba(251,191,36,0.08); }
+          .compare-col-short { display: none; }
+          .compare-col-full  { display: inline; }
+        }
+
+        /* Mobile — tight padding, smaller font, same table layout */
+        .compare-header .compare-col { font-size: 11px; padding: 12px 6px; }
+        .compare-feature              { padding: 10px 10px; font-size: 12px; line-height: 1.25; }
+        .compare-col                  { padding: 10px 6px; font-size: 12px; }
+
+        /* Desktop — roomier */
+        @media (min-width: 768px) {
+          .compare-row { grid-template-columns: 1.6fr 1fr 1fr 1fr; }
+          .compare-header .compare-col { font-size: 13px; letter-spacing: .08em; padding: 18px 14px; }
+          .compare-feature              { padding: 14px 18px; font-size: 14px; }
+          .compare-col                  { padding: 14px; font-size: 14px; }
         }
       `}</style>
     </section>
@@ -399,9 +378,9 @@ function CompareCell({ value, isUs }) {
     );
   }
   if (value === 'partial') {
-    return <span style={{color:'#fbbf24',fontSize:13,fontWeight:600,letterSpacing:'.02em'}}>Partial</span>;
+    return <span style={{color:'#fbbf24',fontSize:'inherit',fontWeight:600,letterSpacing:'.02em'}}>Partial</span>;
   }
-  return <span style={{color:isUs?'#f0f4ff':'#c8d4ee',fontWeight:isUs?700:500}}>{value}</span>;
+  return <span style={{color:isUs?'#f0f4ff':'#c8d4ee',fontWeight:isUs?700:500,lineHeight:1.25}}>{value}</span>;
 }
 
 /* =====================================================
