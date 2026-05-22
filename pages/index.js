@@ -234,7 +234,7 @@ function Compare({ router }) {
   // Values: 'yes' | 'no' | 'partial' | any plain string (rendered as text).
   const rows = [
     { label:'Setup time',             values:['None',    '4–8 hrs',     '10 minutes'] },
-    { label:'Monthly cost',           values:['$0',      '$99–$300',    '$29–$149'] },
+    { label:'Monthly cost',           values:['$0',      '$99–$300',    '$39–$159'] },
     { label:'Mobile-first',           values:['no',      'partial',     'yes'] },
     { label:'Lead → Paid workflow',   values:['no',      'yes',         'yes'] },
     { label:'AI invoice import',      values:['no',      'no',          'yes'], ai:true },
@@ -553,9 +553,9 @@ function Automation() {
    ===================================================== */
 function Pricing({ billing, setBilling, router }) {
   const plans = [
-    { name:'Solo',     monthly:29,  users:'1 user',          subtitle:'For owner-operators' },
-    { name:'Crew',     monthly:69,  users:'Up to 7 users',   subtitle:'For service crews', popular:true },
-    { name:'Business', monthly:149, users:'Up to 15 users',  subtitle:'For multi-crew shops' },
+    { name:'Solo',     monthly:39,  users:'1 user',          subtitle:'For owner-operators' },
+    { name:'Crew',     monthly:69,  users:'Up to 10 users',  subtitle:'For service crews', popular:true },
+    { name:'Business', monthly:159, users:'Up to 25 users',  subtitle:'For multi-crew shops' },
   ];
   return (
     <section className="section alt">
