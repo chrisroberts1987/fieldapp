@@ -122,15 +122,38 @@ export default function TourOverlay() {
     return () => { cancelled = true; };
   }, [active, current?.id, router.pathname, measure]);
 
-  // ----- 5. Recompute on resize / scroll -----
+  // ----- 5. Recompute on resize / scroll / layout shifts -----
   useEffect(() => {
     if (!active || !current?.target) return;
     const onChange = () => measure();
     window.addEventListener('resize', onChange);
     window.addEventListener('scroll', onChange, true);
+
+    // ResizeObserver catches the case where the target's own size or
+    // its layout context shifts after we first measured — common on
+    // mobile when a flex-wrap row collapses or expands.
+    let ro = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      const el = document.querySelector(current.target);
+      if (el) {
+        ro = new ResizeObserver(() => measure());
+        ro.observe(el);
+        ro.observe(document.body);
+      }
+    }
+
+    // Double rAF catches the case where the page is still settling
+    // into final layout right after we first attached the listeners.
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => measure());
+      return () => cancelAnimationFrame(raf2);
+    });
+
     return () => {
       window.removeEventListener('resize', onChange);
       window.removeEventListener('scroll', onChange, true);
+      cancelAnimationFrame(raf1);
+      ro?.disconnect();
     };
   }, [active, current?.target, measure]);
 
