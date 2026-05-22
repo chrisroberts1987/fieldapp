@@ -312,7 +312,7 @@ export default function Jobs() {
         const unassigned = !j.assigned_to_user_id;
         const mine = j.assigned_to_user_id === user?.id;
         return (
-          <div key={j.id} onClick={() => openEdit(j)}
+          <div key={j.id} data-tour="job-row" onClick={() => openEdit(j)}
             style={{background:'#1e2a42',border:'1px solid '+(unassigned && isCrew(role)?'#fbbf2466':'#2e3f60'),borderRadius:10,margin:'6px 16px',padding:'13px 14px',cursor:'pointer'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:3,gap:8}}>
               <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.04em',color:'#f0f4ff',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{j.title}</div>
