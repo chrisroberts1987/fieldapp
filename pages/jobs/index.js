@@ -7,6 +7,7 @@ import { isCrew, isOffice } from '../../lib/role';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import { sendEmail } from '../../lib/email/client';
+import { validateUpload, ACCEPT_ATTR } from '../../lib/uploads';
 
 const STATUSES = [
   { key:'scheduled',   label:'Scheduled',   color:'#54d4f8' },
@@ -44,6 +45,8 @@ export default function Jobs() {
   const [form, setForm] = useState(EMPTY);
   const [jobExpenses, setJobExpenses] = useState([]);
   const [jobLabor, setJobLabor] = useState([]);
+  const [jobPhotos, setJobPhotos] = useState([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [quickExp, setQuickExp] = useState({ amount:'', category:'materials', vendor:'' });
   const [quickLabor, setQuickLabor] = useState({ user_id:'', hours:'' });
   const [addingExp, setAddingExp] = useState(false);
@@ -93,12 +96,52 @@ export default function Jobs() {
     setQuickExp({ amount:'', category:'materials', vendor:'' });
     setQuickLabor({ user_id:'', hours:'' });
     setSheet(j);
-    const [{ data: e }, { data: lb }] = await Promise.all([
+    const [{ data: e }, { data: lb }, { data: ph }] = await Promise.all([
       supabase.from('expenses').select('*').eq('job_id', j.id).order('expense_date', { ascending:false }),
       supabase.from('job_labor').select('*').eq('job_id', j.id).order('work_date', { ascending:false }),
+      supabase.from('job_photos').select('*').eq('job_id', j.id).order('created_at', { ascending:false }),
     ]);
     setJobExpenses(e || []);
     setJobLabor(lb || []);
+    setJobPhotos(ph || []);
+  };
+
+  const addJobPhoto = async (ev, kind = 'work') => {
+    const file = ev.target.files?.[0];
+    ev.target.value = '';
+    if (!file || !sheet || sheet === 'new' || !orgId) return;
+    const err = validateUpload(file, { images: true });
+    if (err) { alert(err); return; }
+    setUploadingPhoto(true);
+    const extByMime = { 'image/jpeg':'jpg', 'image/png':'png', 'image/heic':'heic', 'image/heif':'heif' };
+    const ext = extByMime[file.type] || 'jpg';
+    const path = `${orgId}/${sheet.id}/${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from('job-photos')
+      .upload(path, file, { upsert: false, contentType: file.type });
+    if (upErr) { alert('Photo upload failed: ' + upErr.message); setUploadingPhoto(false); return; }
+    const { data: pub } = supabase.storage.from('job-photos').getPublicUrl(path);
+    const { data: row } = await supabase.from('job_photos').insert({
+      org_id: orgId,
+      job_id: sheet.id,
+      user_id: user.id,
+      photo_url: pub?.publicUrl || '',
+      kind,
+    }).select('*').single();
+    if (row) setJobPhotos(prev => [row, ...prev]);
+    setUploadingPhoto(false);
+  };
+
+  const removeJobPhoto = async (photo) => {
+    if (!confirm('Delete this photo?')) return;
+    await supabase.from('job_photos').delete().eq('id', photo.id);
+    // Best-effort delete from storage too. Path = everything after the bucket name.
+    try {
+      const url = new URL(photo.photo_url);
+      const parts = url.pathname.split('/job-photos/');
+      if (parts[1]) await supabase.storage.from('job-photos').remove([parts[1]]);
+    } catch {}
+    setJobPhotos(prev => prev.filter(p => p.id !== photo.id));
   };
 
   const addQuickExpense = async () => {
@@ -484,6 +527,38 @@ export default function Jobs() {
               </div>
             )}
 
+            {sheet !== 'new' && (
+              <div style={{margin:'10px 16px 4px',padding:'12px 12px',background:'#111827',border:'1px solid #2e3f60',borderRadius:10}}>
+                <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:8}}>
+                  <div style={{fontSize:11,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0'}}>Photos on this job</div>
+                  <div style={{fontSize:12,color:'#7a8db0'}}>{jobPhotos.length} attached</div>
+                </div>
+
+                {jobPhotos.length > 0 && (
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(88px, 1fr))',gap:6,marginBottom:10}}>
+                    {jobPhotos.map(p => (
+                      <div key={p.id} style={{position:'relative',aspectRatio:'1/1',borderRadius:8,overflow:'hidden',background:'#0d1726',border:'1px solid #2e3f60'}}>
+                        <a href={p.photo_url} target="_blank" rel="noopener noreferrer" style={{display:'block',width:'100%',height:'100%'}}>
+                          <img src={p.photo_url} alt={p.kind} style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>
+                        </a>
+                        {p.kind !== 'work' && (
+                          <span style={{position:'absolute',top:4,left:4,background:'#0d1726cc',color:'#f0f4ff',fontSize:9,fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase',padding:'2px 6px',borderRadius:4}}>{p.kind}</span>
+                        )}
+                        <button onClick={() => removeJobPhoto(p)} style={{position:'absolute',top:2,right:2,background:'#1a2236cc',border:'none',color:'#f26060',width:22,height:22,borderRadius:11,cursor:'pointer',fontSize:11,lineHeight:1,padding:0}}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                  <PhotoUploadButton label="+ BEFORE" kind="before" onChange={addJobPhoto} disabled={uploadingPhoto}/>
+                  <PhotoUploadButton label="+ WORK"   kind="work"   onChange={addJobPhoto} disabled={uploadingPhoto}/>
+                  <PhotoUploadButton label="+ AFTER"  kind="after"  onChange={addJobPhoto} disabled={uploadingPhoto}/>
+                </div>
+                {uploadingPhoto && <div style={{fontSize:11,color:'#7a8db0',marginTop:6}}>Uploading…</div>}
+              </div>
+            )}
+
             <div style={{padding:'8px 16px 0',display:'flex',gap:8}}>
               <button onClick={save} disabled={saving || !form.title.trim()}
                 style={{flex:1,background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'13px 0',fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.06em',cursor:'pointer',opacity:saving?0.6:1}}>
@@ -515,3 +590,24 @@ const inputStyle = {
   width:'100%', background:'#111827', border:'1.5px solid #2e3f60', borderRadius:10,
   color:'#f0f4ff', fontSize:14, padding:'10px 12px', outline:'none', fontFamily:'inherit',
 };
+
+function PhotoUploadButton({ label, kind, onChange, disabled }) {
+  // The native input is hidden behind the styled <label>. capture="environment"
+  // makes mobile open the rear camera instead of the photo library by default.
+  return (
+    <label style={{
+      flex:'1 1 0',
+      display:'inline-flex', alignItems:'center', justifyContent:'center',
+      gap:6, padding:'9px 10px',
+      background:'#1e2a42', border:'1px dashed #2e3f60', borderRadius:8,
+      color:'#c8d4ee', fontSize:11, fontWeight:700, letterSpacing:'.06em',
+      cursor: disabled ? 'wait' : 'pointer', opacity: disabled ? 0.5 : 1,
+      whiteSpace:'nowrap', minWidth:90,
+    }}>
+      {label}
+      <input type="file" accept={ACCEPT_ATTR} capture="environment"
+        onChange={(e) => onChange(e, kind)} disabled={disabled}
+        style={{display:'none'}}/>
+    </label>
+  );
+}
