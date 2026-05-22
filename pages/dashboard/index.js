@@ -222,16 +222,18 @@ export default function Dashboard() {
 
         {/* Financial overview */}
         <SectionHeader title="Financials" subtitle="Year to date" />
-        <div className="finance-grid" style={{marginBottom:14}}>
-          <FinanceCard label="YTD Revenue"  value={fmt$(stats.ytdRevenue)}   color="#2edf87" sub={`${stats.ytdInvoiceCount} invoiced`} onClick={() => router.push('/invoices')}/>
-          <FinanceCard label="YTD Expenses" value={fmt$(stats.ytdExpenses)}  color="#f26060" onClick={() => router.push('/expenses')}/>
-          <FinanceCard label="YTD Net Income" value={fmt$(stats.ytdNetIncome)} color={ytdNetColor}/>
-          <FinanceCard label="Est. Tax YTD" value={fmt$(estTaxYtd)}          color="#fbbf24" sub={`${taxRate}% of net`} onClick={() => router.push('/tax')}/>
-        </div>
+        <div data-tour="dashboard-financials">
+          <div className="finance-grid" style={{marginBottom:14}}>
+            <FinanceCard label="YTD Revenue"  value={fmt$(stats.ytdRevenue)}   color="#2edf87" sub={`${stats.ytdInvoiceCount} invoiced`} onClick={() => router.push('/invoices')}/>
+            <FinanceCard label="YTD Expenses" value={fmt$(stats.ytdExpenses)}  color="#f26060" onClick={() => router.push('/expenses')}/>
+            <FinanceCard label="YTD Net Income" value={fmt$(stats.ytdNetIncome)} color={ytdNetColor}/>
+            <FinanceCard label="Est. Tax YTD" value={fmt$(estTaxYtd)}          color="#fbbf24" sub={`${taxRate}% of net`} onClick={() => router.push('/tax')}/>
+          </div>
 
-        <div className="finance-grid" style={{marginBottom:28}}>
-          <FinanceCard label="Outstanding"  value={fmt$(stats.outstandingSum)} color="#fbbf24" sub={`${stats.unpaidCount} unpaid`} onClick={() => router.push('/invoices')}/>
-          <FinanceCard label="Avg Invoice"  value={fmt$(stats.avgInvoice)}     color="#4f9eff" sub={`${stats.ytdInvoiceCount} invoiced`}/>
+          <div className="finance-grid" style={{marginBottom:28}}>
+            <FinanceCard label="Outstanding"  value={fmt$(stats.outstandingSum)} color="#fbbf24" sub={`${stats.unpaidCount} unpaid`} onClick={() => router.push('/invoices')}/>
+            <FinanceCard label="Avg Invoice"  value={fmt$(stats.avgInvoice)}     color="#4f9eff" sub={`${stats.ytdInvoiceCount} invoiced`}/>
+          </div>
         </div>
 
         {/* Action feed */}
