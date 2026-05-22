@@ -30,6 +30,10 @@ export default function TourOverlay() {
   const [rect, setRect] = useState(null);     // bounding rect of current target
   const [missing, setMissing] = useState(false);
   const navigatingRef = useRef(false);
+  // Per-session "user already dismissed" flag — needed because the
+  // demo user has no persisted metadata, so without this the auto-
+  // start effect would immediately re-trigger after Skip.
+  const dismissedThisSessionRef = useRef(false);
 
   // ----- 1. Track signed-in user -----
   useEffect(() => {
@@ -47,11 +51,13 @@ export default function TourOverlay() {
     if (!user) return;
     if (!TOUR_ROUTES.has(router.pathname)) return;
     if (active) return;
+    if (dismissedThisSessionRef.current) return; // user dismissed/finished — stay closed
     const isDemo = user.email === DEMO_EMAIL;
     const forced = typeof window !== 'undefined' && sessionStorage.getItem(SS_FORCE_KEY) === '1';
     const seen = user.user_metadata?.onboarding_completed_at || user.user_metadata?.onboarding_skipped_at;
     if (forced) {
       sessionStorage.removeItem(SS_FORCE_KEY);
+      dismissedThisSessionRef.current = false;
       setStep(0); setActive(true); return;
     }
     if (isDemo || !seen) {
@@ -139,18 +145,24 @@ export default function TourOverlay() {
   };
 
   // ----- 8. Step controls -----
+  const finish = async (field) => {
+    dismissedThisSessionRef.current = true;
+    setActive(false);
+    // Persist for non-demo users only. Fire-and-forget so the UI
+    // closes instantly; if the network roundtrip is slow we don't
+    // want the user staring at a stuck modal.
+    writeFlag(field).catch(() => {});
+  };
   const next = async () => {
     const last = step === TOUR_STEPS.length - 1;
     const action = current?.primaryAction;
     if (action === 'settings') {
-      await writeFlag('onboarding_completed_at');
-      setActive(false);
+      await finish('onboarding_completed_at');
       router.push('/settings');
       return;
     }
     if (action === 'finish' || last) {
-      await writeFlag('onboarding_completed_at');
-      setActive(false);
+      await finish('onboarding_completed_at');
       return;
     }
     setStep(s => Math.min(TOUR_STEPS.length - 1, s + 1));
@@ -158,14 +170,12 @@ export default function TourOverlay() {
   const secondary = async () => {
     const action = current?.secondaryAction;
     if (action === 'finish') {
-      await writeFlag('onboarding_completed_at');
-      setActive(false);
+      await finish('onboarding_completed_at');
       return;
     }
   };
   const skip = async () => {
-    await writeFlag('onboarding_skipped_at');
-    setActive(false);
+    await finish('onboarding_skipped_at');
   };
 
   if (!active || !current) return null;
@@ -285,46 +295,36 @@ function Spotlight({ rect, missing, step, total, progressPct, title, body, prima
   const width  = rect.width + PAD * 2;
   const height = rect.height + PAD * 2;
 
-  // Decide whether the tooltip goes above or below the target.
-  const vh = typeof window === 'undefined' ? 800 : window.innerHeight;
-  const spaceBelow = vh - rect.bottom;
-  const spaceAbove = rect.top;
-  const below = spaceBelow >= 220 || spaceBelow > spaceAbove;
-  const TIP_GAP = 14;
-
-  // Tooltip horizontal center over the target, clamped to the viewport.
-  const targetCenterX = rect.left + rect.width / 2;
-  const vw = typeof window === 'undefined' ? 360 : window.innerWidth;
-  const TIP_WIDTH = Math.min(380, vw - 24);
-  const tipLeft = Math.max(12, Math.min(vw - TIP_WIDTH - 12, targetCenterX - TIP_WIDTH / 2));
-  const tipTop  = below ? rect.bottom + TIP_GAP : rect.top - TIP_GAP;
-
   return (
     <>
-      {/* The dim layer — fixed, full screen, transparent itself but the
-         huge box-shadow paints everything outside the spotlight dark. */}
-      <div className="tour-spotlight" style={{
+      {/* Dim layer — the huge box-shadow paints everything outside the spotlight */}
+      <div style={{
         position:'fixed', top, left, width, height,
         borderRadius: 10, pointerEvents: 'none', zIndex: 9998,
         boxShadow: '0 0 0 9999px rgba(8,11,20,0.78)',
-        animation: 'tourPulse 2s ease-in-out infinite',
       }}/>
 
-      {/* A second outline ring that's just animated for emphasis */}
+      {/* Outline ring on the spotlight itself */}
       <div style={{
         position:'fixed', top, left, width, height,
         borderRadius: 10, pointerEvents: 'none', zIndex: 9999,
         outline: '2px solid #4f9eff',
         outlineOffset: 0,
+        animation: 'tourRingPulse 2s ease-in-out infinite',
       }}/>
 
-      {/* Tooltip */}
-      <div className="tour-tooltip" style={{
-        position:'fixed', top: tipTop, left: tipLeft, width: TIP_WIDTH,
-        transform: below ? 'none' : 'translateY(-100%)',
+      {/* Tooltip — fixed at the bottom of the viewport so it's always
+          visible with its Next button reachable regardless of where the
+          target sits on the page. Accounts for the mobile bottom nav
+          (~64px) + iOS safe-area inset. */}
+      <div style={{
+        position:'fixed', left: '50%',
+        bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
+        transform: 'translateX(-50%)',
+        width: 'calc(100% - 24px)', maxWidth: 460,
         background: '#1a2236',
         border: '1px solid #2e3f60',
-        borderRadius: 12,
+        borderRadius: 14,
         boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
         zIndex: 10000,
         animation: 'tourTipIn .2s ease-out',
@@ -332,25 +332,25 @@ function Spotlight({ rect, missing, step, total, progressPct, title, body, prima
         <ProgressBar pct={progressPct}/>
         <Header step={step} total={total} onSkip={onSkip}/>
         <div style={{padding:'10px 18px 14px'}}>
-          <h3 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:20,letterSpacing:'.04em',color:'#f0f4ff',margin:'2px 0 8px',lineHeight:1.15}}>
+          <h3 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.04em',color:'#f0f4ff',margin:'2px 0 8px',lineHeight:1.15}}>
             {title.toUpperCase()}
           </h3>
-          <p style={{fontSize:13.5,lineHeight:1.5,color:'#c8d4ee',margin:'0 0 12px'}}>{body}</p>
+          <p style={{fontSize:14,lineHeight:1.5,color:'#c8d4ee',margin:'0 0 12px'}}>{body}</p>
           <button onClick={onPrimary}
-            style={{width:'100%',background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'10px 14px',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:15,letterSpacing:'.06em',cursor:'pointer'}}>
+            style={{width:'100%',background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'12px 14px',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:16,letterSpacing:'.06em',cursor:'pointer'}}>
             {primary.toUpperCase()} →
           </button>
         </div>
       </div>
 
       <style jsx global>{`
-        @keyframes tourPulse {
-          0%, 100% { box-shadow: 0 0 0 9999px rgba(8,11,20,0.78), 0 0 0 0 rgba(79,158,255,0.5); }
-          50%      { box-shadow: 0 0 0 9999px rgba(8,11,20,0.78), 0 0 0 10px rgba(79,158,255,0); }
+        @keyframes tourRingPulse {
+          0%, 100% { outline-color: rgba(79,158,255,0.85); }
+          50%      { outline-color: rgba(79,158,255,0.35); }
         }
         @keyframes tourTipIn {
-          from { transform: translateY(8px); opacity: 0; }
-          to   { transform: translateY(0); opacity: 1; }
+          from { transform: translate(-50%, 8px); opacity: 0; }
+          to   { transform: translate(-50%, 0); opacity: 1; }
         }
       `}</style>
     </>
