@@ -30,7 +30,7 @@ export default function Privacy() {
             <p><strong style={hi}>Operational records you enter.</strong> Customers, leads, quotes, jobs, invoices, expenses, mileage, crew memberships, time logs, notifications, and feedback submissions. We collect this because it's the thing you're trying to manage.</p>
             <p><strong style={hi}>Files you upload.</strong> Logos, expense receipts, and invoice import attachments are stored in our managed file storage so we can render them back to you and (for receipts) attach them to expense records.</p>
             <p><strong style={hi}>Usage and technical data.</strong> IP address on API requests (used for rate limiting), browser type, and basic error logs. We do not use Google Analytics, Facebook Pixel, or any third-party advertising trackers.</p>
-            <p><strong style={hi}>Payment information.</strong> If you start a paid trial or subscription, your card details are handled directly by Stripe. We never see, store, or transmit your full card number ourselves — only a tokenized customer reference Stripe returns to us.</p>
+            <p><strong style={hi}>Payment information.</strong> If you start a paid trial or subscription, your card details are handled directly by a PCI-compliant payment processor. We never see, store, or transmit your full card number ourselves — only a tokenized customer reference returned to us.</p>
           </Section>
 
           <Section title="2. How We Use Data">
@@ -43,16 +43,17 @@ export default function Privacy() {
             <p>We do <strong style={hi}>not</strong> use your data to train AI models, sell it to advertisers, or share it with third parties beyond the service providers below.</p>
           </Section>
 
-          <Section title="3. Third-Party Services We Use">
-            <p>To deliver MyForeman, we rely on a small set of trusted infrastructure providers. They process data on our behalf under their own privacy and security commitments.</p>
+          <Section title="3. Service Providers We Use">
+            <p>To deliver MyForeman, we rely on a small set of vetted infrastructure providers. They process data on our behalf under their own privacy and security commitments. We don't publish the specific vendor names here to reduce the surface for targeted social-engineering or supply-chain attacks; if you have a regulatory or due-diligence need to know who they are, contact{' '}
+              <a href="mailto:privacy@myforemanhq.com" style={linkStyle}>privacy@myforemanhq.com</a> and we'll share details under NDA.</p>
+            <p>The categories of providers we use:</p>
             <ul style={ulStyle}>
-              <li><strong style={hi}>Supabase</strong> — primary database, authentication, and file storage. Your account, business data, and uploaded files live in Supabase under our project.</li>
-              <li><strong style={hi}>Stripe</strong> — handles all subscription billing and card processing. Stripe is the system of record for your payment information; we only see a customer ID.</li>
-              <li><strong style={hi}>Anthropic</strong> — powers the AI invoice extraction and AI Coach features. Only the data you submit to those features (the invoice photo, your business snapshot) is sent, and only at the moment you use the feature.</li>
-              <li><strong style={hi}>Resend</strong> — delivers transactional emails (quotes, invoices, feedback requests, crew invites) on your behalf, sent under your business name as the display sender.</li>
-              <li><strong style={hi}>Vercel</strong> — hosts the application and serves it to your browser.</li>
+              <li><strong style={hi}>Application hosting + database + file storage</strong> — stores your account, business data, uploaded logos, and expense receipts. Encrypted at rest and in transit.</li>
+              <li><strong style={hi}>Payment processor</strong> — PCI-compliant; handles all subscription billing and card processing. We only see a tokenized customer reference, never your card number.</li>
+              <li><strong style={hi}>AI provider</strong> — powers the AI invoice extraction and AI Coach features. Only the inputs to those specific features (the invoice photo, your business snapshot) are sent, only at the moment you invoke them. We've contractually disallowed the provider from training models on your data.</li>
+              <li><strong style={hi}>Transactional email delivery</strong> — sends the quotes, invoices, feedback requests, and crew invites you trigger, under your business name as the display sender.</li>
             </ul>
-            <p>Each provider is contractually required to handle data according to their own published privacy policies, which we encourage you to review.</p>
+            <p>Each provider is contractually required to handle data according to enterprise-grade privacy and security standards.</p>
           </Section>
 
           <Section title="4. Your Rights">
@@ -91,7 +92,7 @@ export default function Privacy() {
               MyForeman uses cookies and browser local storage only for things essential to running the app:
             </p>
             <ul style={ulStyle}>
-              <li>Keeping you signed in (Supabase auth session token).</li>
+              <li>Keeping you signed in (an authentication session token).</li>
               <li>Remembering your role and most recent organization on the dashboard.</li>
               <li>Remembering whether you've seen the first-time tour.</li>
             </ul>
@@ -115,7 +116,7 @@ export default function Privacy() {
 
           <Section title="10. Security">
             <p>
-              We use industry-standard practices: encrypted connections (HTTPS) everywhere, encrypted-at-rest storage with Supabase, row-level security policies in the database, rate limiting on sensitive endpoints, and access controls limiting who on our team can view production data. No system is ever fully secure, but we work hard to keep yours safe.
+              We use industry-standard practices: encrypted connections (HTTPS) everywhere, encrypted-at-rest storage, row-level security policies in the database, rate limiting on sensitive endpoints, and access controls limiting who on our team can view production data. No system is ever fully secure, but we work hard to keep yours safe.
             </p>
           </Section>
 

@@ -77,7 +77,7 @@ export default function Terms() {
 
           <Section title="6. AI Features">
             <p>
-              MyForeman uses third-party AI providers (currently Anthropic) to power features like invoice extraction from photos and monthly business coaching recommendations. When you use those features, the relevant inputs are sent to that provider under their terms. We don't grant providers the right to train their models on your data unless you explicitly opt in.
+              MyForeman uses a third-party AI provider to power features like invoice extraction from photos and monthly business coaching recommendations. When you use those features, the relevant inputs are sent to that provider under their terms. We don't grant providers the right to train their models on your data unless you explicitly opt in.
             </p>
             <p>
               AI output is generated automatically and may contain errors. <strong style={hi}>Always review AI-extracted data and AI recommendations</strong> before relying on them for invoicing, customer communications, tax filing, or business decisions.
