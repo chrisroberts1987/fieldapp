@@ -98,6 +98,12 @@ export default function Signup() {
         <div style={{marginTop:14,fontSize:11,color:'#7a8db0',textAlign:'center',lineHeight:1.5}}>
           Free 14-day trial. Card required — cancel anytime, no charge during your trial.
         </div>
+        <div style={{marginTop:10,fontSize:11,color:'#7a8db0',textAlign:'center',lineHeight:1.5}}>
+          By creating an account you agree to our{' '}
+          <a onClick={() => router.push('/terms')}   style={{color:'#4f9eff',cursor:'pointer',textDecoration:'underline'}}>Terms of Service</a>
+          {' '}and{' '}
+          <a onClick={() => router.push('/privacy')} style={{color:'#4f9eff',cursor:'pointer',textDecoration:'underline'}}>Privacy Policy</a>.
+        </div>
       </div>
     </div>
   );

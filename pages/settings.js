@@ -254,6 +254,12 @@ export default function Settings() {
         </button>
 
         <DangerZone user={user} router={router}/>
+
+        <div style={{marginTop:18,paddingTop:16,borderTop:'1px solid #2e3f60',display:'flex',gap:16,justifyContent:'center',fontSize:12,color:'#7a8db0',flexWrap:'wrap'}}>
+          <a onClick={() => router.push('/terms')}   style={{color:'#7a8db0',cursor:'pointer',textDecoration:'none'}}>Terms of Service</a>
+          <a onClick={() => router.push('/privacy')} style={{color:'#7a8db0',cursor:'pointer',textDecoration:'none'}}>Privacy Policy</a>
+          <a onClick={() => router.push('/contact')} style={{color:'#7a8db0',cursor:'pointer',textDecoration:'none'}}>Contact</a>
+        </div>
       </div>
     </div>
   );
