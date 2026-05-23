@@ -8,6 +8,7 @@ import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import { sendEmail } from '../../lib/email/client';
 import { validateUpload, ACCEPT_ATTR } from '../../lib/uploads';
+import { firePushEvent } from '../../lib/push/fire';
 
 const STATUSES = [
   { key:'scheduled',   label:'Scheduled',   color:'#54d4f8' },
@@ -220,10 +221,19 @@ export default function Jobs() {
     // 'completed' status, so the client side just persists the change.
     const wasCompleted = sheet !== 'new' && sheet?.status === 'completed';
     const nowCompleted = payload.status === 'completed';
+    let savedJobId = sheet !== 'new' ? sheet.id : null;
     if (sheet === 'new') {
-      await supabase.from('jobs').insert({ ...payload, owner_id: user.id, org_id: orgId });
+      const { data } = await supabase.from('jobs').insert({ ...payload, owner_id: user.id, org_id: orgId }).select('id').single();
+      savedJobId = data?.id;
     } else {
       await supabase.from('jobs').update(payload).eq('id', sheet.id);
+    }
+
+    // Push the assignee when the job got assigned (new) or reassigned
+    // (changed). Skip if the assignee is the same user doing the
+    // assigning — they don't need to ping themselves.
+    if (savedJobId && newAssignee && newAssignee !== prevAssignee && newAssignee !== user.id) {
+      firePushEvent('job_assigned', savedJobId);
     }
 
     // Fire the "your job is complete" email to the customer on the

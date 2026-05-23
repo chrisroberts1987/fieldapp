@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
 import { TOUR_STEPS } from '../lib/tour/steps';
+import { enablePushNotifications, notificationPermission } from '../lib/push/client';
 
 // Global, single-mount tour. Lives in pages/_app.js so it persists
 // across page navigations and can drive the user from screen to
@@ -184,6 +185,13 @@ export default function TourOverlay() {
     // closes instantly; if the network roundtrip is slow we don't
     // want the user staring at a stuck modal.
     writeFlag(field).catch(() => {});
+
+    // After a tour COMPLETION (not skip), nudge for notification
+    // permission. Demo users can opt in too — granting on the demo
+    // account works for that browser session.
+    if (field === 'onboarding_completed_at' && notificationPermission() === 'default') {
+      setTimeout(() => { enablePushNotifications().catch(() => {}); }, 600);
+    }
   };
   const next = async () => {
     const last = step === TOUR_STEPS.length - 1;

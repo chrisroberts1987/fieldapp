@@ -27,7 +27,7 @@ export default function PublicQuote() {
     if (!form.name.trim()) { setError('Your name is required'); return; }
     if (!form.phone.trim()) { setError('A phone number is required so we can get back to you'); return; }
     setSubmitting(true);
-    const { error: rpcErr } = await supabase.rpc('create_lead_from_quote', {
+    const { data: leadId, error: rpcErr } = await supabase.rpc('create_lead_from_quote', {
       p_slug:    slug,
       p_name:    form.name,
       p_phone:   form.phone,
@@ -36,6 +36,17 @@ export default function PublicQuote() {
       p_notes:   form.notes || null,
     });
     if (rpcErr) { setError(rpcErr.message); setSubmitting(false); return; }
+    // Ping the org with a push that a new lead came in. Best-effort.
+    if (leadId) {
+      try {
+        fetch('/api/push/event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event: 'new_lead', refId: leadId }),
+          keepalive: true,
+        }).catch(() => {});
+      } catch {}
+    }
     setSubmitted(true);
     setSubmitting(false);
   };

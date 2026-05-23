@@ -6,6 +6,7 @@ import { useRefetchOnFocus } from '../../lib/useFocus';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import { sendEmail } from '../../lib/email/client';
+import { firePushEvent } from '../../lib/push/fire';
 
 const FILTERS = [
   { key:'all',    label:'All' },
@@ -118,6 +119,7 @@ export default function Invoices() {
 
     if (invoiceId && nowPaid && !wasPaid) {
       await onInvoicePaid(invoiceId, payload.customer_id, payload.amount);
+      firePushEvent('invoice_paid', invoiceId);
     }
 
     await loadAll();
@@ -170,6 +172,7 @@ export default function Invoices() {
     if (inv.status === 'paid') return;
     await supabase.from('invoices').update({ status:'paid', paid_date: todayStr() }).eq('id', inv.id);
     await onInvoicePaid(inv.id, inv.customer_id, inv.amount);
+    firePushEvent('invoice_paid', inv.id);
     await loadAll();
   };
 

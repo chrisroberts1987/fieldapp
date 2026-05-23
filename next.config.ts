@@ -8,6 +8,8 @@ import type { NextConfig } from "next";
 // - img-src includes data: + blob: for the in-browser receipt previews and
 //   the Supabase storage CDN.
 // - font-src covers Google Fonts loaded by _document (Bebas Neue + Inter).
+// - worker-src + manifest-src wired up so the PWA service worker and
+//   web app manifest load under the strict CSP.
 const SUPABASE_HOST = "*.supabase.co";
 
 const CSP = [
@@ -17,6 +19,8 @@ const CSP = [
   "font-src 'self' https://fonts.gstatic.com data:",
   `img-src 'self' data: blob: https://${SUPABASE_HOST} https://api.qrserver.com`,
   `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST}`,
+  "worker-src 'self'",
+  "manifest-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -32,10 +36,26 @@ const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
 ];
 
+// Headers for the service worker file. SW MUST NOT be cached
+// long-term — browsers respect 24h max-age caps anyway, but explicit
+// no-cache means a deploy propagates within minutes. Service-Worker-
+// Allowed lets the script declare a wider scope if needed.
+const swHeaders = [
+  { key: "Cache-Control",          value: "public, max-age=0, must-revalidate" },
+  { key: "Service-Worker-Allowed", value: "/" },
+];
+
+// Manifest can be cached more aggressively but should revalidate.
+const manifestHeaders = [
+  { key: "Cache-Control", value: "public, max-age=3600, must-revalidate" },
+];
+
 const nextConfig: NextConfig = {
   async headers() {
     return [
-      { source: "/:path*", headers: securityHeaders },
+      { source: "/:path*",       headers: securityHeaders },
+      { source: "/sw.js",        headers: swHeaders },
+      { source: "/manifest.json",headers: manifestHeaders },
     ];
   },
 };

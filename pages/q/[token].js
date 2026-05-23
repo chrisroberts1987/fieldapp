@@ -26,6 +26,17 @@ export default function PublicQuote() {
     setActing(true); setError('');
     const { error } = await supabase.rpc('approve_quote', { p_token: token });
     if (error) { setError(error.message); setActing(false); return; }
+    // Best-effort push to the contractor's org.
+    if (quote?.id) {
+      try {
+        fetch('/api/push/event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event: 'quote_approved', refId: quote.id }),
+          keepalive: true,
+        }).catch(() => {});
+      } catch {}
+    }
     setDone('approved');
     setActing(false);
   };

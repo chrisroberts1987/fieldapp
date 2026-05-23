@@ -5,6 +5,7 @@ import { useOrg } from '../lib/org';
 import TopNav from '../components/TopNav';
 import { validateUpload, ACCEPT_ATTR } from '../lib/uploads';
 import { launchTour } from '../components/TourOverlay';
+import { enablePushNotifications, disablePushNotifications, notificationPermission, isPushSupported } from '../lib/push/client';
 
 export default function Settings() {
   const router = useRouter();
@@ -249,9 +250,11 @@ export default function Settings() {
         </button>
 
         <button onClick={() => launchTour(router)}
-          style={{width:'100%',background:'transparent',color:'#c8d4ee',border:'1px solid #2e3f60',borderRadius:10,padding:'11px 0',fontSize:13,fontWeight:600,letterSpacing:'.04em',cursor:'pointer',marginBottom:24}}>
+          style={{width:'100%',background:'transparent',color:'#c8d4ee',border:'1px solid #2e3f60',borderRadius:10,padding:'11px 0',fontSize:13,fontWeight:600,letterSpacing:'.04em',cursor:'pointer',marginBottom:14}}>
           Replay welcome tour
         </button>
+
+        <PushToggle/>
 
         <DangerZone user={user} router={router}/>
 
@@ -323,3 +326,62 @@ const loadingStyle = {
   minHeight:'100vh', background:'#111827', display:'flex',
   alignItems:'center', justifyContent:'center', color:'#f0f4ff', fontFamily:'sans-serif',
 };
+
+function PushToggle() {
+  const [perm, setPerm] = useState('default');
+  const [busy, setBusy] = useState(false);
+  const [hint, setHint] = useState('');
+
+  useEffect(() => {
+    if (!isPushSupported()) { setPerm('unsupported'); return; }
+    setPerm(notificationPermission());
+  }, []);
+
+  if (perm === 'unsupported') return null;
+
+  const enable = async () => {
+    setBusy(true); setHint('');
+    const r = await enablePushNotifications();
+    setBusy(false);
+    setPerm(notificationPermission());
+    if (!r.ok) setHint(r.error || 'Could not enable.');
+  };
+  const disable = async () => {
+    setBusy(true); setHint('');
+    await disablePushNotifications();
+    setBusy(false);
+    setHint('Notifications turned off on this device.');
+  };
+
+  const granted = perm === 'granted';
+  const denied  = perm === 'denied';
+
+  return (
+    <div style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,padding:'12px 14px',marginBottom:24}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:13,color:'#f0f4ff',fontWeight:600}}>Push notifications</div>
+          <div style={{fontSize:11,color:'#7a8db0',marginTop:2,lineHeight:1.4}}>
+            Get pinged on this device when a lead comes in, a quote gets approved, an invoice is paid, or a job is assigned to you.
+          </div>
+        </div>
+        {denied ? (
+          <div style={{fontSize:11,color:'#fbbf24',maxWidth:240,textAlign:'right'}}>
+            Blocked in your browser. Allow notifications in browser settings and reload.
+          </div>
+        ) : granted ? (
+          <button onClick={disable} disabled={busy}
+            style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'7px 14px',cursor:'pointer',fontSize:12,fontWeight:600,letterSpacing:'.04em',fontFamily:'inherit'}}>
+            Turn Off
+          </button>
+        ) : (
+          <button onClick={enable} disabled={busy}
+            style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'7px 14px',cursor:'pointer',fontSize:12,fontWeight:700,letterSpacing:'.04em',fontFamily:'inherit'}}>
+            {busy ? 'Turning on…' : 'Turn On'}
+          </button>
+        )}
+      </div>
+      {hint && <div style={{fontSize:11,color:'#fbbf24',marginTop:8}}>{hint}</div>}
+    </div>
+  );
+}

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#4f9eff"/>
+  <!-- Hard hat icon centered, white. 60% of canvas so it survives maskable safe-zone trimming. -->
+  <g transform="translate(82 130)" fill="#ffffff">
+    <!-- Brim (horizontal slab) -->
+    <rect x="0" y="200" width="348" height="36" rx="10"/>
+    <!-- Crown (rounded dome) -->
+    <path d="M 60 200
+             Q 60 60 174 60
+             Q 288 60 288 200
+             Z"
+          transform="translate(30 0)"/>
+    <!-- Center ridge / strap detail -->
+    <rect x="166" y="80" width="16" height="120" rx="4" opacity="0.18" fill="#0d1726"/>
+    <!-- Front rim shadow -->
+    <rect x="0" y="200" width="348" height="6" rx="3" opacity="0.18" fill="#0d1726"/>
+  </g>
+</svg>

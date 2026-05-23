@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Offline · MyForeman</title>
+<meta name="theme-color" content="#4f9eff" />
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: #111827;
+    color: #f0f4ff;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    padding: 20px;
+  }
+  .wrap { max-width: 380px; }
+  .icon {
+    width: 64px; height: 64px;
+    background: rgba(79, 158, 255, 0.12);
+    border: 1.5px solid #4f9eff66;
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 18px;
+    color: #4f9eff;
+  }
+  h1 {
+    font-family: 'Bebas Neue', Impact, sans-serif;
+    font-size: 36px; letter-spacing: 0.04em;
+    margin: 0 0 10px; line-height: 1.05;
+  }
+  p { font-size: 15px; line-height: 1.55; color: #c8d4ee; margin: 0 0 20px; }
+  button {
+    background: #4f9eff; border: none; border-radius: 10px;
+    color: #fff; padding: 12px 22px;
+    font-family: 'Bebas Neue', Impact, sans-serif;
+    font-size: 16px; letter-spacing: 0.06em;
+    cursor: pointer;
+  }
+  .hint { font-size: 12px; color: #7a8db0; margin-top: 18px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="icon">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="1" y1="1" x2="23" y2="23"/>
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+        <path d="M10.71 5.05A16 16 0 0 1 22.58 9"/>
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+        <circle cx="12" cy="20" r="0.5" fill="currentColor"/>
+      </svg>
+    </div>
+    <h1>YOU'RE OFFLINE</h1>
+    <p>Reconnect to sync your data. Recent screens are still readable from cache while you wait.</p>
+    <button onclick="location.reload()">TRY AGAIN</button>
+    <div class="hint">Anything you changed offline will sync the next time you have a signal.</div>
+  </div>
+  <script>
+    // Auto-retry the page when the browser reports we're back online.
+    window.addEventListener('online', () => location.reload());
+  </script>
+</body>
+</html>
