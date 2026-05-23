@@ -128,6 +128,11 @@ export default function Dashboard() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.push('/login'); return; }
+      // Platform owner doesn't have a tenant org — send them to admin.
+      if ((session.user.email || '').toLowerCase() === 'chris.roberts@myforemanhq.com') {
+        router.push('/admin');
+        return;
+      }
       setUser(session.user);
       const token = typeof sessionStorage !== 'undefined'
         ? sessionStorage.getItem('myforeman_post_signup_invite') : null;

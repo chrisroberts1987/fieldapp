@@ -12,9 +12,12 @@ const [loading, setLoading] = useState(false);
 
 const signIn = async () => {
 setLoading(true); setError('');
-const { error } = await supabase.auth.signInWithPassword({ email, password });
-if (error) { setError(error.message); setLoading(false); }
-else router.push('/dashboard');
+const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+if (error) { setError(error.message); setLoading(false); return; }
+// Platform owner skips straight to the admin dashboard.
+const ADMIN = 'chris.roberts@myforemanhq.com';
+const isAdmin = (data?.user?.email || '').toLowerCase() === ADMIN;
+router.push(isAdmin ? '/admin' : '/dashboard');
 };
 
 return (
