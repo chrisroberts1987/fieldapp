@@ -41,7 +41,7 @@ export default function Invoices() {
     const [{ data: inv }, { data: j }, { data: c }] = await Promise.all([
       supabase.from('invoices').select('*').eq('org_id', orgId).order('issued_date', { ascending:false, nullsFirst:false }),
       supabase.from('jobs').select('id,title,customer_id,price,status').eq('org_id', orgId).order('scheduled_date', { ascending:false, nullsFirst:false }),
-      supabase.from('customers').select('id,name').eq('org_id', orgId).order('name'),
+      supabase.from('customers').select('id,name,email').eq('org_id', orgId).order('name'),
     ]);
     setInvoices(inv || []);
     setJobs(j || []);
