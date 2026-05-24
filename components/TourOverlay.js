@@ -26,6 +26,7 @@ const TOUR_ROUTES = new Set([
 export default function TourOverlay() {
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const [hasOrg, setHasOrg] = useState(null); // null = unknown, true/false = known
   const [active, setActive] = useState(false);
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState(null);     // bounding rect of current target
@@ -47,9 +48,30 @@ export default function TourOverlay() {
     return () => sub?.subscription?.unsubscribe();
   }, []);
 
+  // ----- 1b. Probe for org membership -----
+  // Avoids launching the tour for a freshly-confirmed user who's
+  // about to be redirected to /onboarding — the tour would briefly
+  // mount on /dashboard, then unmount as the redirect fires, causing
+  // a flash. We only auto-start once we know the user has an org.
+  useEffect(() => {
+    if (!user) { setHasOrg(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('org_members')
+        .select('org_id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle();
+      if (!cancelled) setHasOrg(!!data);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
   // ----- 2. Auto-start logic -----
   useEffect(() => {
     if (!user) return;
+    if (hasOrg !== true) return; // not yet known, or no org — don't fire
     if (!TOUR_ROUTES.has(router.pathname)) return;
     if (active) return;
     if (dismissedThisSessionRef.current) return; // user dismissed/finished — stay closed
@@ -64,7 +86,7 @@ export default function TourOverlay() {
     if (isDemo || !seen) {
       setStep(0); setActive(true);
     }
-  }, [user, router.pathname, active]);
+  }, [user, hasOrg, router.pathname, active]);
 
   const current = TOUR_STEPS[step];
 

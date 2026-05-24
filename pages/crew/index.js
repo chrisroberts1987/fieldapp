@@ -8,11 +8,12 @@ import { fmt$, fmtDate } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import SubNav from '../../components/SubNav';
 import { sendEmail } from '../../lib/email/client';
+import { seatStatus } from '../../lib/billing';
 
 export default function Crew() {
   const router = useRouter();
   const [user, setUser] = useState(null);
-  const { orgId, role, loading: orgLoading } = useOrg(user);
+  const { orgId, org, role, loading: orgLoading } = useOrg(user);
   const [members, setMembers] = useState([]);
   const [invites, setInvites] = useState([]);
   const [jobsByUser, setJobsByUser] = useState({});
@@ -78,7 +79,13 @@ export default function Crew() {
 
   useRefetchOnFocus(loadAll, !!orgId);
 
+  // Seat usage: confirmed members + pending invitations (each invite
+  // is holding a seat for someone who hasn't accepted yet).
+  const seatUsage = members.length + invites.length;
+  const seats = seatStatus(org, seatUsage);
+
   const openInvite = () => {
+    if (seats.state !== 'ok') return; // gated buttons should never reach here, but defend
     setInviteForm({ invite_email:'', invite_phone:'', role:'crew', hourly_pay_rate:'' });
     setNewInvite(null);
     setError('');
@@ -89,6 +96,12 @@ export default function Crew() {
     setError('');
     if (!inviteForm.invite_email && !inviteForm.invite_phone) {
       setError('Email or phone required.');
+      return;
+    }
+    // Re-check the seat cap at submit time — guards against a stale UI
+    // (someone accepted an invite in another tab while this sheet was open).
+    if (seats.state !== 'ok') {
+      setError(`You're at the ${seats.limit}-member limit for your plan.`);
       return;
     }
     setSaving(true);
@@ -183,13 +196,11 @@ export default function Crew() {
           <div>
             <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase'}}>Crew</div>
             <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,letterSpacing:'.04em',margin:'4px 0 0'}}>CREW</h1>
-            <div style={{fontSize:13,color:'#7a8db0',marginTop:2}}>{members.length} member{members.length===1?'':'s'}</div>
+            <div style={{fontSize:13,color:'#7a8db0',marginTop:2}}>
+              {members.length} member{members.length===1?'':'s'} · {seatUsage} of {seats.limit} seats used
+            </div>
           </div>
-          {isForeman(role) && (
-            <button onClick={openInvite} style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'10px 18px',fontWeight:700,cursor:'pointer',fontSize:13,letterSpacing:'.04em'}}>
-              + INVITE
-            </button>
-          )}
+          {isForeman(role) && <SeatAwareInviteButton seats={seats} onInvite={openInvite} onUpgrade={() => router.push('/billing')}/>}
         </div>
 
         <SubNav active="/crew" items={[
@@ -344,6 +355,42 @@ export default function Crew() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Renders the right CTA based on seat availability.
+//   ok                 → normal blue "+ INVITE" button
+//   upgrade_available  → orange "UPGRADE" — clicking lands on /billing
+//   contact_support    → grey "CONTACT SUPPORT" — opens email to support
+function SeatAwareInviteButton({ seats, onInvite, onUpgrade }) {
+  if (seats.state === 'ok') {
+    return (
+      <button onClick={onInvite}
+        style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'10px 18px',fontWeight:700,cursor:'pointer',fontSize:13,letterSpacing:'.04em'}}>
+        + INVITE
+      </button>
+    );
+  }
+  if (seats.state === 'upgrade_available') {
+    return (
+      <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4}}>
+        <button onClick={onUpgrade}
+          style={{background:'#fbbf24',border:'none',borderRadius:8,color:'#0d1726',padding:'10px 18px',fontWeight:700,cursor:'pointer',fontSize:13,letterSpacing:'.04em'}}>
+          UPGRADE TO ADD MORE
+        </button>
+        <div style={{fontSize:11,color:'#fbbf24'}}>{seats.limit}-seat limit reached</div>
+      </div>
+    );
+  }
+  // contact_support — already on Business (25 seats)
+  return (
+    <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4}}>
+      <a href="mailto:support@myforemanhq.com?subject=Custom%20plan%20%2B%20more%20seats"
+        style={{background:'transparent',border:'1.5px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'10px 18px',fontWeight:700,fontSize:13,letterSpacing:'.04em',textDecoration:'none'}}>
+        CONTACT SUPPORT
+      </a>
+      <div style={{fontSize:11,color:'#7a8db0'}}>Business tier maxes at 25 seats — email us for custom pricing</div>
     </div>
   );
 }
