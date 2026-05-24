@@ -31,10 +31,14 @@ export default function InstallPrompt() {
   const [deferred, setDeferred] = useState(null); // BeforeInstallPromptEvent
 
   useEffect(() => {
-    // Don't show: not on mobile, already installed, already dismissed.
+    // Don't show: not on mobile, already installed, already dismissed,
+    // or on a guest/customer-facing flow (quote form, quote approval,
+    // public invoice, feedback) where the visitor isn't a contractor.
     if (typeof window === 'undefined') return;
     if (isStandalone()) return;
     if (localStorage.getItem(LS_DISMISSED) === '1') return;
+    const path = window.location.pathname || '';
+    if (/^\/(inv|q|quote|feedback|invite|login|signup|reset|privacy|terms|contact)(\/|$)/.test(path)) return;
 
     const p = detectPlatform();
     if (!p) return;

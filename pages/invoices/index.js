@@ -176,6 +176,17 @@ export default function Invoices() {
     await loadAll();
   };
 
+  const copyPayLink = async (inv) => {
+    if (!inv.public_token) return;
+    const url = `${window.location.origin}/inv/${inv.public_token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      alert('Pay link copied:\n' + url);
+    } catch {
+      window.prompt('Copy this pay link to send to your customer:', url);
+    }
+  };
+
   const copyFeedbackLink = async (inv) => {
     const { data } = await supabase.from('feedback').select('token').eq('invoice_id', inv.id).maybeSingle();
     if (!data?.token) { alert('No feedback link generated yet — try saving the invoice again.'); return; }
@@ -265,6 +276,12 @@ export default function Invoices() {
                 style={{flex:1,background:'#4f9eff22',border:'1px solid #4f9eff66',borderRadius:8,color:'#4f9eff',padding:'7px 0',fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>
                 VIEW
               </button>
+              {!paid && inv.public_token && (
+                <button onClick={e => { e.stopPropagation(); copyPayLink(inv); }}
+                  style={{flex:1,background:'#fbbf2422',border:'1px solid #fbbf2466',borderRadius:8,color:'#fbbf24',padding:'7px 0',fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>
+                  PAY LINK
+                </button>
+              )}
               {!paid && (
                 <button onClick={e => { e.stopPropagation(); quickMarkPaid(inv); }}
                   style={{flex:1,background:'#2edf8722',border:'1px solid #2edf8766',borderRadius:8,color:'#2edf87',padding:'7px 0',fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>

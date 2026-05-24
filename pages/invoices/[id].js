@@ -90,6 +90,7 @@ export default function InvoiceDetail() {
       <div className="no-print" style={{display:'flex',alignItems:'center',gap:12,margin:'18px 16px 0',flexWrap:'wrap'}}>
         <button onClick={() => router.push('/invoices')} style={{...backStyle,fontSize:14}}>← Invoices</button>
         <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'.08em',flex:1}}>{invoiceNumber}</div>
+        {!paid && invoice?.public_token && <PayLinkButton token={invoice.public_token}/>}
         {paid
           ? <button onClick={markUnpaid} style={btnGhost}>Mark Unpaid</button>
           : <button onClick={markPaid} style={btnGreen}>Mark Paid</button>}
@@ -238,3 +239,31 @@ const loadingStyle = {
   minHeight:'100vh', background:'#111827', display:'flex',
   alignItems:'center', justifyContent:'center', color:'#f0f4ff', fontFamily:'sans-serif',
 };
+
+function PayLinkButton({ token }) {
+  const [copied, setCopied] = useState(false);
+  const url = typeof window !== 'undefined' ? `${window.location.origin}/inv/${token}` : '';
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for older browsers: show the URL in a prompt
+      window.prompt('Copy this pay link to send to your customer:', url);
+    }
+  };
+  return (
+    <button onClick={copy} title="Customer-facing payment link"
+      style={{
+        background: copied ? '#2edf8722' : '#fbbf2422',
+        border: '1px solid ' + (copied ? '#2edf8766' : '#fbbf2466'),
+        borderRadius: 8,
+        color: copied ? '#2edf87' : '#fbbf24',
+        padding: '8px 12px', fontWeight: 700, cursor: 'pointer', fontSize: 12,
+        fontFamily: 'inherit',
+      }}>
+      {copied ? '✓ Link Copied' : 'Get Pay Link'}
+    </button>
+  );
+}
