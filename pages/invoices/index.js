@@ -7,6 +7,7 @@ import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import { sendEmail } from '../../lib/email/client';
 import { firePushEvent } from '../../lib/push/fire';
+import MarkPaidModal from '../../components/MarkPaidModal';
 
 const FILTERS = [
   { key:'all',    label:'All' },
@@ -29,6 +30,8 @@ export default function Invoices() {
   const [loading, setLoading] = useState(true);
   const [sheet, setSheet] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [selected, setSelected] = useState(new Set()); // bulk-select invoice ids
+  const [payModal, setPayModal] = useState(null);       // array of invoices to mark paid
   const [filter, setFilter] = useState('all');
   const [form, setForm] = useState(EMPTY);
 
@@ -168,13 +171,26 @@ export default function Invoices() {
     setInvoices(inv => inv.filter(x => x.id !== id));
   };
 
-  const quickMarkPaid = async (inv) => {
+  const quickMarkPaid = (inv) => {
     if (inv.status === 'paid') return;
-    await supabase.from('invoices').update({ status:'paid', paid_date: todayStr() }).eq('id', inv.id);
-    await onInvoicePaid(inv.id, inv.customer_id, inv.amount);
-    firePushEvent('invoice_paid', inv.id);
-    await loadAll();
+    setPayModal([{ id: inv.id, customer_id: inv.customer_id, amount: Number(inv.amount || 0) }]);
   };
+
+  const bulkMarkPaid = () => {
+    const list = invoices.filter(i => selected.has(i.id) && i.status !== 'paid')
+      .map(i => ({ id: i.id, customer_id: i.customer_id, amount: Number(i.amount || 0) }));
+    if (list.length === 0) return;
+    setPayModal(list);
+  };
+
+  const toggleSelect = (id, checked) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (checked) next.add(id); else next.delete(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelected(new Set());
 
   const copyPayLink = async (inv) => {
     if (!inv.public_token) return;
@@ -258,8 +274,14 @@ export default function Invoices() {
         const pillColor = paid ? '#2edf87' : '#fbbf24';
         return (
           <div key={inv.id} onClick={() => openEdit(inv)}
-            style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,margin:'6px 16px',padding:'13px 14px',cursor:'pointer'}}>
+            style={{background: selected.has(inv.id) ? 'rgba(46,223,135,0.06)' : '#1e2a42',border:'1px solid '+(selected.has(inv.id)?'#2edf8766':'#2e3f60'),borderRadius:10,margin:'6px 16px',padding:'13px 14px',cursor:'pointer'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:3,gap:8}}>
+              {!paid && (
+                <input type="checkbox" checked={selected.has(inv.id)}
+                  onClick={e => e.stopPropagation()}
+                  onChange={e => toggleSelect(inv.id, e.target.checked)}
+                  style={{width:16,height:16,accentColor:'#2edf87',cursor:'pointer',flexShrink:0}}/>
+              )}
               <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.04em',color:'#f0f4ff',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                 {inv.job_id ? jobTitle(inv.job_id) : 'Invoice'}
               </div>
@@ -298,6 +320,57 @@ export default function Invoices() {
           </div>
         );
       })}
+
+      {/* Floating bulk-action bar */}
+      {selected.size > 0 && (
+        <div style={{
+          position:'fixed', left:0, right:0,
+          bottom:'calc(72px + env(safe-area-inset-bottom, 0px))',
+          zIndex:90,
+          display:'flex', justifyContent:'center',
+          padding:'0 12px',
+          pointerEvents:'none',
+        }}>
+          <div style={{
+            pointerEvents:'auto',
+            background:'#1a2236',
+            border:'1.5px solid #2edf8766',
+            borderRadius:14,
+            boxShadow:'0 8px 24px rgba(0,0,0,0.4)',
+            padding:'10px 12px',
+            display:'flex', alignItems:'center', gap:10,
+            maxWidth:520, width:'100%',
+            fontFamily:'inherit',
+          }}>
+            <div style={{flex:1,fontSize:13,color:'#f0f4ff',fontWeight:600}}>
+              {selected.size} selected · {fmt$(invoices.filter(i => selected.has(i.id)).reduce((s,i) => s + Number(i.amount||0), 0))}
+            </div>
+            <button onClick={clearSelection}
+              style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#7a8db0',padding:'7px 10px',cursor:'pointer',fontSize:11,fontWeight:600,letterSpacing:'.05em',fontFamily:'inherit'}}>
+              Clear
+            </button>
+            <button onClick={bulkMarkPaid}
+              style={{background:'#2edf87',border:'none',borderRadius:8,color:'#0d1726',padding:'7px 14px',cursor:'pointer',fontSize:12,fontWeight:700,letterSpacing:'.05em',fontFamily:'inherit'}}>
+              MARK PAID
+            </button>
+          </div>
+        </div>
+      )}
+
+      {payModal && (
+        <MarkPaidModal
+          invoices={payModal}
+          orgId={orgId}
+          userId={user.id}
+          onClose={() => setPayModal(null)}
+          onDone={async ({ marked, failed }) => {
+            setPayModal(null);
+            clearSelection();
+            await loadAll();
+            if (failed > 0) alert(`Marked ${marked} paid · ${failed} failed.`);
+          }}
+        />
+      )}
 
       {sheet && (
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.72)',zIndex:200,display:'flex',alignItems:'flex-end',backdropFilter:'blur(3px)'}} onClick={e => e.target===e.currentTarget && setSheet(null)}>

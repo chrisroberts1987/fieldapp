@@ -7,6 +7,7 @@ import { isForeman, isSupervisor, isCrew, isOffice, roleLabel } from '../../lib/
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import { isBlocked } from '../../lib/billing';
+import MarkPaidModal from '../../components/MarkPaidModal';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function Dashboard() {
   const { orgId, org, role, loading: orgLoading } = useOrg(user);
   const [stats, setStats] = useState(null);
   const [crewData, setCrewData] = useState(null); // for supervisor/crew views
+  const [payModal, setPayModal] = useState(null);  // foreman quick-pay from action feed
 
   const loadStats = async (oid) => {
     const now = new Date();
@@ -44,7 +46,7 @@ export default function Dashboard() {
       supabase.from('expenses').select('amount').eq('org_id', oid).gte('expense_date', monthStartIso),
       supabase.from('expenses').select('amount').eq('org_id', oid).gte('expense_date', lastMonthStartIso).lt('expense_date', monthStartIso),
       supabase.from('expenses').select('amount').eq('org_id', oid).gte('expense_date', ytdStart),
-      supabase.from('invoices').select('id, amount, issued_date')
+      supabase.from('invoices').select('id, amount, issued_date, customer_id')
         .eq('org_id', oid).eq('status', 'unpaid').lt('issued_date', thirtyAgo)
         .order('issued_date', { ascending:true }).limit(50),
       supabase.from('quotes').select('id, customer_name, amount, sent_at')
@@ -251,8 +253,21 @@ export default function Dashboard() {
         </div>
 
         {/* Action feed */}
-        <ActionFeed stats={stats} router={router} />
+        <ActionFeed stats={stats} router={router} onMarkPaid={(inv) => setPayModal([inv])} />
       </main>
+
+      {payModal && (
+        <MarkPaidModal
+          invoices={payModal}
+          orgId={orgId}
+          userId={user.id}
+          onClose={() => setPayModal(null)}
+          onDone={async () => {
+            setPayModal(null);
+            await loadStats(orgId);
+          }}
+        />
+      )}
 
       <style jsx global>{`
         .kpi-strip {
@@ -416,7 +431,7 @@ function DeltaPill({ value }) {
   );
 }
 
-function ActionFeed({ stats, router }) {
+function ActionFeed({ stats, router, onMarkPaid }) {
   const today = todayStr();
   const daysOverdue = iso => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000));
 
@@ -429,8 +444,15 @@ function ActionFeed({ stats, router }) {
       tag: 'Overdue',
       title: `${fmt$(inv.amount)} unpaid · ${daysOverdue(inv.issued_date)} days`,
       sub: `Invoice issued ${fmtDate(inv.issued_date)}`,
-      cta: 'Send reminder',
+      cta: 'Open',
       onClick: () => router.push(`/invoices/${inv.id}`),
+      // Inline quick-action: mark this overdue invoice paid without
+      // having to drill into the invoice detail page.
+      secondary: {
+        label: '✓ Mark Paid',
+        color: '#2edf87',
+        onClick: () => onMarkPaid?.({ id: inv.id, customer_id: inv.customer_id, amount: Number(inv.amount || 0) }),
+      },
       sortBy: -daysOverdue(inv.issued_date), // most overdue first
     });
   }
@@ -517,6 +539,12 @@ function ActionFeed({ stats, router }) {
                 </div>
                 <div style={{fontSize:12,color:'#7a8db0',marginTop:3}}>{it.sub}</div>
               </div>
+              {it.secondary && (
+                <button onClick={(e) => { e.stopPropagation(); it.secondary.onClick(); }}
+                  style={{background:it.secondary.color+'22',border:'1px solid '+it.secondary.color+'66',color:it.secondary.color,borderRadius:8,padding:'6px 10px',fontSize:11,fontWeight:700,letterSpacing:'.04em',cursor:'pointer',whiteSpace:'nowrap',fontFamily:'inherit'}}>
+                  {it.secondary.label}
+                </button>
+              )}
               <div style={{fontSize:11,color:it.color,fontWeight:700,letterSpacing:'.05em',textTransform:'uppercase',whiteSpace:'nowrap'}}>{it.cta} →</div>
             </div>
           ))
