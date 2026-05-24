@@ -120,16 +120,7 @@ export default function PublicInvoice() {
           </div>
         )}
 
-        {!isPaid && !org.card_payments_enabled && (
-          <div style={{marginTop:22,padding:'14px 16px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12}}>
-            <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55,textAlign:'center'}}>
-              Please pay {org.name || 'this contractor'} directly — by check, Zelle, Venmo, or the method you usually use.
-            </div>
-            <div style={{fontSize:12,color:'#7a8db0',textAlign:'center',marginTop:8}}>
-              Card payments aren't enabled on this invoice.
-            </div>
-          </div>
-        )}
+        {!isPaid && <OtherWaysToPay org={org} amount={inv.amount}/>}
 
         {isPaid && (
           <div style={{marginTop:22,padding:'14px 16px',background:'rgba(46,223,135,0.08)',border:'1px solid rgba(46,223,135,0.35)',borderRadius:12,textAlign:'center'}}>
@@ -168,6 +159,121 @@ function Row({ label, value, color }) {
     <div style={{display:'flex',justifyContent:'space-between',gap:12,padding:'8px 0',borderBottom:'1px solid #2e3f6055',alignItems:'baseline'}}>
       <span style={{fontSize:11,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:600}}>{label}</span>
       <span style={{fontSize:14,color:color||'#f0f4ff',fontWeight:600,textAlign:'right',maxWidth:'70%',overflowWrap:'anywhere'}}>{value}</span>
+    </div>
+  );
+}
+
+// Renders the contractor's manual payment methods (Venmo, Zelle, Cash
+// App, PayPal, check) on the public invoice page. Deeplinks pre-fill
+// the amount on mobile where possible. Hides entirely if nothing is
+// configured AND card payments are enabled — but renders a sober
+// "pay directly" note when card payments aren't enabled and the
+// contractor hasn't set any manual methods either.
+function OtherWaysToPay({ org, amount }) {
+  if (!org) return null;
+  const items = [];
+
+  if (org.venmo_handle) {
+    const handle = String(org.venmo_handle).replace(/^@/, '');
+    // Venmo deeplink — opens the app on mobile with the amount filled.
+    // recipients is the username (no @). Note text is URL-encoded.
+    const note = encodeURIComponent('Invoice');
+    items.push({
+      method: 'Venmo',
+      value: `@${handle}`,
+      href: `https://venmo.com/${encodeURIComponent(handle)}?txn=pay&amount=${amount}&note=${note}`,
+      color: '#3D95CE',
+    });
+  }
+  if (org.cashapp_handle) {
+    const tag = String(org.cashapp_handle).replace(/^\$/, '');
+    items.push({
+      method: 'Cash App',
+      value: `$${tag}`,
+      href: `https://cash.app/$${encodeURIComponent(tag)}/${amount}`,
+      color: '#00D632',
+    });
+  }
+  if (org.paypal_handle) {
+    const raw = String(org.paypal_handle).replace(/^@/, '');
+    const isEmail = raw.includes('@');
+    items.push({
+      method: 'PayPal',
+      value: isEmail ? raw : `@${raw}`,
+      href: isEmail ? `mailto:${raw}` : `https://paypal.me/${encodeURIComponent(raw)}/${amount}`,
+      color: '#003087',
+    });
+  }
+  if (org.zelle_contact) {
+    items.push({
+      method: 'Zelle',
+      value: org.zelle_contact,
+      // No deeplink standard — most Zelle is initiated inside the user's bank app.
+      href: null,
+      color: '#6D1ED4',
+    });
+  }
+  if (org.check_payable_to || org.check_mail_to) {
+    items.push({
+      method: 'Check',
+      value: [
+        org.check_payable_to ? `Payable to: ${org.check_payable_to}` : null,
+        org.check_mail_to ? `Mail to:\n${org.check_mail_to}` : null,
+      ].filter(Boolean).join('\n'),
+      href: null,
+      multiline: true,
+      color: '#7a8db0',
+    });
+  }
+
+  const showCardFallbackOnly = !org.card_payments_enabled && items.length === 0;
+  if (showCardFallbackOnly) {
+    return (
+      <div style={{marginTop:22,padding:'14px 16px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12}}>
+        <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55,textAlign:'center'}}>
+          Please pay {org.name || 'this contractor'} directly — contact them for the best way to pay.
+        </div>
+      </div>
+    );
+  }
+
+  if (items.length === 0) return null;
+
+  return (
+    <div style={{marginTop: org.card_payments_enabled ? 16 : 22}}>
+      <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.14em',fontWeight:600,textTransform:'uppercase',marginBottom:8,textAlign:'center'}}>
+        {org.card_payments_enabled ? 'or — Other ways to pay' : 'Pay this invoice'}
+      </div>
+      <div style={{display:'flex',flexDirection:'column',gap:8}}>
+        {items.map(it => {
+          const inner = (
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'12px 14px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10}}>
+              <div style={{minWidth:0,flex:1}}>
+                <div style={{fontSize:11,color:it.color,letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700,marginBottom:2}}>
+                  {it.method}
+                </div>
+                <div style={{fontSize:13,color:'#f0f4ff',fontWeight:600,whiteSpace: it.multiline ? 'pre-line' : 'normal',overflowWrap:'anywhere'}}>
+                  {it.value}
+                </div>
+              </div>
+              {it.href && (
+                <div style={{fontSize:11,color:'#4f9eff',fontWeight:700,letterSpacing:'.05em',whiteSpace:'nowrap',flexShrink:0}}>OPEN ↗</div>
+              )}
+            </div>
+          );
+          return it.href
+            ? <a key={it.method} href={it.href} target="_blank" rel="noopener noreferrer" style={{textDecoration:'none'}}>{inner}</a>
+            : <div key={it.method}>{inner}</div>;
+        })}
+      </div>
+      {org.payment_notes && (
+        <div style={{marginTop:10,padding:'10px 12px',background:'#1a2236',border:'1px solid #2e3f60',borderRadius:8,fontSize:12,color:'#c8d4ee',whiteSpace:'pre-line',lineHeight:1.5}}>
+          {org.payment_notes}
+        </div>
+      )}
+      <div style={{fontSize:11,color:'#7a8db0',textAlign:'center',marginTop:10,lineHeight:1.5}}>
+        After paying, {org.name || 'your contractor'} will confirm receipt and mark this invoice paid.
+      </div>
     </div>
   );
 }

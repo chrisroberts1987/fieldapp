@@ -41,6 +41,13 @@ export default function Settings() {
         license_number:   org.license_number || '',
         default_tax_rate: org.default_tax_rate != null ? String(org.default_tax_rate) : '8.25',
         income_tax_rate:  org.income_tax_rate  != null ? String(org.income_tax_rate)  : '25',
+        venmo_handle:     org.venmo_handle     || '',
+        zelle_contact:    org.zelle_contact    || '',
+        cashapp_handle:   org.cashapp_handle   || '',
+        paypal_handle:    org.paypal_handle    || '',
+        check_payable_to: org.check_payable_to || '',
+        check_mail_to:    org.check_mail_to    || '',
+        payment_notes:    org.payment_notes    || '',
       });
       setLogoPreview(org.logo_url || null);
     }
@@ -115,6 +122,13 @@ export default function Settings() {
         default_tax_rate: tax,
         income_tax_rate:  incomeTax,
         logo_url,
+        venmo_handle:     form.venmo_handle.trim()    || null,
+        zelle_contact:    form.zelle_contact.trim()   || null,
+        cashapp_handle:   form.cashapp_handle.trim()  || null,
+        paypal_handle:    form.paypal_handle.trim()   || null,
+        check_payable_to: form.check_payable_to.trim()|| null,
+        check_mail_to:    form.check_mail_to.trim()   || null,
+        payment_notes:    form.payment_notes.trim()   || null,
       })
       .eq('id', orgId);
     if (updErr) {
@@ -216,6 +230,49 @@ export default function Settings() {
         </Section>
 
         <PaymentsSection org={org} user={user}/>
+
+        <Section title="Other Payment Methods">
+          <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.55,marginBottom:10}}>
+            Fill in whichever methods you accept. They'll show on the customer's invoice page under "Other ways to pay" — leave the rest blank. After a customer pays via one of these, tap <strong>Mark Paid</strong> on the invoice and the feedback request will auto-send.
+          </div>
+          <Field label="Venmo handle">
+            <input style={inputStyle} type="text" value={form.venmo_handle}
+              onChange={e => setForm(p => ({...p, venmo_handle:e.target.value}))}
+              placeholder="@your-handle"/>
+          </Field>
+          <Field label="Zelle (email or phone)">
+            <input style={inputStyle} type="text" value={form.zelle_contact}
+              onChange={e => setForm(p => ({...p, zelle_contact:e.target.value}))}
+              placeholder="you@business.com or 555-555-5555"/>
+          </Field>
+          <Field label="Cash App $cashtag">
+            <input style={inputStyle} type="text" value={form.cashapp_handle}
+              onChange={e => setForm(p => ({...p, cashapp_handle:e.target.value}))}
+              placeholder="$YourCashtag"/>
+          </Field>
+          <Field label="PayPal (paypal.me or email)">
+            <input style={inputStyle} type="text" value={form.paypal_handle}
+              onChange={e => setForm(p => ({...p, paypal_handle:e.target.value}))}
+              placeholder="@your-handle or you@business.com"/>
+          </Field>
+          <Field label="Check made payable to">
+            <input style={inputStyle} type="text" value={form.check_payable_to}
+              onChange={e => setForm(p => ({...p, check_payable_to:e.target.value}))}
+              placeholder="Your Business Name"/>
+          </Field>
+          <Field label="Mail check to">
+            <textarea maxLength={500} style={{...inputStyle, minHeight:60, resize:'vertical'}}
+              value={form.check_mail_to}
+              onChange={e => setForm(p => ({...p, check_mail_to:e.target.value}))}
+              placeholder="Street&#10;City, ST  ZIP"/>
+          </Field>
+          <Field label="Other notes (optional)">
+            <textarea maxLength={500} style={{...inputStyle, minHeight:50, resize:'vertical'}}
+              value={form.payment_notes}
+              onChange={e => setForm(p => ({...p, payment_notes:e.target.value}))}
+              placeholder="ACH instructions, Wise handle, anything else"/>
+          </Field>
+        </Section>
 
         <Section title="Details">
           <Field label="License Number">
