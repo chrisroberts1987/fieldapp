@@ -5,7 +5,7 @@ import { useOrg } from '../../lib/org';
 import { useRefetchOnFocus } from '../../lib/useFocus';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
-import { sendEmail } from '../../lib/email/client';
+import { sendEmail, sendInvoiceEmail } from '../../lib/email/client';
 import { firePushEvent } from '../../lib/push/fire';
 import MarkPaidModal from '../../components/MarkPaidModal';
 
@@ -32,6 +32,7 @@ export default function Invoices() {
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState(new Set()); // bulk-select invoice ids
   const [payModal, setPayModal] = useState(null);       // array of invoices to mark paid
+  const [sendingId, setSendingId] = useState(null);      // invoice id currently being emailed
   const [filter, setFilter] = useState('all');
   const [form, setForm] = useState(EMPTY);
 
@@ -203,6 +204,32 @@ export default function Invoices() {
     }
   };
 
+  // Email the customer the invoice with the Pay Now link. The server
+  // looks up the customer + org via RLS — we only need the invoice id.
+  // Confirmation prompt on Resend so a stray tap doesn't double-email.
+  const quickSend = async (inv) => {
+    const cust = customers.find(c => c.id === inv.customer_id);
+    if (!cust?.email) {
+      alert('This customer has no email on file. Add one in Customers, or use PAY LINK to copy the URL and send it yourself.');
+      return;
+    }
+    if (inv.last_emailed_at) {
+      if (!confirm(`Resend this invoice to ${cust.email}?`)) return;
+    }
+    setSendingId(inv.id);
+    const r = await sendInvoiceEmail(inv.id);
+    setSendingId(null);
+    if (r.ok) {
+      // Optimistic local update so the button label flips to RESENT
+      // without waiting for the next refetch.
+      setInvoices(prev => prev.map(x => x.id === inv.id
+        ? { ...x, last_emailed_at: new Date().toISOString() }
+        : x));
+    } else {
+      alert(r.error || 'Send failed. Try again in a moment.');
+    }
+  };
+
   const copyFeedbackLink = async (inv) => {
     const { data } = await supabase.from('feedback').select('token').eq('invoice_id', inv.id).maybeSingle();
     if (!data?.token) { alert('No feedback link generated yet — try saving the invoice again.'); return; }
@@ -299,7 +326,16 @@ export default function Invoices() {
                 VIEW
               </button>
               {!paid && inv.public_token && (
+                <button onClick={e => { e.stopPropagation(); quickSend(inv); }}
+                  disabled={sendingId === inv.id}
+                  title={inv.last_emailed_at ? `Last sent ${fmtDate(inv.last_emailed_at)}` : 'Email this invoice to the customer'}
+                  style={{flex:1,background: inv.last_emailed_at ? 'transparent' : '#a855f722',border:'1px solid '+(inv.last_emailed_at ? '#2e3f60' : '#a855f766'),borderRadius:8,color: inv.last_emailed_at ? '#c8d4ee' : '#c084fc',padding:'7px 0',fontSize:12,fontWeight:700,cursor: sendingId === inv.id ? 'progress' : 'pointer',letterSpacing:'.05em',opacity: sendingId === inv.id ? 0.6 : 1}}>
+                  {sendingId === inv.id ? '...' : (inv.last_emailed_at ? 'RESEND' : 'SEND')}
+                </button>
+              )}
+              {!paid && inv.public_token && (
                 <button onClick={e => { e.stopPropagation(); copyPayLink(inv); }}
+                  title="Copy a link you can text or share another way"
                   style={{flex:1,background:'#fbbf2422',border:'1px solid #fbbf2466',borderRadius:8,color:'#fbbf24',padding:'7px 0',fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>
                   PAY LINK
                 </button>
