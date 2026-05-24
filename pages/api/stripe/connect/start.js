@@ -96,12 +96,15 @@ export default async function handler(req, res) {
 
   // Account link sends them to Stripe-hosted onboarding. The link is
   // single-use and expires in ~5 minutes — refresh_url brings them
-  // back to /settings if they bail. return_url is hit on success.
+  // back if they bail. return_url is hit on success. Callers can
+  // request 'dashboard' to land newly-onboarded users on the main
+  // app; default is /settings (the canonical management surface).
+  const returnTo = req.body?.return_to === 'dashboard' ? '/dashboard' : '/settings';
   try {
     const link = await s.accountLinks.create({
       account: accountId,
-      refresh_url: `${origin(req)}/settings?connect=refresh`,
-      return_url:  `${origin(req)}/settings?connect=return`,
+      refresh_url: `${origin(req)}${returnTo}?connect=refresh`,
+      return_url:  `${origin(req)}${returnTo}?connect=return`,
       type: 'account_onboarding',
     });
     return res.status(200).json({ url: link.url, account_id: accountId });
