@@ -102,6 +102,14 @@ export default function TopNav({ active }) {
   const showTrialBanner = !isDemo && isOwner && subStatus === 'trialing' && daysLeft != null;
   const showPastDue     = !isDemo && isOwner && subStatus === 'past_due';
 
+  // Connect prompt: owner hasn't finished Stripe Connect onboarding,
+  // so the org can't accept card payments yet. Stacks below the
+  // trial / past-due banner when one is showing. Hides automatically
+  // once charges_enabled flips true.
+  const connectStarted     = !!org?.stripe_connect_account_id;
+  const connectChargesOK   = !!org?.stripe_connect_charges_enabled;
+  const showConnectBanner  = !isDemo && isOwner && !!org && !connectChargesOK;
+
   return (
     <>
     <div style={{position:'sticky',top:0,zIndex:50,background:'#0d1726',borderBottom:'1px solid #1f2a40'}}>
@@ -121,6 +129,24 @@ export default function TopNav({ active }) {
             <button onClick={() => router.push('/billing')}
               style={{background:showPastDue?'#f26060':'#fbbf24',border:'none',borderRadius:6,color:'#0d1726',padding:'4px 12px',fontSize:10,fontWeight:700,letterSpacing:'.05em',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0,fontFamily:'inherit'}}>
               {showPastDue ? 'UPDATE CARD' : (daysLeft === 0 ? 'PICK A PLAN' : 'UPGRADE')}
+            </button>
+          </div>
+        </div>
+      )}
+      {showConnectBanner && (
+        <div style={{background:'#1a2236',borderBottom:'1px solid #4f9eff44'}}>
+          <div style={{maxWidth:1280,margin:'0 auto',padding:'6px 12px',display:'flex',alignItems:'center',gap:8}}>
+            <span style={{background:'#4f9eff22',color:'#4f9eff',border:'1px solid #4f9eff66',borderRadius:999,padding:'2px 9px',fontSize:10,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',whiteSpace:'nowrap',flexShrink:0}}>
+              Payments
+            </span>
+            <span style={{fontSize:12,color:'#c8d4ee',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+              {connectStarted
+                ? 'Finish Stripe setup to accept card payments.'
+                : 'Connect Stripe to let customers pay invoices instantly.'}
+            </span>
+            <button onClick={() => router.push('/settings#payments')}
+              style={{background:'#4f9eff',border:'none',borderRadius:6,color:'#fff',padding:'4px 12px',fontSize:10,fontWeight:700,letterSpacing:'.05em',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0,fontFamily:'inherit'}}>
+              {connectStarted ? 'FINISH SETUP' : 'CONNECT STRIPE'}
             </button>
           </div>
         </div>
