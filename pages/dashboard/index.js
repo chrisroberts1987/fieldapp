@@ -147,6 +147,28 @@ export default function Dashboard() {
     });
   }, []);
 
+  // Post-Stripe-Connect-onboarding hop. When the user returns from
+  // Stripe (either via the onboarding flow or the dashboard banner),
+  // the URL carries ?connect=return or ?connect=refresh. We hit the
+  // status endpoint to mirror Stripe's latest charges_enabled into
+  // our DB and clean the query param so refreshes don't re-trigger.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const c = router.query.connect;
+    if (c !== 'return' && c !== 'refresh') return;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        await fetch('/api/stripe/connect/status', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+      } catch {}
+      router.replace('/dashboard', undefined, { shallow: true });
+    })();
+  }, [router.isReady, router.query.connect]);
+
   useEffect(() => {
     if (!orgId) {
       if (user && !orgLoading) router.push('/onboarding');
