@@ -50,9 +50,11 @@ export default async function handler(req, res) {
   if (userErr || !user) return res.status(401).json({ error: 'Not signed in.' });
 
   // RLS confines this select to invoices in orgs the user belongs to.
+  // Selecting * to avoid coupling to a specific column list — the
+  // invoices table has accreted columns across migrations 0001-0020.
   const { data: invoice, error: invErr } = await sb
     .from('invoices')
-    .select('id, org_id, customer_id, amount, public_token, due_date, status')
+    .select('*')
     .eq('id', id)
     .maybeSingle();
   if (invErr || !invoice) return res.status(404).json({ error: 'Invoice not found.' });
@@ -86,7 +88,7 @@ export default async function handler(req, res) {
       invoiceNumber,
       amount: invoice.amount,
       invoiceUrl,
-      dueDate: invoice.due_date || null,
+      dueDate: null,
     });
   } catch (e) {
     return res.status(500).json({ error: 'Template build failed.' });
