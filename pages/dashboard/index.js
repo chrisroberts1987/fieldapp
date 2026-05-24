@@ -175,6 +175,14 @@ export default function Dashboard() {
       return;
     }
     if (!role) return;
+    // Owner signed up but never finished onboarding step 3 (no card
+    // on file). Send them back to /onboarding which will resume on
+    // step 3 (plan picker). Crew members aren't affected — their org
+    // owner is the one responsible for the subscription.
+    if (role === 'owner' && org && !org.stripe_subscription_id) {
+      router.push('/onboarding');
+      return;
+    }
     // Trial ran out without a paid plan, or subscription was canceled
     // / expired — punt the owner straight to billing so they can fix
     // it. Crew + supervisor still get the dashboard so they can keep
@@ -185,7 +193,7 @@ export default function Dashboard() {
     }
     if (isForeman(role)) loadStats(orgId);
     else loadCrewData(orgId);
-  }, [orgId, orgLoading, role, org?.subscription_status, org?.trial_ends_at]);
+  }, [orgId, orgLoading, role, org?.subscription_status, org?.trial_ends_at, org?.stripe_subscription_id]);
 
   useRefetchOnFocus(refetchStats, !!(orgId && role));
 

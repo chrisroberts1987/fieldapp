@@ -33,9 +33,10 @@ export default async function handler(req, res) {
   const { data: { user }, error: userErr } = await userClient.auth.getUser();
   if (userErr || !user) return res.status(401).json({ error: 'Not signed in.' });
 
-  const { tier, billing } = req.body || {};
+  const { tier, billing, return_to } = req.body || {};
   if (!PLANS[tier]) return res.status(400).json({ error: 'Unknown plan tier.' });
   if (!['monthly','annual'].includes(billing)) return res.status(400).json({ error: 'billing must be "monthly" or "annual".' });
+  const returnPath = return_to === 'dashboard' ? '/dashboard' : '/billing';
 
   const priceId = priceIdFor(tier, billing);
   if (!priceId) return res.status(503).json({ error: 'That plan is not available for purchase yet.' });
@@ -70,6 +71,13 @@ export default async function handler(req, res) {
     };
   }
 
+  // Only apply the 14-day trial when this is a *new* subscription
+  // started from onboarding. Existing subscribers switching plans
+  // shouldn't get a fresh trial — Stripe would otherwise pause
+  // billing for them.
+  const isFirstSubscription = !org.stripe_customer_id;
+  const trialPeriodDays = (returnPath === '/dashboard' && isFirstSubscription) ? 14 : undefined;
+
   const origin = req.headers.origin || `https://${req.headers.host}`;
   try {
     const session = await s.checkout.sessions.create({
@@ -77,13 +85,14 @@ export default async function handler(req, res) {
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       ...customerArg,
-      success_url: `${origin}/billing?started=1`,
-      cancel_url:  `${origin}/billing?cancelled=1`,
+      success_url: `${origin}${returnPath}?started=1`,
+      cancel_url:  `${origin}${returnPath}?cancelled=1`,
       // Metadata so the webhook can wire the subscription back to
       // the right org without trusting client input.
       metadata: { org_id: org.id, tier, billing },
       subscription_data: {
         metadata: { org_id: org.id, tier, billing },
+        ...(trialPeriodDays ? { trial_period_days: trialPeriodDays } : {}),
       },
       allow_promotion_codes: true,
     });

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useOrg } from '../lib/org';
 import Logo from '../components/Logo';
 import { validateUpload, ACCEPT_ATTR } from '../lib/uploads';
+import { PLANS, PLAN_ORDER } from '../lib/billing';
 
 // Two-step onboarding:
 //   Step 1: business profile (name, contact, logo, basics)
@@ -19,9 +20,11 @@ import { validateUpload, ACCEPT_ATTR } from '../lib/uploads';
 export default function Onboarding() {
   const router = useRouter();
   const [user, setUser] = useState(null);
-  const { orgId, loading: orgLoading } = useOrg(user);
-  const [step, setStep] = useState(1);                  // 1 = profile, 2 = payments
+  const { orgId, org, loading: orgLoading } = useOrg(user);
+  const [step, setStep] = useState(1);                  // 1 = profile, 2 = payments, 3 = plan
   const [createdOrgId, setCreatedOrgId] = useState(null); // set after step 1
+  const [billingCycle, setBillingCycle] = useState('monthly');
+  const [planLoading, setPlanLoading] = useState(null); // tier currently being checked out
   const [form, setForm] = useState({
     name:'', owner_name:'', phone:'', business_email:'',
     address:'', license_number:'', default_tax_rate:'8.25',
@@ -44,12 +47,25 @@ export default function Onboarding() {
     });
   }, []);
 
-  // If the user already has an org and isn't actively saving, route them
-  // to the dashboard. Skip this redirect during step 2 — we created the
-  // org server-side at the end of step 1, but the user isn't done yet.
+  // Routing when the user lands on /onboarding with an existing org:
+  // - org + stripe_subscription_id ⇒ fully onboarded, push to /dashboard
+  // - org + no subscription          ⇒ resume at step 3 (plan picker)
+  // - no org                         ⇒ stay at step 1 (default)
+  // Only fires when on step 1 default — once the user advances mid-flow,
+  // their explicit step state wins.
   useEffect(() => {
-    if (orgId && user && !saving && step === 1) router.push('/dashboard');
-  }, [orgId, user, step]);
+    if (!user || saving) return;
+    if (!orgId) return;
+    if (step !== 1) return;
+    if (org?.stripe_subscription_id) {
+      router.push('/dashboard');
+    } else {
+      // Org exists from a prior session, but no subscription yet — jump
+      // them straight to the gate.
+      setCreatedOrgId(orgId);
+      setStep(3);
+    }
+  }, [orgId, org?.stripe_subscription_id, user, step]);
 
   // Pending invite token from /invite/[token] → /signup flow
   useEffect(() => {
@@ -142,17 +158,56 @@ export default function Onboarding() {
     return updErr ? { ok: false, error: updErr.message } : { ok: true };
   };
 
+  // Step 2 → 3: save manual methods, advance to plan picker. The
+  // contractor must pick a plan (with a card on file) before they
+  // reach the dashboard — but they get the standard 14-day free trial.
   const finishOnboarding = async () => {
     setError('');
     setSaving(true);
     const r = await saveManualMethods();
     setSaving(false);
     if (!r.ok) { setError(r.error || 'Save failed.'); return; }
-    router.push('/dashboard');
+    setStep(3);
+    window.scrollTo(0, 0);
   };
 
-  const skipOnboarding = () => {
-    router.push('/dashboard');
+  // "Skip" on step 2 just means "skip the optional manual methods" —
+  // still has to pick a plan on step 3.
+  const skipToPlanStep = () => {
+    setStep(3);
+    window.scrollTo(0, 0);
+  };
+
+  // Step 3: kick off Stripe Checkout (subscription mode) for the
+  // chosen plan tier. Stripe collects the card, applies the 14-day
+  // trial via subscription_data.trial_period_days, then returns the
+  // user to /dashboard. The webhook stamps stripe_subscription_id on
+  // the org, which is what releases the dashboard gate.
+  const pickPlan = async (tier) => {
+    setError('');
+    setPlanLoading(tier);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.push('/login'); return; }
+      const r = await fetch('/api/stripe/checkout-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ tier, billing: billingCycle, return_to: 'dashboard' }),
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok || !body?.url) {
+        setError(body?.error || 'Could not start checkout.');
+        setPlanLoading(null);
+        return;
+      }
+      window.location.href = body.url;
+    } catch (e) {
+      setError(e?.message || 'Network error.');
+      setPlanLoading(null);
+    }
   };
 
   // Connect Stripe: save manual methods, then bounce to Stripe-hosted
@@ -200,7 +255,9 @@ export default function Onboarding() {
       <div style={{display:'flex',flexDirection:'column',alignItems:'center',marginBottom:14,gap:6}}>
         <Logo size="md" />
         <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.1em',fontWeight:600,textTransform:'uppercase'}}>
-          {step === 1 ? 'Set up your business' : 'How do you want to get paid?'}
+          {step === 1 ? 'Set up your business'
+            : step === 2 ? 'How do you want to get paid?'
+            : 'Pick your plan'}
         </div>
         <StepDots step={step}/>
       </div>
@@ -360,12 +417,73 @@ export default function Onboarding() {
 
           <button onClick={finishOnboarding} disabled={saving || connecting}
             style={{width:'100%',background:'#4f9eff',color:'#fff',border:'none',borderRadius:10,padding:'13px 0',fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.08em',cursor:(saving||connecting)?'progress':'pointer',marginBottom:10,opacity:(saving||connecting)?0.5:1}}>
-            {saving ? 'Saving...' : 'SAVE & FINISH'}
+            {saving ? 'Saving...' : 'CONTINUE →'}
           </button>
-          <button onClick={skipOnboarding}
+          <button onClick={skipToPlanStep}
             style={{width:'100%',background:'transparent',color:'#7a8db0',border:'1px solid #2e3f60',borderRadius:10,padding:'10px 0',fontSize:12,cursor:'pointer'}}>
             Skip for now — set up payments later in Settings
           </button>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div style={{maxWidth:560,margin:'0 auto'}}>
+          <div style={{background:'#2edf8714',border:'1px solid #2edf8744',borderRadius:10,padding:'10px 14px',marginBottom:14,fontSize:12,color:'#2edf87',textAlign:'center',lineHeight:1.5}}>
+            <strong>14-day free trial</strong> on every plan. No charge today. Cancel anytime from Settings → Billing.
+          </div>
+
+          {/* Monthly / Annual toggle */}
+          <div style={{display:'flex',gap:6,background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:999,padding:4,marginBottom:14,maxWidth:280,marginLeft:'auto',marginRight:'auto'}}>
+            {['monthly','annual'].map(c => (
+              <button key={c} onClick={() => setBillingCycle(c)}
+                style={{flex:1,background: billingCycle === c ? '#4f9eff' : 'transparent',border:'none',borderRadius:999,color: billingCycle === c ? '#fff' : '#c8d4ee',padding:'8px 14px',fontSize:12,fontWeight:700,letterSpacing:'.05em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit'}}>
+                {c}{c === 'annual' ? ' · save ~17%' : ''}
+              </button>
+            ))}
+          </div>
+
+          {/* Plan cards */}
+          <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:14}}>
+            {PLAN_ORDER.map(tier => {
+              const p = PLANS[tier];
+              const price = billingCycle === 'annual' ? p.annual : p.monthly;
+              const per   = billingCycle === 'annual' ? '/year'  : '/month';
+              const isPop = !!p.popular;
+              return (
+                <div key={tier} style={{
+                  background: isPop ? 'linear-gradient(135deg,#1f2a47 0%,#1a2236 100%)' : '#1e2a42',
+                  border: '1.5px solid ' + (isPop ? '#4f9eff66' : '#2e3f60'),
+                  borderRadius: 14, padding:'16px 16px', position:'relative',
+                }}>
+                  {isPop && (
+                    <div style={{position:'absolute',top:-8,right:14,background:'#4f9eff',color:'#fff',borderRadius:999,padding:'2px 10px',fontSize:9,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase'}}>
+                      Most popular
+                    </div>
+                  )}
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:10,marginBottom:6}}>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:24,letterSpacing:'.04em',color:'#f0f4ff',lineHeight:1}}>{p.name.toUpperCase()}</div>
+                      <div style={{fontSize:12,color:'#7a8db0',marginTop:2}}>{p.subtitle} · {p.users}</div>
+                    </div>
+                    <div style={{textAlign:'right',flexShrink:0}}>
+                      <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:26,color:'#f0f4ff',lineHeight:1}}>${price}</div>
+                      <div style={{fontSize:11,color:'#7a8db0'}}>{per}</div>
+                    </div>
+                  </div>
+                  <button onClick={() => pickPlan(tier)} disabled={planLoading != null}
+                    style={{width:'100%',background: isPop ? '#4f9eff' : 'transparent',border: isPop ? 'none' : '1.5px solid #4f9eff', borderRadius:10,color: isPop ? '#fff' : '#4f9eff',padding:'10px 0',fontWeight:700,fontSize:13,letterSpacing:'.04em',cursor:planLoading?'progress':'pointer',opacity:planLoading?0.6:1,marginTop:10}}>
+                    {planLoading === tier ? 'OPENING STRIPE...' : `START 14-DAY TRIAL · ${p.name.toUpperCase()}`}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{fontSize:11,color:'#7a8db0',textAlign:'center',lineHeight:1.5}}>
+            You'll add a card on the next screen so we can keep your account active after the trial. We'll email you 3 days before the trial ends. Cancel anytime — no fees.
+          </div>
+
+          {error && <div style={{marginTop:10}}><ErrorBox text={error}/></div>}
         </div>
       )}
     </div>
@@ -375,7 +493,7 @@ export default function Onboarding() {
 function StepDots({ step }) {
   return (
     <div style={{display:'flex',gap:6,marginTop:2}}>
-      {[1,2].map(n => (
+      {[1,2,3].map(n => (
         <div key={n} style={{
           width: n === step ? 18 : 6,
           height: 6, borderRadius: 6,
