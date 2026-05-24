@@ -109,6 +109,33 @@ export default function TopNav({ active }) {
   const connectStarted     = !!org?.stripe_connect_account_id;
   const connectChargesOK   = !!org?.stripe_connect_charges_enabled;
   const showConnectBanner  = !isDemo && isOwner && !!org && !connectChargesOK;
+  const [connectBusy, setConnectBusy] = useState(false);
+
+  // Hit /api/stripe/connect/start and jump straight to Stripe's
+  // hosted onboarding. Skips the Settings detour — the banner is the
+  // CTA, no intermediate page needed.
+  const connectNow = async () => {
+    if (connectBusy) return;
+    setConnectBusy(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.push('/login'); return; }
+      const r = await fetch('/api/stripe/connect/start', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok || !body?.url) {
+        alert(body?.error || 'Could not open Stripe. Try Settings → Customer Card Payments.');
+        setConnectBusy(false);
+        return;
+      }
+      window.location.href = body.url;
+    } catch (e) {
+      alert(e?.message || 'Network error.');
+      setConnectBusy(false);
+    }
+  };
 
   return (
     <>
@@ -144,9 +171,9 @@ export default function TopNav({ active }) {
                 ? 'Finish Stripe setup to accept card payments.'
                 : 'Connect Stripe to let customers pay invoices instantly.'}
             </span>
-            <button onClick={() => router.push('/settings#payments')}
-              style={{background:'#4f9eff',border:'none',borderRadius:6,color:'#fff',padding:'4px 12px',fontSize:10,fontWeight:700,letterSpacing:'.05em',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0,fontFamily:'inherit'}}>
-              {connectStarted ? 'FINISH SETUP' : 'CONNECT STRIPE'}
+            <button onClick={connectNow} disabled={connectBusy}
+              style={{background:'#4f9eff',border:'none',borderRadius:6,color:'#fff',padding:'4px 12px',fontSize:10,fontWeight:700,letterSpacing:'.05em',cursor:connectBusy?'progress':'pointer',whiteSpace:'nowrap',flexShrink:0,fontFamily:'inherit',opacity:connectBusy?0.6:1}}>
+              {connectBusy ? 'OPENING...' : (connectStarted ? 'FINISH SETUP' : 'CONNECT STRIPE')}
             </button>
           </div>
         </div>
