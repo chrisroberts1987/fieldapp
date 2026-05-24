@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import { sendInvoiceEmail } from '../../lib/email/client';
 
 export default function InvoiceDetail() {
   const router = useRouter();
@@ -90,6 +91,14 @@ export default function InvoiceDetail() {
       <div className="no-print" style={{display:'flex',alignItems:'center',gap:12,margin:'18px 16px 0',flexWrap:'wrap'}}>
         <button onClick={() => router.push('/invoices')} style={{...backStyle,fontSize:14}}>← Invoices</button>
         <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'.08em',flex:1}}>{invoiceNumber}</div>
+        {!paid && invoice?.public_token && (
+          <SendInvoiceButton
+            invoiceId={invoice.id}
+            customerEmail={customer?.email}
+            lastEmailedAt={invoice.last_emailed_at}
+            onSent={load}
+          />
+        )}
         {!paid && invoice?.public_token && <PayLinkButton token={invoice.public_token}/>}
         {paid
           ? <button onClick={markUnpaid} style={btnGhost}>Mark Unpaid</button>
@@ -239,6 +248,63 @@ const loadingStyle = {
   minHeight:'100vh', background:'#111827', display:'flex',
   alignItems:'center', justifyContent:'center', color:'#f0f4ff', fontFamily:'sans-serif',
 };
+
+function SendInvoiceButton({ invoiceId, customerEmail, lastEmailedAt, onSent }) {
+  const [busy, setBusy] = useState(false);
+  const [flash, setFlash] = useState(null); // 'sent' | 'error'
+  const alreadySent = !!lastEmailedAt;
+  const noEmail = !customerEmail;
+
+  const send = async () => {
+    if (busy || noEmail) return;
+    if (alreadySent) {
+      if (!confirm(`Resend this invoice to ${customerEmail}?`)) return;
+    }
+    setBusy(true); setFlash(null);
+    const r = await sendInvoiceEmail(invoiceId);
+    setBusy(false);
+    if (r.ok) {
+      setFlash('sent');
+      setTimeout(() => setFlash(null), 2000);
+      onSent && onSent();
+    } else {
+      setFlash('error');
+      alert(r.error || 'Send failed.');
+    }
+  };
+
+  if (noEmail) {
+    return (
+      <button disabled title="Add an email to this customer to send the invoice"
+        style={{...btnGhost, opacity: 0.45, cursor: 'not-allowed'}}>
+        No customer email
+      </button>
+    );
+  }
+
+  const label = busy ? 'Sending...'
+    : flash === 'sent' ? '✓ Sent'
+    : alreadySent ? `Resend ${lastEmailedAt ? `(last ${fmtDate(lastEmailedAt)})` : ''}`
+    : 'Send Invoice';
+
+  const tone = alreadySent
+    ? { bg: 'transparent', border: '#2e3f60', color: '#7a8db0' }   // ghost — already sent once
+    : { bg: '#fbbf2422', border: '#fbbf2466', color: '#fbbf24' };  // yellow — primary action
+
+  return (
+    <button onClick={send} disabled={busy} title={alreadySent ? `Last sent ${fmtDate(lastEmailedAt)}` : `Email to ${customerEmail}`}
+      style={{
+        background: flash === 'sent' ? '#2edf8722' : tone.bg,
+        border: '1px solid ' + (flash === 'sent' ? '#2edf8766' : tone.border),
+        borderRadius: 8,
+        color: flash === 'sent' ? '#2edf87' : tone.color,
+        padding: '8px 12px', fontWeight: 700, cursor: busy ? 'progress' : 'pointer',
+        fontSize: 12, fontFamily: 'inherit', opacity: busy ? 0.7 : 1,
+      }}>
+      {label}
+    </button>
+  );
+}
 
 function PayLinkButton({ token }) {
   const [copied, setCopied] = useState(false);

@@ -6,7 +6,7 @@ import { useRefetchOnFocus } from '../../lib/useFocus';
 import { isCrew, isOffice } from '../../lib/role';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
-import { sendEmail } from '../../lib/email/client';
+import { sendEmail, sendInvoiceEmail } from '../../lib/email/client';
 import { validateUpload, ACCEPT_ATTR } from '../../lib/uploads';
 import { firePushEvent } from '../../lib/push/fire';
 
@@ -247,6 +247,30 @@ export default function Jobs() {
           to: cust.email,
           data: { customerName: cust.name, jobTitle: payload.title, description: payload.description || null },
         });
+      }
+
+      // The migration 0012 trigger creates the invoice asynchronously.
+      // Briefly poll for it (up to ~2s) and then email it to the
+      // customer with the Pay Now link. Best-effort: a failure here is
+      // silent, the contractor can still Resend from the invoice page.
+      if (savedJobId && cust?.email) {
+        (async () => {
+          for (let i = 0; i < 6; i++) {
+            const { data: inv } = await supabase
+              .from('invoices')
+              .select('id, last_emailed_at')
+              .eq('job_id', savedJobId)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (inv?.id && !inv.last_emailed_at) {
+              await sendInvoiceEmail(inv.id);
+              return;
+            }
+            if (inv?.last_emailed_at) return; // already sent (shouldn't happen on first complete, but defensive)
+            await new Promise(r => setTimeout(r, 350));
+          }
+        })();
       }
     }
 
