@@ -46,6 +46,15 @@ export default function MyApp({ Component, pageProps }) {
         /* iOS standalone-mode safe-area padding so the status-bar
            area doesn't clip the sticky TopNav. */
         body { padding-top: env(safe-area-inset-top, 0px); }
+        /* iOS auto-zooms any focused input/textarea/select with
+           font-size < 16px and never zooms back out. Override every
+           form control on mobile to 16px so focusing email/password
+           on /login doesn't lock the page into a permanent zoom. */
+        @media (max-width: 767px) {
+          input, textarea, select {
+            font-size: 16px !important;
+          }
+        }
       `}</style>
     </>
   );
