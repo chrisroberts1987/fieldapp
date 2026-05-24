@@ -16,14 +16,30 @@ const SIZES = {
 
 export default function Logo({ size = 'md', icon = true, tagline = false }) {
   const s = SIZES[size] || SIZES.md;
+  // Explicit per-line height + whiteSpace:nowrap so the wordmark
+  // doesn't reflow when Bebas Neue hasn't loaded yet — the wider
+  // fallback was making "MY" and "FOREMAN" stomp on each other on
+  // mobile during the font-swap window. 'Arial Narrow' / Impact are
+  // closer in metrics to Bebas Neue than a generic sans-serif.
+  const lineH = Math.round(s.mark * 1.0);
+  const markStyle = {
+    fontFamily: "'Bebas Neue','Arial Narrow',Impact,sans-serif",
+    fontSize: s.mark,
+    letterSpacing: '.04em',
+    fontWeight: 700,
+    lineHeight: `${lineH}px`,
+    height: lineH,
+    display: 'block',
+    whiteSpace: 'nowrap',
+  };
   return (
-    <div style={{display:'inline-flex',alignItems:'center',gap:s.gap}}>
+    <div style={{display:'inline-flex',alignItems:'center',gap:s.gap,flexShrink:0,minWidth:0}}>
       {icon && <LogoIcon size={s.icon} />}
-      <div style={{lineHeight:1}}>
-        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:s.mark,letterSpacing:'.04em',color:'#f0f4ff',fontWeight:700,lineHeight:0.95}}>MY</div>
-        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:s.mark,letterSpacing:'.04em',color:'#4f9eff',fontWeight:700,lineHeight:0.95}}>FOREMAN</div>
+      <div style={{display:'inline-flex',flexDirection:'column',lineHeight:1,whiteSpace:'nowrap',overflow:'hidden'}}>
+        <span style={{...markStyle, color:'#f0f4ff'}}>MY</span>
+        <span style={{...markStyle, color:'#4f9eff'}}>FOREMAN</span>
         {tagline && (
-          <div style={{fontSize:s.tagline,letterSpacing:'.18em',color:'#7a8db0',marginTop:s.taglineGap,fontWeight:600,textTransform:'uppercase'}}>From lead to paid</div>
+          <div style={{fontSize:s.tagline,letterSpacing:'.18em',color:'#7a8db0',marginTop:s.taglineGap,fontWeight:600,textTransform:'uppercase',whiteSpace:'nowrap'}}>From lead to paid</div>
         )}
       </div>
     </div>

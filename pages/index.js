@@ -9,7 +9,18 @@ export default function Home() {
   const [billing, setBilling] = useState('monthly');
 
   useEffect(() => {
+    // If the user is running the installed PWA (display-mode: standalone),
+    // the marketing page is the wrong destination — send them straight
+    // to the app. Signed in → dashboard, otherwise → login.
+    const standalone = typeof window !== 'undefined'
+      && (window.matchMedia?.('(display-mode: standalone)')?.matches
+          || window.navigator?.standalone === true);
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (standalone) {
+        router.push(session ? '/dashboard' : '/login');
+        return;
+      }
       // Real signed-in users go straight to their dashboard. Demo
       // viewers stay on the marketing page so closing the tab and
       // coming back doesn't dump them straight back into the demo.

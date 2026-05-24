@@ -38,6 +38,15 @@ export default function MyApp({ Component, pageProps }) {
       <Component {...pageProps} />
       <TourOverlay />
       <InstallPrompt />
+      <style jsx global>{`
+        /* Prevent any element from causing horizontal scroll — when
+           that happens the mobile browser fits the wider content
+           inside the viewport, looking like the page is zoomed in. */
+        html, body { overflow-x: hidden; max-width: 100vw; }
+        /* iOS standalone-mode safe-area padding so the status-bar
+           area doesn't clip the sticky TopNav. */
+        body { padding-top: env(safe-area-inset-top, 0px); }
+      `}</style>
     </>
   );
 }
