@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useRefetchOnFocus } from '../lib/useFocus';
 import { useOrg } from '../lib/org';
 import { isForeman, isOffice } from '../lib/role';
+import { trialDaysLeft, isBlocked } from '../lib/billing';
 import Logo from './Logo';
 
 // Funnel-ordered: Dashboard → Leads → Quotes → Customers → Jobs → Invoices →
@@ -45,7 +46,7 @@ export default function TopNav({ active }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifs, setNotifs] = useState([]);
   const [user, setUser] = useState(null);
-  const { role } = useOrg(user);
+  const { role, org } = useOrg(user);
   const TABS = visibleTabs(role);
 
   const loadNotifs = async () => {
@@ -95,10 +96,35 @@ export default function TopNav({ active }) {
   };
 
   const isDemo = user?.email === 'demo@myforemanhq.com';
+  const isOwner = role === 'owner' || role === 'admin';
+  const daysLeft = trialDaysLeft(org);
+  const subStatus = org?.subscription_status;
+  const showTrialBanner = !isDemo && isOwner && subStatus === 'trialing' && daysLeft != null;
+  const showPastDue     = !isDemo && isOwner && subStatus === 'past_due';
 
   return (
     <>
     <div style={{position:'sticky',top:0,zIndex:50,background:'#0d1726',borderBottom:'1px solid #1f2a40'}}>
+      {(showTrialBanner || showPastDue) && (
+        <div style={{background: showPastDue ? '#3a1a1f' : '#1a2236', borderBottom:'1px solid '+(showPastDue?'#f2606044':'#fbbf2444')}}>
+          <div style={{maxWidth:1280,margin:'0 auto',padding:'6px 12px',display:'flex',alignItems:'center',gap:8}}>
+            <span style={{background:(showPastDue?'#f26060':'#fbbf24')+'22',color:showPastDue?'#f26060':'#fbbf24',border:'1px solid '+(showPastDue?'#f26060':'#fbbf24')+'66',borderRadius:999,padding:'2px 9px',fontSize:10,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',whiteSpace:'nowrap',flexShrink:0}}>
+              {showPastDue ? 'Past Due' : (daysLeft === 0 ? 'Trial ended' : 'Trial')}
+            </span>
+            <span style={{fontSize:12,color:'#c8d4ee',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+              {showPastDue
+                ? "We couldn't charge your card. Update it to keep your subscription active."
+                : daysLeft === 0
+                  ? 'Your trial ended. Pick a plan to keep using MyForeman.'
+                  : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left in your trial.`}
+            </span>
+            <button onClick={() => router.push('/billing')}
+              style={{background:showPastDue?'#f26060':'#fbbf24',border:'none',borderRadius:6,color:'#0d1726',padding:'4px 12px',fontSize:10,fontWeight:700,letterSpacing:'.05em',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0,fontFamily:'inherit'}}>
+              {showPastDue ? 'UPDATE CARD' : (daysLeft === 0 ? 'PICK A PLAN' : 'UPGRADE')}
+            </button>
+          </div>
+        </div>
+      )}
       {isDemo && (
         <div className="demo-banner" style={{background:'linear-gradient(90deg,#1f3a2c 0%,#1a2236 100%)',borderBottom:'1px solid #2edf8744'}}>
           <div style={{maxWidth:1280,margin:'0 auto',padding:'6px 12px',display:'flex',alignItems:'center',gap:8}}>
@@ -196,6 +222,7 @@ export default function TopNav({ active }) {
               <div onClick={() => setMenuOpen(false)} style={{position:'fixed',inset:0,zIndex:60}}/>
               <div style={{position:'absolute',right:0,top:'calc(100% + 6px)',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,minWidth:160,padding:6,zIndex:70,boxShadow:'0 8px 24px rgba(0,0,0,.4)'}}>
                 <MenuItem label="Settings"  onClick={() => { setMenuOpen(false); router.push('/settings'); }} />
+                <MenuItem label="Billing"   onClick={() => { setMenuOpen(false); router.push('/billing'); }} />
                 <MenuItem label="Contact"   onClick={() => { setMenuOpen(false); router.push('/contact'); }} />
                 <MenuItem label="Sign Out" onClick={signOut} danger />
               </div>
@@ -242,6 +269,7 @@ function MobileBottomNav({ role, active, router, onSignOut }) {
     { route:'/expenses',  label:'Expenses',  icon:<WalletIcon/>,  showFor:'all',     alsoMatches:['/mileage'] },
     { route:'/tax',       label:'Tax',       icon:<PieIcon/>,     showFor:'foreman' },
     { route:'/insights',  label:'Insights',  icon:<ChartIcon/>,   showFor:'foreman' },
+    { route:'/billing',   label:'Billing',   icon:<CardIcon/>,    showFor:'foreman' },
     { route:'/settings',  label:'Settings',  icon:<GearIcon/>,    showFor:'all' },
     { route:'/contact',   label:'Contact',   icon:<MailIcon/>,    showFor:'all' },
   ];
@@ -369,6 +397,7 @@ function ChartIcon()   { return svg(<polyline points="3 17 9 11 13 15 21 7"/>); 
 function GearIcon()    { return svg(<><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></>); }
 function LogoutIcon()  { return svg(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>); }
 function MailIcon()    { return svg(<><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2 7 12 13 22 7"/></>); }
+function CardIcon()    { return svg(<><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></>); }
 
 function MenuItem({ label, onClick, danger }) {
   return (

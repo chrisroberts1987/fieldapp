@@ -53,28 +53,115 @@ export default async function handler(req, res) {
   try {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
-      // We attached invoice_id in checkout.sessions.create metadata.
-      const invoiceId = session.metadata?.invoice_id;
-      if (!invoiceId) {
-        console.warn('[stripe webhook] checkout.session.completed without invoice_id metadata', session.id);
-        return res.status(200).json({ received: true });
+      // Two flavors of Checkout: one-time invoice payment OR subscription start.
+      if (session.mode === 'subscription' && session.metadata?.org_id) {
+        await onSubscriptionCheckout(sb, session);
+      } else {
+        const invoiceId = session.metadata?.invoice_id;
+        if (!invoiceId) {
+          console.warn('[stripe webhook] checkout.session.completed without invoice_id metadata', session.id);
+          return res.status(200).json({ received: true });
+        }
+        await markInvoicePaid(sb, invoiceId, {
+          paymentIntentId: session.payment_intent || null,
+          sessionId: session.id,
+        });
       }
-      await markInvoicePaid(sb, invoiceId, {
-        paymentIntentId: session.payment_intent || null,
-        sessionId: session.id,
-      });
+    } else if (event.type === 'customer.subscription.created'
+            || event.type === 'customer.subscription.updated') {
+      await syncSubscription(sb, event.data.object);
+    } else if (event.type === 'customer.subscription.deleted') {
+      await syncSubscription(sb, { ...event.data.object, status: 'canceled' });
+    } else if (event.type === 'invoice.payment_failed') {
+      const inv = event.data.object;
+      if (inv.subscription) {
+        await sb.from('organizations')
+          .update({ subscription_status: 'past_due' })
+          .eq('stripe_subscription_id', inv.subscription);
+      }
     } else if (event.type === 'payment_intent.payment_failed') {
-      // Best-effort log so it's visible in server logs.
       console.log('[stripe webhook] payment_intent.payment_failed', event.data.object?.id);
     }
-    // Other event types are acknowledged but no-op.
     return res.status(200).json({ received: true });
   } catch (err) {
     console.error('[stripe webhook] handler error:', err);
-    // Return 500 so Stripe retries.
     return res.status(500).json({ error: err?.message });
   }
 }
+
+// ============================================================
+// Subscription handlers
+// ============================================================
+
+// Called after a subscription Checkout completes. Stores the Stripe
+// customer id on the org so we can open the Customer Portal later
+// without needing the user to re-enter anything.
+async function onSubscriptionCheckout(sb, session) {
+  const orgId = session.metadata.org_id;
+  const customerId = session.customer;
+  const subId = session.subscription;
+  if (!orgId || !customerId) return;
+
+  await sb.from('organizations').update({
+    stripe_customer_id: customerId,
+    stripe_subscription_id: subId || undefined,
+  }).eq('id', orgId);
+
+  // The customer.subscription.created event will also fire with the
+  // tier/period info, but it might arrive before this one. Belt-and-
+  // suspenders sync if we already know it.
+  if (subId) {
+    const sub = event_data_subscription_fetch_safe();
+    // Skip — handled by the subscription.created/updated event.
+  }
+}
+
+// Maps a Stripe Subscription onto the org row: status, tier (derived
+// from price id via env-var lookup), current period end, cancel-
+// at-period-end flag.
+async function syncSubscription(sb, sub) {
+  if (!sub?.id) return;
+  const orgIdFromMeta = sub.metadata?.org_id;
+
+  // Resolve the org either by metadata or by the Stripe Customer id.
+  let orgId = orgIdFromMeta;
+  if (!orgId && sub.customer) {
+    const { data: o } = await sb.from('organizations')
+      .select('id').eq('stripe_customer_id', sub.customer).maybeSingle();
+    orgId = o?.id;
+  }
+  if (!orgId) {
+    console.warn('[stripe webhook] subscription event with no resolvable org', sub.id);
+    return;
+  }
+
+  // Reverse-lookup tier from the price id env vars. Walk the standard
+  // 6 entries — fine for 3 tiers x 2 cycles.
+  const priceId = sub.items?.data?.[0]?.price?.id;
+  let tier = null;
+  for (const t of ['solo','crew','business']) {
+    for (const b of ['monthly','annual']) {
+      const key = `STRIPE_PRICE_${t.toUpperCase()}_${b.toUpperCase()}`;
+      if (process.env[key] && process.env[key] === priceId) { tier = t; break; }
+    }
+    if (tier) break;
+  }
+
+  await sb.from('organizations').update({
+    stripe_subscription_id: sub.id,
+    stripe_customer_id:     sub.customer || undefined,
+    subscription_status:    sub.status,
+    subscription_tier:      tier,
+    subscription_current_period_end:
+      sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
+    subscription_cancel_at_period_end: !!sub.cancel_at_period_end,
+  }).eq('id', orgId);
+}
+
+// Placeholder kept so onSubscriptionCheckout above stays compilable
+// — real period-end + tier sync happens in syncSubscription via the
+// subscription.created event.
+function event_data_subscription_fetch_safe() { return null; }
 
 // Mark the invoice paid and fan out the same downstream actions the
 // client does when a foreman marks one manually: insert feedback,

@@ -6,6 +6,7 @@ import { useRefetchOnFocus } from '../../lib/useFocus';
 import { isForeman, isSupervisor, isCrew, isOffice, roleLabel } from '../../lib/role';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import { isBlocked } from '../../lib/billing';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -150,9 +151,17 @@ export default function Dashboard() {
       return;
     }
     if (!role) return;
+    // Trial ran out without a paid plan, or subscription was canceled
+    // / expired — punt the owner straight to billing so they can fix
+    // it. Crew + supervisor still get the dashboard so they can keep
+    // working while the foreman sorts billing.
+    if (isForeman(role) && isBlocked(org)) {
+      router.push('/billing');
+      return;
+    }
     if (isForeman(role)) loadStats(orgId);
     else loadCrewData(orgId);
-  }, [orgId, orgLoading, role]);
+  }, [orgId, orgLoading, role, org?.subscription_status, org?.trial_ends_at]);
 
   useRefetchOnFocus(refetchStats, !!(orgId && role));
 
