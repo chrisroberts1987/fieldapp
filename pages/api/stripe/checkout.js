@@ -36,12 +36,25 @@ export default async function handler(req, res) {
   const sb = admin();
   const { data: inv, error } = await sb
     .from('invoices')
-    .select('id, amount, status, org_id, customer_id, notes, public_token, customers ( name, email ), organizations ( name, business_email )')
+    .select('id, amount, status, org_id, customer_id, notes, public_token, customers ( name, email ), organizations ( name, business_email, stripe_connect_account_id, stripe_connect_charges_enabled )')
     .eq('public_token', token)
     .maybeSingle();
   if (error) return res.status(500).json({ error: error.message });
   if (!inv) return res.status(404).json({ error: 'Invoice not found.' });
   if (inv.status === 'paid') return res.status(409).json({ error: 'This invoice has already been paid.' });
+
+  // Gate: the contractor must have a Connect account with charges
+  // enabled before we accept card payments. Without this, the
+  // customer's money would land on our platform account — which is
+  // explicitly not allowed: customer payments belong to the
+  // contractor, our platform only earns SaaS subscription revenue.
+  const connectAccountId = inv.organizations?.stripe_connect_account_id;
+  const chargesEnabled   = !!inv.organizations?.stripe_connect_charges_enabled;
+  if (!connectAccountId || !chargesEnabled) {
+    return res.status(409).json({
+      error: "This contractor hasn't enabled card payments yet. Please pay via the methods listed on the invoice (check, Zelle, Venmo, etc.) or contact them directly.",
+    });
+  }
 
   const amount = Math.round(Number(inv.amount || 0) * 100);
   if (amount < 50) {
@@ -57,6 +70,11 @@ export default async function handler(req, res) {
 
   try {
     const s = stripe();
+    // Direct charge on the contractor's Standard Connect account: we
+    // pass `stripeAccount` in the request options so Stripe creates
+    // the Checkout session on THEIR account. The funds flow into the
+    // contractor's balance, not ours. application_fee_amount is
+    // omitted — we take zero cut on customer payments.
     const session = await s.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
@@ -74,8 +92,6 @@ export default async function handler(req, res) {
       customer_email: inv.customers?.email || undefined,
       success_url: successUrl,
       cancel_url:  cancelUrl,
-      // Attach the invoice id + token to the session so the webhook
-      // can find the row to update without trusting client input.
       metadata: {
         invoice_id:   inv.id,
         public_token: inv.public_token,
@@ -85,6 +101,8 @@ export default async function handler(req, res) {
         description: `Invoice from ${orgName} for ${customerName}`,
         metadata: { invoice_id: inv.id, org_id: inv.org_id },
       },
+    }, {
+      stripeAccount: connectAccountId,
     });
 
     // Persist the session id immediately so a webhook race can still

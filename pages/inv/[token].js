@@ -107,7 +107,7 @@ export default function PublicInvoice() {
         {!isPaid && <Row label="Status" value="Unpaid" color="#fbbf24"/>}
         {inv.notes && <Row label="Notes" value={inv.notes}/>}
 
-        {!isPaid && (
+        {!isPaid && org.card_payments_enabled && (
           <div style={{marginTop:22}}>
             <button onClick={pay} disabled={paying}
               style={{width:'100%',background:'#4f9eff',border:'none',borderRadius:12,color:'#fff',padding:'15px 0',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:20,letterSpacing:'.06em',cursor:paying?'wait':'pointer',opacity:paying?0.6:1}}>
@@ -117,6 +117,17 @@ export default function PublicInvoice() {
               Secure payment by Stripe. Visa, Mastercard, Amex, Discover.
             </div>
             {payErr && <div style={{fontSize:12,color:'#f26060',textAlign:'center',marginTop:8}}>{payErr}</div>}
+          </div>
+        )}
+
+        {!isPaid && !org.card_payments_enabled && (
+          <div style={{marginTop:22,padding:'14px 16px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12}}>
+            <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55,textAlign:'center'}}>
+              Please pay {org.name || 'this contractor'} directly — by check, Zelle, Venmo, or the method you usually use.
+            </div>
+            <div style={{fontSize:12,color:'#7a8db0',textAlign:'center',marginTop:8}}>
+              Card payments aren't enabled on this invoice.
+            </div>
           </div>
         )}
 

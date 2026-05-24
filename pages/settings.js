@@ -215,6 +215,8 @@ export default function Settings() {
           <div style={{fontSize:11,color:'#7a8db0'}}>PNG or JPG, under 2 MB. Square works best.</div>
         </Section>
 
+        <PaymentsSection org={org} user={user}/>
+
         <Section title="Details">
           <Field label="License Number">
             <input style={inputStyle} type="text" value={form.license_number}
@@ -265,6 +267,134 @@ export default function Settings() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Stripe Connect onboarding + status. Owner-only. The org row we're
+// passed already includes the stripe_connect_* columns via useOrg.
+function PaymentsSection({ org, user }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [statusOverride, setStatusOverride] = useState(null);
+
+  // After the user returns from Stripe onboarding, refresh status
+  // automatically. The redirect_url adds ?connect=return or
+  // ?connect=refresh — either way we want to re-check.
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (router.query.connect === 'return' || router.query.connect === 'refresh') {
+      refreshStatus();
+      // Clean the URL so subsequent renders don't re-trigger.
+      router.replace('/settings', undefined, { shallow: true });
+    }
+  }, [router.isReady, router.query.connect]);
+
+  const isOwner = true; // settings page already gates org membership; only owner can run start endpoint server-side anyway
+  const accountId       = statusOverride?.account_id || org?.stripe_connect_account_id;
+  const chargesEnabled  = statusOverride?.charges_enabled ?? !!org?.stripe_connect_charges_enabled;
+  const payoutsEnabled  = statusOverride?.payouts_enabled ?? !!org?.stripe_connect_payouts_enabled;
+  const requirementsDue = statusOverride?.requirements_due ?? !!org?.stripe_connect_requirements_due;
+
+  const status =
+    !accountId                                ? 'not_started'
+    : chargesEnabled && payoutsEnabled        ? 'live'
+    : (requirementsDue || !chargesEnabled)    ? 'pending'
+    : 'pending';
+
+  const beginOnboarding = async () => {
+    setBusy(true); setErr('');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sign in first.');
+      const r = await fetch('/api/stripe/connect/start', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body?.error || 'Could not start onboarding.');
+      window.location.href = body.url;
+    } catch (e) {
+      setErr(e?.message || 'Something went wrong.');
+      setBusy(false);
+    }
+  };
+
+  const refreshStatus = async () => {
+    setRefreshing(true); setErr('');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sign in first.');
+      const r = await fetch('/api/stripe/connect/status', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body?.error || 'Status check failed.');
+      setStatusOverride(body);
+    } catch (e) {
+      setErr(e?.message || 'Refresh failed.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  return (
+    <Section title="Customer Card Payments">
+      <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.55,marginBottom:12}}>
+        Let your customers pay invoices with a credit card via the Pay Now link. Funds land in <strong>your</strong> Stripe account — we never touch your customer money. You'll handle refunds, disputes, and payouts directly in Stripe.
+      </div>
+
+      {status === 'not_started' && (
+        <button onClick={beginOnboarding} disabled={busy}
+          style={{width:'100%',background:'#635bff',border:'none',borderRadius:10,color:'#fff',padding:'12px 0',fontWeight:700,fontSize:14,letterSpacing:'.04em',cursor:busy?'progress':'pointer',opacity:busy?0.7:1}}>
+          {busy ? 'Opening Stripe...' : 'Connect Stripe Account'}
+        </button>
+      )}
+
+      {status === 'pending' && (
+        <>
+          <div style={{background:'#fbbf2422',border:'1px solid #fbbf2466',borderRadius:8,padding:'10px 12px',marginBottom:10,fontSize:12,color:'#fbbf24'}}>
+            <strong>Stripe needs more info.</strong> {chargesEnabled ? 'Almost there — confirm payout details.' : 'Complete a few onboarding steps to start accepting cards.'}
+          </div>
+          <div style={{display:'flex',gap:8,marginBottom:8}}>
+            <button onClick={beginOnboarding} disabled={busy}
+              style={{flex:1,background:'#635bff',border:'none',borderRadius:10,color:'#fff',padding:'10px 0',fontWeight:700,fontSize:13,letterSpacing:'.04em',cursor:busy?'progress':'pointer',opacity:busy?0.7:1}}>
+              {busy ? 'Opening...' : 'Continue Setup'}
+            </button>
+            <button onClick={refreshStatus} disabled={refreshing}
+              style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:10,color:'#c8d4ee',padding:'10px 14px',fontWeight:600,fontSize:13,cursor:refreshing?'progress':'pointer'}}>
+              {refreshing ? '...' : 'Refresh'}
+            </button>
+          </div>
+        </>
+      )}
+
+      {status === 'live' && (
+        <>
+          <div style={{background:'#2edf8722',border:'1px solid #2edf8766',borderRadius:8,padding:'10px 12px',marginBottom:10,fontSize:12,color:'#2edf87'}}>
+            <strong>Connected and live.</strong> Customers can pay your invoices by card. Payouts land in your bank on Stripe's schedule (usually 2 business days).
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer"
+              style={{flex:1,background:'transparent',border:'1px solid #2e3f60',borderRadius:10,color:'#c8d4ee',padding:'10px 0',fontWeight:600,fontSize:13,textAlign:'center',textDecoration:'none'}}>
+              Open Stripe Dashboard ↗
+            </a>
+            <button onClick={refreshStatus} disabled={refreshing}
+              style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:10,color:'#c8d4ee',padding:'10px 14px',fontWeight:600,fontSize:13,cursor:refreshing?'progress':'pointer'}}>
+              {refreshing ? '...' : 'Refresh'}
+            </button>
+          </div>
+        </>
+      )}
+
+      {err && (
+        <div style={{marginTop:10,background:'rgba(242,96,96,.12)',border:'1px solid rgba(242,96,96,.3)',borderRadius:8,padding:'9px 12px',fontSize:12,color:'#f26060'}}>
+          {err}
+        </div>
+      )}
+    </Section>
   );
 }
 

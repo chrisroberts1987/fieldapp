@@ -39,10 +39,30 @@ export default async function handler(req, res) {
   const sig = req.headers['stripe-signature'];
   if (!sig) return res.status(400).send('Missing stripe-signature header');
 
+  // Two valid signing secrets:
+  //   STRIPE_WEBHOOK_SECRET        — platform events (subscriptions)
+  //   STRIPE_CONNECT_WEBHOOK_SECRET — events from connected accounts
+  //                                   (customer invoice payments)
+  // If Stripe is configured with a single endpoint that listens to
+  // BOTH account + Connect events, only STRIPE_WEBHOOK_SECRET is
+  // needed. If the user prefers two separate endpoints (cleaner
+  // dashboard view), set both env vars. We try whichever verifies.
+  const secrets = [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_CONNECT_WEBHOOK_SECRET,
+  ].filter(Boolean);
+
   let event;
+  let lastErr = null;
   try {
     const raw = await readRawBody(req);
-    event = s.webhooks.constructEvent(raw, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    for (const secret of secrets) {
+      try {
+        event = s.webhooks.constructEvent(raw, sig, secret);
+        break;
+      } catch (e) { lastErr = e; }
+    }
+    if (!event) throw lastErr || new Error('No signing secret accepted the payload.');
   } catch (err) {
     console.warn('[stripe webhook] bad signature:', err?.message);
     return res.status(400).send(`Webhook signature verification failed: ${err?.message}`);
