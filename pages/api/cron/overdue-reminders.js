@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { sendBrandedEmail } from '../../../lib/email/send';
 import { invoiceReminderEmail } from '../../../lib/email/templates';
+import { sendBrandedSMS, smsReady } from '../../../lib/sms/send';
 
 // Daily cron that nudges customers about unpaid invoices at 7, 14, and
 // 30 days past due. Triggered by Vercel cron via vercel.json on a
@@ -48,9 +49,12 @@ export default async function handler(req, res) {
   // Pull every unpaid invoice that is at least 7 days past issued_date
   // and missing at least one reminder. We'll decide the stage per-row
   // below. Hard cap to keep one run bounded.
+  // Reach for public_token + customer phone too — the reminder email
+  // now includes a tappable Pay Now button, and we also send an SMS
+  // when Twilio is configured.
   const { data: invoices, error } = await sb
     .from('invoices')
-    .select('id, org_id, customer_id, amount, issued_date, notes, reminder_7d_sent_at, reminder_14d_sent_at, reminder_30d_sent_at, customers ( name, email ), organizations ( name, business_email, logo_url )')
+    .select('id, org_id, customer_id, amount, issued_date, notes, public_token, reminder_7d_sent_at, reminder_14d_sent_at, reminder_30d_sent_at, customers ( name, email, phone ), organizations ( name, business_email, logo_url )')
     .eq('status', 'unpaid')
     .lte('issued_date', cutoff7)
     .or('reminder_7d_sent_at.is.null,reminder_14d_sent_at.is.null,reminder_30d_sent_at.is.null')
@@ -77,38 +81,66 @@ export default async function handler(req, res) {
     const customer = inv.customers || {};
     const org      = inv.organizations || {};
 
-    // No customer email on file — nothing to send. Mark all eligible
-    // stages so we don't keep retrying.
-    if (!customer.email) {
+    // If we have neither email nor phone, nothing to do — mark the
+    // stage so we don't keep retrying every day forever.
+    if (!customer.email && !customer.phone) {
       skipped++;
       await markStagesSent(sb, inv.id, stage);
       continue;
     }
 
-    const tpl = invoiceReminderEmail({
-      org: { name: org.name, logo_url: org.logo_url, business_email: org.business_email },
-      customerName:  customer.name,
-      invoiceNumber: inv.notes ? `Invoice (${inv.notes.slice(0,40)})` : `Invoice #${inv.id.slice(0,8)}`,
-      amount:        Number(inv.amount || 0),
-      issuedDate:    fmtDate(inv.issued_date),
-      daysOverdue:   daysOver,
-      stage,
-    });
+    const invoiceNumber = 'INV-' + String(inv.id).slice(0, 8).toUpperCase();
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
+      || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'https://myforemanhq.com');
+    const invoiceUrl = inv.public_token ? `${baseUrl}/inv/${inv.public_token}` : null;
+    const amount = Number(inv.amount || 0);
 
-    const result = await sendBrandedEmail({
-      org: { name: org.name, business_email: org.business_email, logo_url: org.logo_url },
-      to: customer.email,
-      subject: tpl.subject,
-      html: tpl.html,
-      text: tpl.text,
-    });
-
-    if (!result.ok) {
-      failed++;
-      errors.push({ invoice_id: inv.id, error: result.error });
-      continue;
+    // Email — primary channel.
+    let emailOk = !customer.email; // treat "no email" as success-equivalent so we don't double-fail
+    if (customer.email) {
+      const tpl = invoiceReminderEmail({
+        org: { name: org.name, logo_url: org.logo_url, business_email: org.business_email },
+        customerName:  customer.name,
+        invoiceNumber,
+        amount,
+        issuedDate:    fmtDate(inv.issued_date),
+        daysOverdue:   daysOver,
+        stage,
+        invoiceUrl,
+      });
+      const result = await sendBrandedEmail({
+        org: { name: org.name, business_email: org.business_email, logo_url: org.logo_url },
+        to: customer.email,
+        subject: tpl.subject,
+        html: tpl.html,
+        text: tpl.text,
+      });
+      if (!result.ok) {
+        emailOk = false;
+        errors.push({ invoice_id: inv.id, channel: 'email', error: result.error });
+      } else {
+        emailOk = true;
+      }
     }
 
+    // SMS — additive. Fires when Twilio is configured AND customer has
+    // a phone. We don't fail the whole row if SMS errors — email is the
+    // primary channel; SMS is a bonus when available.
+    if (customer.phone && smsReady() && invoiceUrl) {
+      const headline = stage === 7
+        ? `Friendly reminder: invoice ${invoiceNumber} for $${amount.toFixed(2)} is past due.`
+        : stage === 14
+          ? `Heads-up: invoice ${invoiceNumber} for $${amount.toFixed(2)} is ${daysOver} days past due.`
+          : `Final reminder: invoice ${invoiceNumber} for $${amount.toFixed(2)} is ${daysOver} days past due.`;
+      const orgName = String(org.name || 'us').slice(0, 40);
+      const body = `${headline} Pay now: ${invoiceUrl} — ${orgName}`;
+      const smsResult = await sendBrandedSMS({ to: customer.phone, body });
+      if (!smsResult.ok && !smsResult.skipped) {
+        errors.push({ invoice_id: inv.id, channel: 'sms', error: smsResult.error });
+      }
+    }
+
+    if (!emailOk && !customer.phone) { failed++; continue; }
     await markStagesSent(sb, inv.id, stage);
     sent++;
   }
