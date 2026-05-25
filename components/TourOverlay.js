@@ -242,11 +242,21 @@ export default function TourOverlay() {
 
   if (!active || !current) return null;
   if (!TOUR_ROUTES.has(router.pathname)) return null;
-  if (router.pathname !== current.page) return null; // mid-navigation
+
+  // Mid-navigation: the step has advanced to a new page but router
+  // hasn't caught up yet. Keep the dark backdrop on screen so the
+  // transition reads as a smooth cross-fade instead of a flash to
+  // the bare app and back to the overlay. Tooltip/spotlight don't
+  // render until the new page is mounted and the target measures.
+  const inTransition = router.pathname !== current.page;
 
   const isModal = !current.target;
   const totalSteps = TOUR_STEPS.length;
   const progressPct = ((step + 1) / totalSteps) * 100;
+
+  if (inTransition) {
+    return <div className="tour-modal-backdrop" aria-hidden="true" style={{pointerEvents:'none'}}/>;
+  }
 
   return (
     <>
@@ -350,7 +360,13 @@ function Spotlight({ rect, missing, step, total, progressPct, title, body, prima
     );
   }
 
-  if (!rect) return null;
+  // Spotlight target hasn't measured yet (page just navigated in).
+  // Render the dark backdrop so the cross-fade with the in-transition
+  // state stays seamless — the ring + tooltip slide in once we have
+  // a rect.
+  if (!rect) {
+    return <div className="tour-modal-backdrop" aria-hidden="true" style={{pointerEvents:'none'}}/>;
+  }
 
   const top    = rect.top - PAD;
   const left   = rect.left - PAD;
