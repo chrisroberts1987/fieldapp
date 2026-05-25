@@ -59,15 +59,17 @@ export default async function handler(req, res) {
   const s = stripe();
 
   // Reuse a Stripe Customer if we have one; otherwise let Checkout
-  // create it (we'll pick up the ID from the webhook). Reusing keeps
-  // the customer's saved payment methods + invoice history intact.
+  // create it automatically (subscription mode always creates a
+  // Customer — `customer_creation` is a payment-mode-only flag and
+  // Stripe rejects it here). We'll pick up the new Customer ID from
+  // the webhook. Reusing keeps saved payment methods + invoice
+  // history intact for existing subscribers switching plans.
   let customerArg = {};
   if (org.stripe_customer_id) {
     customerArg = { customer: org.stripe_customer_id };
   } else {
     customerArg = {
       customer_email: user.email || org.business_email || undefined,
-      customer_creation: 'always',
     };
   }
 
