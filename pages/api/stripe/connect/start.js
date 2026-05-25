@@ -65,14 +65,22 @@ export default async function handler(req, res) {
   const s = stripe();
   let accountId = org.stripe_connect_account_id;
 
-  // First-time setup: create the connected account. We pre-fill
-  // business_profile from what we know so onboarding has less to ask
-  // for. The contractor still confirms / edits everything in Stripe.
+  // First-time setup: create the connected account.
+  //
+  // We intentionally DO NOT pre-fill the email here. When Stripe sees
+  // a known email on accounts.create it routes the user to a "sign in
+  // to your existing Stripe account" page that hides the create-new
+  // option — so a contractor without a Stripe account felt stuck.
+  // Leaving email blank lets Stripe's hosted onboarding ask fresh and
+  // surface both "sign in" and "create account" paths equally.
+  //
+  // business_profile is still pre-filled (name + URL) since those
+  // don't trigger any account matching — they just save the user from
+  // re-typing.
   if (!accountId) {
     try {
       const account = await s.accounts.create({
         type: 'standard',
-        email: org.business_email || user.email,
         business_profile: {
           name: org.name,
           url: `${origin(req)}`,
