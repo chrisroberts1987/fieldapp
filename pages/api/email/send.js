@@ -7,6 +7,7 @@ import {
   invoicePaidFeedbackEmail,
   paymentReceivedEmail,
   jobCompletedEmail,
+  jobScheduledEmail,
   crewInviteEmail,
 } from '../../../lib/email/templates';
 
@@ -40,6 +41,10 @@ const TYPES = {
   job_completed: {
     template: jobCompletedEmail,
     required: ['customerName', 'jobTitle'],
+  },
+  job_scheduled: {
+    template: jobScheduledEmail,
+    required: ['customerName', 'jobTitle', 'scheduledDate'],
   },
   crew_invite: {
     template: crewInviteEmail,

@@ -11,6 +11,7 @@ import { validateUpload, ACCEPT_ATTR } from '../../lib/uploads';
 import { firePushEvent } from '../../lib/push/fire';
 
 const STATUSES = [
+  { key:'pending',     label:'Pending',     color:'#a855f7' },  // approved-but-not-scheduled, eg. just converted from a quote
   { key:'scheduled',   label:'Scheduled',   color:'#54d4f8' },
   { key:'in_progress', label:'In Progress', color:'#fbbf24' },
   { key:'completed',   label:'Completed',   color:'#2edf87' },
@@ -221,6 +222,16 @@ export default function Jobs() {
     // 'completed' status, so the client side just persists the change.
     const wasCompleted = sheet !== 'new' && sheet?.status === 'completed';
     const nowCompleted = payload.status === 'completed';
+    // Detect newly-scheduled jobs so we can email the customer the date.
+    // Two qualifying transitions:
+    //   pending → scheduled with a date
+    //   no date → date set (date filled in for the first time)
+    const prevDate   = sheet !== 'new' ? sheet?.scheduled_date : null;
+    const prevStatus = sheet !== 'new' ? sheet?.status : null;
+    const justScheduled = !!payload.scheduled_date && (
+      (prevStatus === 'pending' && payload.status === 'scheduled') ||
+      (!prevDate && payload.status === 'scheduled')
+    );
     let savedJobId = sheet !== 'new' ? sheet.id : null;
     if (sheet === 'new') {
       const { data } = await supabase.from('jobs').insert({ ...payload, owner_id: user.id, org_id: orgId }).select('id').single();
@@ -234,6 +245,26 @@ export default function Jobs() {
     // assigning — they don't need to ping themselves.
     if (savedJobId && newAssignee && newAssignee !== prevAssignee && newAssignee !== user.id) {
       firePushEvent('job_assigned', savedJobId);
+    }
+
+    // Fire the "your job is scheduled" email to the customer on the
+    // transition from pending (or no-date) → scheduled with a date.
+    // Best-effort; silent on failure.
+    if (justScheduled && payload.customer_id) {
+      const cust = customers.find(c => c.id === payload.customer_id);
+      if (cust?.email) {
+        const human = fmtDate(payload.scheduled_date);
+        await sendEmail({
+          type: 'job_scheduled',
+          to: cust.email,
+          data: {
+            customerName: cust.name,
+            jobTitle: payload.title,
+            scheduledDate: human,
+            description: payload.description || null,
+          },
+        });
+      }
     }
 
     // Fire the "your job is complete" email to the customer on the
