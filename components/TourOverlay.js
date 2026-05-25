@@ -243,24 +243,22 @@ export default function TourOverlay() {
   if (!active || !current) return null;
   if (!TOUR_ROUTES.has(router.pathname)) return null;
 
-  // Mid-navigation: the step has advanced to a new page but router
-  // hasn't caught up yet. Keep the dark backdrop on screen so the
-  // transition reads as a smooth cross-fade instead of a flash to
-  // the bare app and back to the overlay. Tooltip/spotlight don't
-  // render until the new page is mounted and the target measures.
+  // Single, always-present backdrop. Critical to render this as a
+  // stable element across every transition state (in-flight nav,
+  // modal step, spotlight step pre-measure, spotlight step measured)
+  // so React reconciles it as the SAME DOM node and never unmounts
+  // it. Without that, the backdrop blinks off-and-on between steps.
   const inTransition = router.pathname !== current.page;
-
   const isModal = !current.target;
   const totalSteps = TOUR_STEPS.length;
   const progressPct = ((step + 1) / totalSteps) * 100;
 
-  if (inTransition) {
-    return <div className="tour-modal-backdrop" aria-hidden="true" style={{pointerEvents:'none'}}/>;
-  }
-
-  return (
-    <>
-      {isModal ? (
+  // The content sitting on top of the backdrop. Null during nav
+  // transitions and while we're still polling for the new target.
+  let content = null;
+  if (!inTransition) {
+    if (isModal) {
+      content = (
         <ModalCard
           step={step + 1} total={totalSteps}
           progressPct={progressPct}
@@ -272,7 +270,9 @@ export default function TourOverlay() {
           onSecondary={secondary}
           onSkip={skip}
         />
-      ) : (
+      );
+    } else if (rect || missing) {
+      content = (
         <Spotlight
           rect={rect} missing={missing}
           step={step + 1} total={totalSteps}
@@ -283,7 +283,14 @@ export default function TourOverlay() {
           onPrimary={next}
           onSkip={skip}
         />
-      )}
+      );
+    }
+  }
+
+  return (
+    <>
+      <BareBackdrop/>
+      {content}
     </>
   );
 }
@@ -291,6 +298,24 @@ export default function TourOverlay() {
 // =============================================================
 // Modal step (welcome + final). Centered card, dimmed backdrop.
 // =============================================================
+// Plain dark backdrop with no card / spotlight / tooltip — used while
+// transitioning between tour steps that live on different pages.
+// Styles inline (not via .tour-modal-backdrop class) because that
+// styled-jsx class is scoped to ModalCard and wouldn't apply here.
+// No animation: the backdrop should be there instantly to prevent
+// the very flash this fixes, and stay until the next state renders.
+function BareBackdrop() {
+  return (
+    <div aria-hidden="true" style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(8,11,20,0.78)',
+      backdropFilter: 'blur(4px)',
+      WebkitBackdropFilter: 'blur(4px)',
+      pointerEvents: 'none',
+    }}/>
+  );
+}
+
 function ModalCard({ step, total, progressPct, title, body, primary, secondary, onPrimary, onSecondary, onSkip }) {
   return (
     <div className="tour-modal-backdrop" role="dialog" aria-modal="true">
@@ -317,13 +342,15 @@ function ModalCard({ step, total, progressPct, title, body, primary, secondary, 
         </div>
       </div>
       <style jsx>{`
+        /* Positioner only — the dark dim is drawn by the persistent
+           BareBackdrop sitting underneath. Keeping a separate backdrop
+           here would double-dim AND re-animate on every modal mount,
+           causing the flash this fix is meant to kill. */
         .tour-modal-backdrop {
-          position: fixed; inset: 0; z-index: 9999;
-          background: rgba(8,11,20,0.78);
-          backdrop-filter: blur(4px);
+          position: fixed; inset: 0; z-index: 10000;
           display: flex; align-items: center; justify-content: center;
           padding: 16px;
-          animation: fadeIn .2s ease-out;
+          pointer-events: none;
         }
         .tour-modal-card {
           width: 100%; max-width: 460px;
@@ -332,6 +359,7 @@ function ModalCard({ step, total, progressPct, title, body, primary, secondary, 
           border-radius: 14px;
           box-shadow: 0 20px 60px rgba(0,0,0,0.55);
           animation: slideUp .25s ease-out;
+          pointer-events: auto;
         }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -360,13 +388,10 @@ function Spotlight({ rect, missing, step, total, progressPct, title, body, prima
     );
   }
 
-  // Spotlight target hasn't measured yet (page just navigated in).
-  // Render the dark backdrop so the cross-fade with the in-transition
-  // state stays seamless — the ring + tooltip slide in once we have
-  // a rect.
-  if (!rect) {
-    return <div className="tour-modal-backdrop" aria-hidden="true" style={{pointerEvents:'none'}}/>;
-  }
+  // Spotlight is now only rendered when rect is set (the parent
+  // guards on `rect || missing` before mounting). The dim is drawn
+  // by the persistent BareBackdrop sitting underneath; we render
+  // only the ring + tooltip on top.
 
   const top    = rect.top - PAD;
   const left   = rect.left - PAD;
@@ -375,13 +400,6 @@ function Spotlight({ rect, missing, step, total, progressPct, title, body, prima
 
   return (
     <>
-      {/* Dim layer — the huge box-shadow paints everything outside the spotlight */}
-      <div style={{
-        position:'fixed', top, left, width, height,
-        borderRadius: 10, pointerEvents: 'none', zIndex: 9998,
-        boxShadow: '0 0 0 9999px rgba(8,11,20,0.78)',
-      }}/>
-
       {/* Outline ring on the spotlight itself */}
       <div style={{
         position:'fixed', top, left, width, height,
