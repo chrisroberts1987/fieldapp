@@ -315,6 +315,16 @@ export default function Settings() {
 
         <PushToggle/>
 
+        <Section title="Switch to MyForeman">
+          <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.55,marginBottom:12}}>
+            Bringing your business over from Jobber, Housecall Pro, QuickBooks, or a spreadsheet? Import your customers, jobs, and invoices in a few minutes. We never overwrite anything you already have.
+          </div>
+          <button onClick={() => router.push('/import')}
+            style={{width:'100%',background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'12px 0',fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:'.08em',cursor:'pointer'}}>
+            IMPORT DATA
+          </button>
+        </Section>
+
         <DangerZone user={user} router={router}/>
 
         <div style={{marginTop:18,paddingTop:16,borderTop:'1px solid #2e3f60',display:'flex',gap:16,justifyContent:'center',fontSize:12,color:'#7a8db0',flexWrap:'wrap'}}>

@@ -618,6 +618,16 @@ function Pricing({ billing, setBilling, router }) {
         <p style={{textAlign:'center',fontSize:13,color:'#7a8db0',marginTop:28}}>
           14-day free trial. Full product. No feature limits.
         </p>
+
+        <div style={{maxWidth:680,margin:'36px auto 0',padding:'18px 20px',background:'#1e2a42',border:'1px solid #4f9eff44',borderRadius:14,textAlign:'center'}}>
+          <div style={{fontSize:11,color:'#4f9eff',letterSpacing:'.14em',fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Switching from another platform?</div>
+          <div style={{fontSize:16,color:'#f0f4ff',fontWeight:600,lineHeight:1.45,marginBottom:6}}>
+            Coming from another platform? Import your customers, jobs, and history in minutes.
+          </div>
+          <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55}}>
+            No starting over. No lost data. Drop in a CSV or Excel from Jobber, Housecall Pro, QuickBooks, or anywhere else.
+          </div>
+        </div>
       </div>
     </section>
   );
