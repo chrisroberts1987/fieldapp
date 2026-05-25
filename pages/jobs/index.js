@@ -7,6 +7,7 @@ import { isCrew, isOffice } from '../../lib/role';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import { sendEmail, sendInvoiceEmail } from '../../lib/email/client';
+import { sendSMS } from '../../lib/sms/client';
 import { validateUpload, ACCEPT_ATTR } from '../../lib/uploads';
 import { firePushEvent } from '../../lib/push/fire';
 
@@ -58,7 +59,7 @@ export default function Jobs() {
     setLoading(true);
     const [{ data: j }, { data: c }, { data: m }] = await Promise.all([
       supabase.from('jobs').select('*').eq('org_id', orgId).order('scheduled_date', { ascending:false, nullsFirst:false }),
-      supabase.from('customers').select('id,name').eq('org_id', orgId).order('name'),
+      supabase.from('customers').select('id,name,email,phone').eq('org_id', orgId).order('name'),
       supabase.rpc('list_org_members', { p_org_id: orgId }),
     ]);
     setJobs(j || []);
@@ -247,13 +248,14 @@ export default function Jobs() {
       firePushEvent('job_assigned', savedJobId);
     }
 
-    // Fire the "your job is scheduled" email to the customer on the
-    // transition from pending (or no-date) → scheduled with a date.
-    // Best-effort; silent on failure.
+    // Fire the "your job is scheduled" notifications to the customer
+    // on the transition from pending (or no-date) → scheduled with a
+    // date. Email + SMS both go out — fire-and-forget, silent on
+    // failure (SMS no-ops if Twilio isn't configured yet).
     if (justScheduled && payload.customer_id) {
       const cust = customers.find(c => c.id === payload.customer_id);
+      const human = fmtDate(payload.scheduled_date);
       if (cust?.email) {
-        const human = fmtDate(payload.scheduled_date);
         await sendEmail({
           type: 'job_scheduled',
           to: cust.email,
@@ -262,6 +264,20 @@ export default function Jobs() {
             jobTitle: payload.title,
             scheduledDate: human,
             description: payload.description || null,
+          },
+        });
+      }
+      if (cust?.phone) {
+        // Best-effort SMS — server endpoint returns skipped:true if
+        // Twilio isn't set up yet, so this is a no-op until the
+        // platform owner configures TWILIO_* env vars.
+        sendSMS({
+          type: 'job_scheduled',
+          to: cust.phone,
+          data: {
+            customerName: cust.name,
+            jobTitle: payload.title,
+            scheduledDate: human,
           },
         });
       }
