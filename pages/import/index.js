@@ -157,7 +157,9 @@ export default function ImportPage() {
       <TopNav active="/settings"/>
 
       <div style={{maxWidth:760,margin:'24px auto 14px',padding:'0 16px'}}>
-        <button onClick={() => router.push('/settings')} style={backStyle}>← Settings</button>
+        {router.query.from === 'onboarding'
+          ? <button onClick={() => router.push('/onboarding')} style={backStyle}>← Back to setup</button>
+          : <button onClick={() => router.push('/settings')} style={backStyle}>← Settings</button>}
         <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase',marginTop:8}}>Switch to MyForeman</div>
         <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:36,letterSpacing:'.04em',margin:'4px 0 0'}}>IMPORT DATA</h1>
         <div style={{fontSize:13,color:'#c8d4ee',marginTop:8,lineHeight:1.55}}>

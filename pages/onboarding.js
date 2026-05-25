@@ -421,6 +421,21 @@ export default function Onboarding() {
             </Field>
           </div>
 
+          {/* Switching from another platform? Import card */}
+          <div style={{background:'#1e2a42',border:'1.5px solid #4f9eff44',borderRadius:16,padding:'18px 18px 16px',marginBottom:12}}>
+            <div style={{fontSize:11,color:'#4f9eff',letterSpacing:'.14em',fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Switching from another platform?</div>
+            <h3 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.04em',margin:'0 0 8px',color:'#f0f4ff'}}>
+              Import your data
+            </h3>
+            <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55,marginBottom:12}}>
+              Coming from Jobber, Housecall Pro, QuickBooks, or a spreadsheet? Bring your customers, jobs, and invoices over in minutes. Optional — you can do this anytime from Settings.
+            </div>
+            <button onClick={() => router.push('/import?from=onboarding')}
+              style={{width:'100%',background:'transparent',border:'1.5px solid #4f9eff',borderRadius:10,color:'#4f9eff',padding:'10px 0',fontWeight:700,fontSize:13,letterSpacing:'.04em',cursor:'pointer'}}>
+              IMPORT FROM CSV / EXCEL
+            </button>
+          </div>
+
           {error && <ErrorBox text={error}/>}
 
           <button onClick={finishOnboarding} disabled={saving || connecting}
