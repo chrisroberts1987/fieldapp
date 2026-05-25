@@ -78,7 +78,7 @@ export default function Reset() {
             <div style={{width:48,height:48,margin:'4px auto 14px',borderRadius:24,background:'#2edf8722',border:'2px solid #2edf87',display:'flex',alignItems:'center',justifyContent:'center',color:'#2edf87',fontSize:22,fontWeight:700}}>✓</div>
             <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.08em',marginBottom:6,color:'#f0f4ff',textAlign:'center'}}>CHECK YOUR EMAIL</div>
             <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55,marginBottom:16,textAlign:'center'}}>
-              We sent a reset link to <strong style={{color:'#f0f4ff'}}>{email}</strong>. Open it from this device — clicking the link will bring you back here to set a new password.
+              We sent a reset link to <strong style={{color:'#f0f4ff'}}>{email}</strong>. Open it from this device. Clicking the link will bring you back here to set a new password.
             </div>
             <button onClick={() => router.push('/login')} style={btnGhost}>BACK TO SIGN IN</button>
           </>

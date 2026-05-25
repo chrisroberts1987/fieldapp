@@ -28,7 +28,7 @@ export default function Signup() {
     if (authErr) { setError(authErr.message); setLoading(false); return; }
 
     if (!authData.session) {
-      setError('Account created. Check your email to confirm, then sign in — your invite will be accepted automatically.');
+      setError('Account created. Check your email to confirm, then sign in. Your invite will be accepted automatically.');
       setLoading(false);
       return;
     }
@@ -96,7 +96,7 @@ export default function Signup() {
           ALREADY HAVE AN ACCOUNT? SIGN IN
         </button>
         <div style={{marginTop:14,fontSize:11,color:'#7a8db0',textAlign:'center',lineHeight:1.5}}>
-          Free 14-day trial. Card required — cancel anytime, no charge during your trial.
+          Free 14-day trial. Card required, cancel anytime, no charge during your trial.
         </div>
         <div style={{marginTop:10,fontSize:11,color:'#7a8db0',textAlign:'center',lineHeight:1.5}}>
           By creating an account you agree to our{' '}

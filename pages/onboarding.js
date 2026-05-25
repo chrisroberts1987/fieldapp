@@ -57,11 +57,19 @@ export default function Onboarding() {
     if (!user || saving) return;
     if (!orgId) return;
     if (step !== 1) return;
+    // Demo account is exempt from the plan-picker gate; just send it
+    // to the dashboard. It's a shared read-only org with no
+    // subscription on purpose.
+    const isDemoUser = (user.email || '').toLowerCase() === 'demo@myforemanhq.com';
+    if (isDemoUser) {
+      router.push('/dashboard');
+      return;
+    }
     if (org?.stripe_subscription_id) {
       router.push('/dashboard');
     } else {
-      // Org exists from a prior session, but no subscription yet — jump
-      // them straight to the gate.
+      // Org exists from a prior session, but no subscription yet,
+      // jump them straight to the gate.
       setCreatedOrgId(orgId);
       setStep(3);
     }
@@ -350,7 +358,7 @@ export default function Onboarding() {
               Customers pay invoices by credit card. The moment Stripe confirms the payment, MyForeman automatically marks the invoice paid and sends the customer a feedback request. You don't have to touch anything.
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:4,marginBottom:14,fontSize:12,color:'#c8d4ee'}}>
-              <Check>Funds go to <strong>your</strong> Stripe account — we take zero.</Check>
+              <Check>Funds go to <strong>your</strong> Stripe account. We take zero.</Check>
               <Check>Auto-marks paid · auto-sends feedback request.</Check>
               <Check>Stripe handles refunds, disputes, payouts (2 biz days).</Check>
             </div>
@@ -421,7 +429,7 @@ export default function Onboarding() {
           </button>
           <button onClick={skipToPlanStep}
             style={{width:'100%',background:'transparent',color:'#7a8db0',border:'1px solid #2e3f60',borderRadius:10,padding:'10px 0',fontSize:12,cursor:'pointer'}}>
-            Skip for now — set up payments later in Settings
+            Skip for now, set up payments later in Settings
           </button>
         </div>
       )}
@@ -480,7 +488,7 @@ export default function Onboarding() {
           </div>
 
           <div style={{fontSize:11,color:'#7a8db0',textAlign:'center',lineHeight:1.5}}>
-            You'll add a card on the next screen so we can keep your account active after the trial. We'll email you 3 days before the trial ends. Cancel anytime — no fees.
+            You'll add a card on the next screen so we can keep your account active after the trial. We'll email you 3 days before the trial ends. Cancel anytime, no fees.
           </div>
 
           {error && <div style={{marginTop:10}}><ErrorBox text={error}/></div>}

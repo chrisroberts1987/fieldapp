@@ -164,7 +164,7 @@ export default function Settings() {
 
         <Section title="Public Quote Link">
           <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.55,marginBottom:10}}>
-            Share this link with anyone — on your website, in texts, on social, in your voicemail. They'll fill out a quick form and land in your Leads pipeline.
+            Share this link anywhere: on your website, in texts, on social, in your voicemail. They'll fill out a quick form and land in your Leads pipeline.
           </div>
           <div style={{display:'flex',gap:6,marginBottom:8,alignItems:'stretch'}}>
             <input readOnly value={quoteUrl} style={{...inputStyle, flex:1, fontFamily:'monospace', fontSize:12}}/>
@@ -233,7 +233,7 @@ export default function Settings() {
 
         <Section title="Other Payment Methods">
           <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.55,marginBottom:10}}>
-            Fill in whichever methods you accept. They'll show on the customer's invoice page under "Other ways to pay" — leave the rest blank. After a customer pays via one of these, tap <strong>Mark Paid</strong> on the invoice and the feedback request will auto-send.
+            Fill in whichever methods you accept. They'll show on the customer's invoice page under "Other ways to pay". Leave the rest blank. After a customer pays via one of these, tap <strong>Mark Paid</strong> on the invoice and the feedback request will auto-send.
           </div>
           <Field label="Venmo handle">
             <input style={inputStyle} type="text" value={form.venmo_handle}
@@ -400,7 +400,7 @@ function PaymentsSection({ org, user }) {
   return (
     <Section title="Customer Card Payments">
       <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.55,marginBottom:12}}>
-        Let your customers pay invoices with a credit card via the Pay Now link. Funds land in <strong>your</strong> Stripe account — we never touch your customer money. You'll handle refunds, disputes, and payouts directly in Stripe.
+        Let your customers pay invoices with a credit card via the Pay Now link. Funds land in <strong>your</strong> Stripe account. We never touch your customer money. You'll handle refunds, disputes, and payouts directly in Stripe.
       </div>
 
       {status === 'not_started' && (
@@ -413,7 +413,7 @@ function PaymentsSection({ org, user }) {
       {status === 'pending' && (
         <>
           <div style={{background:'#fbbf2422',border:'1px solid #fbbf2466',borderRadius:8,padding:'10px 12px',marginBottom:10,fontSize:12,color:'#fbbf24'}}>
-            <strong>Stripe needs more info.</strong> {chargesEnabled ? 'Almost there — confirm payout details.' : 'Complete a few onboarding steps to start accepting cards.'}
+            <strong>Stripe needs more info.</strong> {chargesEnabled ? 'Almost there. Confirm payout details.' : 'Complete a few onboarding steps to start accepting cards.'}
           </div>
           <div style={{display:'flex',gap:8,marginBottom:8}}>
             <button onClick={beginOnboarding} disabled={busy}
@@ -475,7 +475,7 @@ function DangerZone({ user, router }) {
     <div style={{marginTop:18,background:'rgba(242,96,96,0.04)',border:'1px solid rgba(242,96,96,0.25)',borderRadius:12,padding:'16px 14px'}}>
       <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:'.1em',color:'#f26060',marginBottom:6}}>DANGER ZONE</div>
       <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.5,marginBottom:12}}>
-        Deletes your sign-in for <strong style={{color:'#f0f4ff'}}>{user.email}</strong>. Customers, jobs, invoices, and other business records you created stay with the business — their "created by" reference just goes blank. This action is permanent and cannot be undone.
+        Deletes your sign-in for <strong style={{color:'#f0f4ff'}}>{user.email}</strong>. Customers, jobs, invoices, and other business records you created stay with the business. Their "created by" reference just goes blank. This action is permanent and cannot be undone.
       </div>
       {err && <div style={{background:'rgba(242,96,96,.12)',border:'1px solid rgba(242,96,96,.3)',borderRadius:8,padding:'9px 12px',marginBottom:10,fontSize:12,color:'#f26060'}}>{err}</div>}
       <button onClick={remove} disabled={deleting}

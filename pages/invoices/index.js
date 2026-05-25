@@ -232,7 +232,7 @@ export default function Invoices() {
 
   const copyFeedbackLink = async (inv) => {
     const { data } = await supabase.from('feedback').select('token').eq('invoice_id', inv.id).maybeSingle();
-    if (!data?.token) { alert('No feedback link generated yet — try saving the invoice again.'); return; }
+    if (!data?.token) { alert('No feedback link generated yet. Try saving the invoice again.'); return; }
     const url = `${window.location.origin}/feedback/${data.token}`;
     try {
       await navigator.clipboard.writeText(url);

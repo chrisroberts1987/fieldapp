@@ -177,9 +177,13 @@ export default function Dashboard() {
     if (!role) return;
     // Owner signed up but never finished onboarding step 3 (no card
     // on file). Send them back to /onboarding which will resume on
-    // step 3 (plan picker). Crew members aren't affected — their org
-    // owner is the one responsible for the subscription.
-    if (role === 'owner' && org && !org.stripe_subscription_id) {
+    // step 3 (plan picker). Crew members aren't affected because
+    // their org owner is the one responsible for the subscription.
+    // Demo account is exempt — it's a shared read-only account that
+    // intentionally has no subscription. Forcing it through the
+    // plan picker would either trap it or charge real money.
+    const isDemoUser = (user?.email || '').toLowerCase() === 'demo@myforemanhq.com';
+    if (!isDemoUser && role === 'owner' && org && !org.stripe_subscription_id) {
       router.push('/onboarding');
       return;
     }

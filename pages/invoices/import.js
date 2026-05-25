@@ -60,7 +60,7 @@ export default function ImportInvoices() {
       try {
         const base64 = await fileToBase64(row._file);
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) { patchRow(row.id, { status:'error', error:'Sign in expired — please reload.' }); continue; }
+        if (!session) { patchRow(row.id, { status:'error', error:'Sign in expired. Please reload.' }); continue; }
         const resp = await fetch('/api/invoices/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },

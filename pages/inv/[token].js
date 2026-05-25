@@ -88,7 +88,7 @@ export default function PublicInvoice() {
 
       {/* Status banner */}
       {paid === '1' && !isPaid && (
-        <Banner color="#2edf87" text="Thanks — Stripe is confirming your payment. This page will refresh shortly."/>
+        <Banner color="#2edf87" text="Thanks. Stripe is confirming your payment. This page will refresh shortly."/>
       )}
       {cancelled === '1' && !isPaid && (
         <Banner color="#fbbf24" text="Payment cancelled. You can try again whenever you're ready."/>
@@ -231,7 +231,7 @@ function OtherWaysToPay({ org, amount }) {
     return (
       <div style={{marginTop:22,padding:'14px 16px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12}}>
         <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55,textAlign:'center'}}>
-          Please pay {org.name || 'this contractor'} directly — contact them for the best way to pay.
+          Please pay {org.name || 'this contractor'} directly. Contact them for the best way to pay.
         </div>
       </div>
     );

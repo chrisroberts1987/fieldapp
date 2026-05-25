@@ -26,7 +26,7 @@ export default function Terms() {
 
           <Section title="1. Your Data, Your Business">
             <p>
-              Everything you put into MyForeman — your customers, leads, quotes, jobs, invoices, expenses, crew, mileage, and uploaded files — is <strong style={hi}>your data</strong>. You own it. You can export it. You can delete it.
+              Everything you put into MyForeman is <strong style={hi}>your data</strong>: your customers, leads, quotes, jobs, invoices, expenses, crew, mileage, and uploaded files. You own it. You can export it. You can delete it.
             </p>
             <p>
               We will never sell your data, share it with advertisers, or use it to train third-party AI models without your explicit consent. We process your data only to operate MyForeman for you (storing it, displaying it back to you, sending the emails and notifications you trigger, and powering the AI features you opt into).

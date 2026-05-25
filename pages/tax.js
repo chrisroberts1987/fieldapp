@@ -233,7 +233,7 @@ export default function Tax() {
               {fmt$(ytdRevenue)} revenue − {fmt$(ytdDeductible)} deductions = <span style={{color: ytdNetIncome >= 0 ? '#2edf87' : '#f26060',fontWeight:600}}>{fmt$(ytdNetIncome)} net</span> · taxed at {taxRate}%
             </div>
             <div style={{marginTop:6,fontSize:11,color:'#7a8db0',lineHeight:1.55}}>
-              Deductions: {fmt$(ytdExpensesDeductible)} expenses{ytdExpensesDeductible !== ytdExpensesRaw && <> (of {fmt$(ytdExpensesRaw)} logged — meals 50%)</>} + {fmt$(ytdMileageDeduction)} mileage ({ytdMiles.toFixed(1)} mi × ${IRS_RATE.toFixed(2)})
+              Deductions: {fmt$(ytdExpensesDeductible)} expenses{ytdExpensesDeductible !== ytdExpensesRaw && <> (of {fmt$(ytdExpensesRaw)} logged, meals 50%)</>} + {fmt$(ytdMileageDeduction)} mileage ({ytdMiles.toFixed(1)} mi × ${IRS_RATE.toFixed(2)})
             </div>
             <div style={{marginTop:14}}>
               <button onClick={downloadCSV}

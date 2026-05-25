@@ -98,7 +98,7 @@ export default function Billing() {
         </div>
 
         {router.query.started === '1' && (
-          <Banner color="#2edf87" text="Subscription started — Stripe is confirming the payment. Your plan will appear here in a moment."/>
+          <Banner color="#2edf87" text="Subscription started. Stripe is confirming the payment. Your plan will appear here in a moment."/>
         )}
         {router.query.cancelled === '1' && (
           <Banner color="#fbbf24" text="Checkout cancelled. You can try again whenever you're ready."/>
@@ -198,7 +198,7 @@ export default function Billing() {
 
         <div style={{fontSize:11,color:'#7a8db0',textAlign:'center',padding:'10px 0',lineHeight:1.6}}>
           Secure billing by Stripe. Cancel anytime from the manage panel above.
-          {!isOwner && <><br/>You're not the org owner — ask them to make billing changes.</>}
+          {!isOwner && <><br/>You're not the org owner. Ask them to make billing changes.</>}
         </div>
       </main>
     </div>
