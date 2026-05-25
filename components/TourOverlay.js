@@ -287,9 +287,15 @@ export default function TourOverlay() {
     }
   }
 
+  // When the current step has a measured target, cut a hole in the
+  // backdrop over it so the contractor can read what we're pointing
+  // at. Without the cutout the universal dim+blur made the spotlight
+  // target unreadable.
+  const cutoutRect = (!inTransition && !isModal && rect) ? rect : null;
+
   return (
     <>
-      <BareBackdrop/>
+      <BareBackdrop cutoutRect={cutoutRect}/>
       {content}
     </>
   );
@@ -304,16 +310,56 @@ export default function TourOverlay() {
 // styled-jsx class is scoped to ModalCard and wouldn't apply here.
 // No animation: the backdrop should be there instantly to prevent
 // the very flash this fixes, and stay until the next state renders.
-function BareBackdrop() {
+function BareBackdrop({ cutoutRect }) {
+  // When cutoutRect is provided, use clip-path to punch a transparent
+  // hole at the rect so the target shows through clearly. The polygon
+  // traces the viewport edge, dips into the rect, traces around it
+  // counter-clockwise to subtract that area, then exits. Browsers
+  // render this as a single shape with a hole.
+  //
+  // The element itself is always rendered with the same identity, so
+  // React keeps the DOM node mounted across transitions — only the
+  // clip-path changes, no flash.
+  const clipPath = cutoutRect
+    ? polygonWithHole(cutoutRect)
+    : 'none';
+
   return (
     <div aria-hidden="true" style={{
       position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(8,11,20,0.78)',
-      backdropFilter: 'blur(4px)',
-      WebkitBackdropFilter: 'blur(4px)',
+      backdropFilter: 'blur(2px)',
+      WebkitBackdropFilter: 'blur(2px)',
       pointerEvents: 'none',
+      clipPath,
+      WebkitClipPath: clipPath,
+      transition: 'clip-path .18s ease-out, -webkit-clip-path .18s ease-out',
     }}/>
   );
+}
+
+// Build a clip-path polygon that covers the viewport with a rectangular
+// hole cut out at the given rect. The path order matters — we trace
+// the outer rectangle, then "dive in" to the inner rectangle via a
+// zero-width slit at the left edge, trace the inner counter-clockwise,
+// and come back out the slit. Without the slit the polygon would be
+// concave with a self-intersecting edge.
+function polygonWithHole(r) {
+  const { top, left, right, bottom } = r;
+  return [
+    'polygon(',
+      '0 0,',
+      '100% 0,',
+      '100% 100%,',
+      '0 100%,',
+      `0 ${top}px,`,
+      `${left}px ${top}px,`,
+      `${left}px ${bottom}px,`,
+      `${right}px ${bottom}px,`,
+      `${right}px ${top}px,`,
+      `0 ${top}px`,
+    ')',
+  ].join(' ');
 }
 
 function ModalCard({ step, total, progressPct, title, body, primary, secondary, onPrimary, onSecondary, onSkip }) {
