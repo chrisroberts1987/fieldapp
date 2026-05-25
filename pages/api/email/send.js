@@ -5,6 +5,7 @@ import {
   quoteSentEmail,
   invoiceSentEmail,
   invoicePaidFeedbackEmail,
+  paymentReceivedEmail,
   jobCompletedEmail,
   crewInviteEmail,
 } from '../../../lib/email/templates';
@@ -31,6 +32,10 @@ const TYPES = {
   invoice_paid_feedback: {
     template: invoicePaidFeedbackEmail,
     required: ['customerName', 'amount', 'feedbackUrl'],
+  },
+  payment_received: {
+    template: paymentReceivedEmail,
+    required: ['customerName', 'amount'],
   },
   job_completed: {
     template: jobCompletedEmail,

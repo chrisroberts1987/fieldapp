@@ -191,7 +191,7 @@ async function markInvoicePaid(sb, invoiceId, { paymentIntentId, sessionId }) {
 
   const { data: inv } = await sb
     .from('invoices')
-    .select('id, status, amount, org_id, customer_id, customers ( name, email ), organizations ( name, business_email, logo_url )')
+    .select('id, status, amount, org_id, customer_id, public_token, customers ( name, email ), organizations ( name, business_email, logo_url )')
     .eq('id', invoiceId)
     .maybeSingle();
   if (!inv) {
@@ -244,36 +244,59 @@ async function markInvoicePaid(sb, invoiceId, { paymentIntentId, sessionId }) {
     });
   }
 
-  // 3. Feedback email to the customer (best-effort via Resend)
-  if (customer.email && existing?.token) {
+  // 3. Customer emails: branded receipt FIRST, then the feedback ask.
+  // Both go via Resend so they're branded with the contractor's name +
+  // logo (Stripe sends its own plain card receipt separately, this is
+  // the contractor-facing acknowledgement).
+  if (customer.email) {
     try {
       const { Resend } = await import('resend');
-      const { invoicePaidFeedbackEmail } = await import('../../../lib/email/templates');
+      const { paymentReceivedEmail, invoicePaidFeedbackEmail } = await import('../../../lib/email/templates');
       const apiKey = process.env.RESEND_API_KEY;
       if (apiKey) {
         const resend = new Resend(apiKey);
         const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
           || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'https://myforemanhq.com');
-        const feedbackUrl = `${baseUrl}/feedback/${existing.token}`;
-        const tpl = invoicePaidFeedbackEmail({
-          org: { name: org.name, logo_url: org.logo_url, business_email: org.business_email },
-          customerName: custName,
-          amount,
-          feedbackUrl,
-        });
         const safeName = String(org.name || 'MyForeman').replace(/[<>"\\]/g, '').slice(0, 80).trim() || 'MyForeman';
         const fromAddr = process.env.RESEND_FROM_EMAIL || 'noreply@myforemanhq.com';
-        await resend.emails.send({
-          from: `${safeName} <${fromAddr}>`,
-          to: [customer.email],
-          replyTo: org.business_email || undefined,
-          subject: tpl.subject,
-          html: tpl.html,
-          text: tpl.text,
+        const sender = `${safeName} <${fromAddr}>`;
+        const replyTo = org.business_email || undefined;
+
+        // Receipt
+        const invoiceNumber = 'INV-' + String(inv.id).slice(0, 8).toUpperCase();
+        const invoiceUrl = inv.public_token ? `${baseUrl}/inv/${inv.public_token}` : null;
+        const paidDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        const receipt = paymentReceivedEmail({
+          org: { name: org.name, logo_url: org.logo_url, business_email: org.business_email },
+          customerName: custName,
+          invoiceNumber,
+          amount,
+          paidVia: 'stripe',
+          paidDate,
+          invoiceUrl,
         });
+        await resend.emails.send({
+          from: sender, to: [customer.email], replyTo,
+          subject: receipt.subject, html: receipt.html, text: receipt.text,
+        });
+
+        // Feedback follow-up
+        if (existing?.token) {
+          const feedbackUrl = `${baseUrl}/feedback/${existing.token}`;
+          const feedback = invoicePaidFeedbackEmail({
+            org: { name: org.name, logo_url: org.logo_url, business_email: org.business_email },
+            customerName: custName,
+            amount,
+            feedbackUrl,
+          });
+          await resend.emails.send({
+            from: sender, to: [customer.email], replyTo,
+            subject: feedback.subject, html: feedback.html, text: feedback.text,
+          });
+        }
       }
     } catch (e) {
-      console.warn('[stripe webhook] feedback email send failed:', e?.message);
+      console.warn('[stripe webhook] customer email send failed:', e?.message);
     }
   }
 
