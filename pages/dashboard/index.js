@@ -524,7 +524,7 @@ function ActionFeed({ stats, router, onMarkPaid }) {
       title: l.name,
       sub: overdueFollowUp
         ? `Follow-up was scheduled for ${fmtDate(l.follow_up_date)}`
-        : `${l.status} for ${days} day${days === 1 ? '' : 's'} — no movement`,
+        : `${l.status} for ${days} day${days === 1 ? '' : 's'}, no movement`,
       cta: 'Open lead',
       onClick: () => router.push('/leads'),
       sortBy: -(10 + days),

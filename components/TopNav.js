@@ -183,7 +183,7 @@ export default function TopNav({ active }) {
           <div style={{maxWidth:1280,margin:'0 auto',padding:'6px 12px',display:'flex',alignItems:'center',gap:8}}>
             <span style={{background:'#2edf8722',color:'#2edf87',border:'1px solid #2edf8766',borderRadius:999,padding:'2px 9px',fontSize:10,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',whiteSpace:'nowrap',flexShrink:0}}>Live demo</span>
             <span className="demo-banner-msg" style={{fontSize:12,color:'#c8d4ee',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-              You're viewing a live demo — sign up free to create your own account.
+              You're viewing a live demo. Sign up free to create your own account.
             </span>
             <button onClick={async () => { await supabase.auth.signOut(); router.push('/'); }}
               style={{background:'transparent',border:'1px solid #2edf8766',borderRadius:6,color:'#2edf87',padding:'4px 9px',fontSize:10,fontWeight:700,letterSpacing:'.05em',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0,fontFamily:'inherit'}}>
