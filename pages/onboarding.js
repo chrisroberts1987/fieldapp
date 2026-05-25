@@ -352,23 +352,23 @@ export default function Onboarding() {
 
             <div style={{fontSize:11,color:'#4f9eff',letterSpacing:'.14em',fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Fully Automated</div>
             <h3 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:24,letterSpacing:'.04em',margin:'0 0 8px',color:'#f0f4ff'}}>
-              Connect Stripe
+              Card payments
             </h3>
             <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55,marginBottom:14}}>
-              Customers pay invoices by credit card. The moment Stripe confirms the payment, MyForeman automatically marks the invoice paid and sends the customer a feedback request. You don't have to touch anything.
+              Customers pay invoices by credit card. The moment payment confirms, MyForeman automatically marks the invoice paid and sends the customer a feedback request. You don't have to touch anything.
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:4,marginBottom:14,fontSize:12,color:'#c8d4ee'}}>
-              <Check>Funds go to <strong>your</strong> Stripe account. We take zero.</Check>
+              <Check>Funds go to <strong>your</strong> bank account. We take zero.</Check>
               <Check>Auto-marks paid · auto-sends feedback request.</Check>
-              <Check>Stripe handles refunds, disputes, payouts (2 biz days).</Check>
+              <Check>Refunds, disputes, payouts (2 biz days) all handled.</Check>
             </div>
 
             <button onClick={connectStripe} disabled={connecting || saving}
               style={{width:'100%',background:'#635bff',border:'none',borderRadius:10,color:'#fff',padding:'13px 0',fontWeight:700,fontSize:14,letterSpacing:'.04em',cursor:(connecting||saving)?'progress':'pointer',opacity:(connecting||saving)?0.7:1}}>
-              {connecting ? 'OPENING STRIPE...' : 'CONNECT STRIPE'}
+              {connecting ? 'OPENING STRIPE...' : 'SET UP CARD PAYMENTS'}
             </button>
-            <div style={{fontSize:11,color:'#7a8db0',textAlign:'center',marginTop:8}}>
-              Takes ~3 minutes. You'll need your business info and a bank account.
+            <div style={{fontSize:11,color:'#7a8db0',textAlign:'center',marginTop:8,lineHeight:1.5}}>
+              Stripe powers the payments. Takes ~2 minutes. No existing Stripe account needed; if you don't have one yet, you'll create it on the same screen with your business info and a bank account.
             </div>
           </div>
 

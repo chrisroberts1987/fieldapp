@@ -404,10 +404,15 @@ function PaymentsSection({ org, user }) {
       </div>
 
       {status === 'not_started' && (
-        <button onClick={beginOnboarding} disabled={busy}
-          style={{width:'100%',background:'#635bff',border:'none',borderRadius:10,color:'#fff',padding:'12px 0',fontWeight:700,fontSize:14,letterSpacing:'.04em',cursor:busy?'progress':'pointer',opacity:busy?0.7:1}}>
-          {busy ? 'Opening Stripe...' : 'Connect Stripe Account'}
-        </button>
+        <>
+          <button onClick={beginOnboarding} disabled={busy}
+            style={{width:'100%',background:'#635bff',border:'none',borderRadius:10,color:'#fff',padding:'12px 0',fontWeight:700,fontSize:14,letterSpacing:'.04em',cursor:busy?'progress':'pointer',opacity:busy?0.7:1}}>
+            {busy ? 'Opening Stripe...' : 'Set Up Card Payments'}
+          </button>
+          <div style={{fontSize:11,color:'#7a8db0',textAlign:'center',marginTop:8,lineHeight:1.5}}>
+            Stripe walks you through setup in ~2 minutes. If you already have a Stripe account you can sign in; if not, you'll create one with your business info and bank account on the same screen.
+          </div>
+        </>
       )}
 
       {status === 'pending' && (

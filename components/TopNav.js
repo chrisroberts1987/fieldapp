@@ -169,11 +169,11 @@ export default function TopNav({ active }) {
             <span style={{fontSize:12,color:'#c8d4ee',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
               {connectStarted
                 ? 'Finish Stripe setup to accept card payments.'
-                : 'Connect Stripe to let customers pay invoices instantly.'}
+                : 'Set up card payments. Takes ~2 min, no Stripe account needed.'}
             </span>
             <button onClick={connectNow} disabled={connectBusy}
               style={{background:'#4f9eff',border:'none',borderRadius:6,color:'#fff',padding:'4px 12px',fontSize:10,fontWeight:700,letterSpacing:'.05em',cursor:connectBusy?'progress':'pointer',whiteSpace:'nowrap',flexShrink:0,fontFamily:'inherit',opacity:connectBusy?0.6:1}}>
-              {connectBusy ? 'OPENING...' : (connectStarted ? 'FINISH SETUP' : 'CONNECT STRIPE')}
+              {connectBusy ? 'OPENING...' : (connectStarted ? 'FINISH SETUP' : 'SET UP')}
             </button>
           </div>
         </div>
