@@ -445,7 +445,7 @@ export default function Onboarding() {
             {['monthly','annual'].map(c => (
               <button key={c} onClick={() => setBillingCycle(c)}
                 style={{flex:1,background: billingCycle === c ? '#4f9eff' : 'transparent',border:'none',borderRadius:999,color: billingCycle === c ? '#fff' : '#c8d4ee',padding:'8px 14px',fontSize:12,fontWeight:700,letterSpacing:'.05em',textTransform:'uppercase',cursor:'pointer',fontFamily:'inherit'}}>
-                {c}{c === 'annual' ? ' · save ~17%' : ''}
+                {c}{c === 'annual' ? ' · 1 month free' : ''}
               </button>
             ))}
           </div>

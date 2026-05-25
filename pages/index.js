@@ -608,7 +608,7 @@ function Pricing({ billing, setBilling, router }) {
           </div>
         </div>
         <div style={{textAlign:'center',height:16,fontSize:11,fontWeight:700,letterSpacing:'.12em',color:'#2edf87'}}>
-          {billing === 'annual' ? '2 MONTHS FREE' : ' '}
+          {billing === 'annual' ? '1 MONTH FREE' : ' '}
         </div>
 
         <div className="pricing-grid">
@@ -625,7 +625,7 @@ function Pricing({ billing, setBilling, router }) {
 
 function PricingCard({ plan, billing, router }) {
   const isAnnual = billing === 'annual';
-  const annualTotal = plan.monthly * 10;
+  const annualTotal = plan.monthly * 11;
   const displayPrice = isAnnual ? Math.round(annualTotal / 12) : plan.monthly;
   const popular = plan.popular;
 
