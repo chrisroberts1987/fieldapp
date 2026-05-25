@@ -36,7 +36,7 @@ If you don't already have one from earlier setup:
    | Port | `465` |
    | Username | `resend` |
    | Password | the Resend API key from step 1 |
-   | Minimum interval between emails | `0` |
+   | Minimum interval between emails | `60` (seconds — Supabase rejects 0) |
 
 6. **Save**
 7. **Send test email** — Supabase has a button to verify. Send one to your own inbox; it should land within ~10 seconds with `MyForeman <noreply@myforemanhq.com>` in the From field.
