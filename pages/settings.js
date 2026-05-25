@@ -463,9 +463,17 @@ function PaymentsSection({ org, user }) {
 function DangerZone({ user, router }) {
   const [deleting, setDeleting] = useState(false);
   const [err, setErr] = useState('');
+  const [resetting, setResetting] = useState(false);
+  const [resetMsg, setResetMsg] = useState('');
+
+  const isAdmin = (user?.email || '').toLowerCase() === 'chris.roberts@myforemanhq.com';
 
   const remove = async () => {
-    const ok1 = confirm('Delete your account? This permanently removes your sign-in. Customer/job/invoice history you created stays with the business, but you will lose access immediately.');
+    const ok1 = confirm(
+      'This will permanently delete your account and all data. This cannot be undone.\n\n' +
+      'If you are the sole owner of an organization, the business and all of its customers, ' +
+      'jobs, invoices, and records will also be removed. Multi-user organizations are unaffected.'
+    );
     if (!ok1) return;
     const typed = prompt('Type DELETE to confirm.');
     if ((typed || '').trim().toUpperCase() !== 'DELETE') return;
@@ -476,18 +484,66 @@ function DangerZone({ user, router }) {
     router.push('/');
   };
 
+  // Platform-owner only: clear the user_metadata flags that mark the
+  // welcome tour as completed/skipped, then bounce to /dashboard so
+  // TourOverlay picks them up and re-fires. Lets the platform owner
+  // re-test the tour without nuking their account.
+  const resetOnboarding = async () => {
+    if (resetting) return;
+    setResetting(true); setResetMsg(''); setErr('');
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          onboarding_completed_at: null,
+          onboarding_skipped_at: null,
+        },
+      });
+      if (error) throw error;
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('myforeman_tour_force', '1');
+      }
+      setResetMsg('Onboarding reset. Redirecting...');
+      setTimeout(() => router.push('/dashboard'), 600);
+    } catch (e) {
+      setErr(e?.message || 'Reset failed.');
+      setResetting(false);
+    }
+  };
+
   return (
-    <div style={{marginTop:18,background:'rgba(242,96,96,0.04)',border:'1px solid rgba(242,96,96,0.25)',borderRadius:12,padding:'16px 14px'}}>
-      <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:'.1em',color:'#f26060',marginBottom:6}}>DANGER ZONE</div>
-      <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.5,marginBottom:12}}>
-        Deletes your sign-in for <strong style={{color:'#f0f4ff'}}>{user.email}</strong>. Customers, jobs, invoices, and other business records you created stay with the business. Their "created by" reference just goes blank. This action is permanent and cannot be undone.
+    <>
+      {isAdmin && (
+        <div style={{marginTop:18,background:'rgba(79,158,255,0.04)',border:'1px solid rgba(79,158,255,0.25)',borderRadius:12,padding:'16px 14px'}}>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:'.1em',color:'#4f9eff',marginBottom:6}}>ADMIN TOOLS</div>
+          <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.5,marginBottom:12}}>
+            Clear the welcome-tour flag so the interactive walkthrough fires again on the next dashboard load. Used to test tour changes without deleting your account.
+          </div>
+          {resetMsg && <div style={{background:'rgba(46,223,135,.12)',border:'1px solid rgba(46,223,135,.3)',borderRadius:8,padding:'9px 12px',marginBottom:10,fontSize:12,color:'#2edf87'}}>{resetMsg}</div>}
+          <button onClick={resetOnboarding} disabled={resetting}
+            style={{background:'transparent',border:'1.5px solid #4f9eff',borderRadius:10,color:'#4f9eff',padding:'10px 16px',fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:'.08em',fontWeight:700,cursor:'pointer',opacity:resetting?0.5:1}}>
+            {resetting ? 'RESETTING...' : 'RESET ONBOARDING'}
+          </button>
+        </div>
+      )}
+
+      <div style={{marginTop:18,background:'rgba(242,96,96,0.04)',border:'1px solid rgba(242,96,96,0.25)',borderRadius:12,padding:'16px 14px'}}>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:'.1em',color:'#f26060',marginBottom:6}}>DANGER ZONE</div>
+        <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.5,marginBottom:8}}>
+          <strong style={{color:'#f0f4ff'}}>This will permanently delete your account and all data. This cannot be undone.</strong>
+        </div>
+        <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.5,marginBottom:6}}>
+          Deletes the sign-in for <strong style={{color:'#f0f4ff'}}>{user.email}</strong>. If you are the sole owner of an organization, that business and everything in it (customers, jobs, invoices, quotes, expenses, mileage, photos) is removed too. Multi-user organizations stay intact.
+        </div>
+        <div style={{fontSize:11,color:'#7a8db0',lineHeight:1.5,marginBottom:12}}>
+          Data is fully removed within 24 hours per GDPR. We can't undo this.
+        </div>
+        {err && <div style={{background:'rgba(242,96,96,.12)',border:'1px solid rgba(242,96,96,.3)',borderRadius:8,padding:'9px 12px',marginBottom:10,fontSize:12,color:'#f26060'}}>{err}</div>}
+        <button onClick={remove} disabled={deleting}
+          style={{background:'transparent',border:'1.5px solid #f26060',borderRadius:10,color:'#f26060',padding:'10px 16px',fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:'.08em',fontWeight:700,cursor:'pointer',opacity:deleting?0.5:1}}>
+          {deleting ? 'DELETING...' : 'DELETE MY ACCOUNT'}
+        </button>
       </div>
-      {err && <div style={{background:'rgba(242,96,96,.12)',border:'1px solid rgba(242,96,96,.3)',borderRadius:8,padding:'9px 12px',marginBottom:10,fontSize:12,color:'#f26060'}}>{err}</div>}
-      <button onClick={remove} disabled={deleting}
-        style={{background:'transparent',border:'1.5px solid #f26060',borderRadius:10,color:'#f26060',padding:'10px 16px',fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:'.08em',fontWeight:700,cursor:'pointer',opacity:deleting?0.5:1}}>
-        {deleting ? 'DELETING...' : 'DELETE MY ACCOUNT'}
-      </button>
-    </div>
+    </>
   );
 }
 
