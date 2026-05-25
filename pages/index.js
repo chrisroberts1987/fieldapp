@@ -248,12 +248,16 @@ function Compare({ router }) {
     { label:'Monthly cost',           values:['$0',      '$99–$300',    '$39–$159'] },
     { label:'Mobile-first',           values:['no',      'partial',     'yes'] },
     { label:'Lead → Paid workflow',   values:['no',      'yes',         'yes'] },
+    { label:'Card payments direct to you', values:['no', 'partial',     'yes'] },
+    { label:'Venmo / Zelle / Cash App on the invoice', values:['no', 'no', 'yes'] },
     { label:'AI invoice import',      values:['no',      'no',          'yes'], ai:true },
     { label:'AI business coach',      values:['no',      'no',          'yes'], ai:true },
     { label:'Auto-invoice on done',   values:['no',      'partial',     'yes'] },
+    { label:'Daily invoice chase (7/14/30d)', values:['no', 'partial',  'yes'] },
     { label:'Crew + approvals',       values:['Manual',  'yes',         'yes'] },
     { label:'Mileage + tax',          values:['no',      'Add-on $$',   'yes'] },
     { label:'Branded customer email', values:['no',      'yes',         'yes'] },
+    { label:'Installable mobile app', values:['no',      'partial',     'yes'] },
     { label:'Live demo',              values:['N/A',     'Sales call',  'One tap'] },
   ];
   const cols       = ['Texts & sheets', 'Old-school field software', 'MyForeman'];
@@ -449,6 +453,16 @@ function Workflow() {
 function Automation() {
   const cards = [
     {
+      icon: <CardIcon/>,
+      title: 'Card payments direct to you',
+      body: "Customers pay invoices by card in one tap. Funds land in your own Stripe account, not ours. We don't take a cut. You handle refunds and payouts. Real merchant-of-record, your business name on the statement.",
+    },
+    {
+      icon: <WalletIcon/>,
+      title: 'Venmo, Zelle, Cash App, PayPal',
+      body: 'Add your handles in Settings and they show up on every invoice with tap-to-pay deeplinks. The customer pays however they want. You tap Mark Paid once the money lands and the feedback request fires.',
+    },
+    {
       ai: true,
       icon: <AiSparkleIcon/>,
       title: 'AI invoice import',
@@ -464,6 +478,11 @@ function Automation() {
       icon: <BoltIcon/>,
       title: 'Auto-invoice on completion',
       body: 'Mark a job done. The invoice fires automatically with the right amount, customer, and notes. Zero clicks between the work and the bill.',
+    },
+    {
+      icon: <BellIcon/>,
+      title: 'Daily invoice chase',
+      body: "When an invoice goes past due, we automatically email (and text) the customer at 7, 14, and 30 days. Each reminder includes a one-tap Pay Now button. You stop chasing checks. The dollars come in faster.",
     },
     {
       icon: <StarIcon/>,
@@ -765,5 +784,24 @@ function MailIcon() { return (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="2" y="4" width="20" height="16" rx="2"/>
     <polyline points="2 7 12 13 22 7"/>
+  </svg>
+);}
+function CardIcon() { return (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="5" width="20" height="14" rx="2"/>
+    <line x1="2" y1="10" x2="22" y2="10"/>
+    <line x1="6" y1="15" x2="10" y2="15"/>
+  </svg>
+);}
+function WalletIcon() { return (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 7a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>
+    <path d="M20 11h-4a2 2 0 1 0 0 4h4"/>
+  </svg>
+);}
+function BellIcon() { return (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+    <path d="M10 21a2 2 0 0 0 4 0"/>
   </svg>
 );}
