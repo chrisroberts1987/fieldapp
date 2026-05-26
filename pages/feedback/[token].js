@@ -30,6 +30,16 @@ export default function PublicFeedback() {
     if (error) { setError(error.message); setSubmitting(false); return; }
     setSubmitted(true);
     setSubmitting(false);
+    // Review deflection: if the contractor has set a Google (or Yelp)
+    // review URL and the rating clears their threshold (default 4),
+    // bounce the happy customer over there 1.2s after the thank-you
+    // shows. Negative reviews stay private — they get the normal
+    // thank-you screen and the contractor gets a notification.
+    const threshold = Number(data?.review_deflect_threshold || 4);
+    const url = data?.google_review_url || data?.yelp_review_url;
+    if (rating >= threshold && url) {
+      setTimeout(() => { window.location.href = url; }, 1400);
+    }
   };
 
   if (!loaded) return <div style={loadingStyle}>Loading...</div>;
@@ -54,6 +64,12 @@ export default function PublicFeedback() {
           <div style={{width:60,height:60,margin:'24px auto 14px',borderRadius:30,background:'#2edf8722',border:'2px solid #2edf87',display:'flex',alignItems:'center',justifyContent:'center',color:'#2edf87',fontSize:28,fontWeight:700}}>✓</div>
           <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:26,letterSpacing:'.06em',marginBottom:10}}>THANK YOU</div>
           <div style={{fontSize:14,color:'#c8d4ee',lineHeight:1.55}}>Your feedback was sent to {data.org_name}. They appreciate it.</div>
+          {submitted && rating >= Number(data?.review_deflect_threshold || 4) && (data?.google_review_url || data?.yelp_review_url) && (
+            <div style={{marginTop:20,fontSize:12,color:'#7a8db0'}}>
+              Redirecting you to leave a public review...{' '}
+              <a href={data.google_review_url || data.yelp_review_url} style={{color:'#4f9eff'}}>tap here</a> if it doesn't.
+            </div>
+          )}
         </div>
       </div>
     );

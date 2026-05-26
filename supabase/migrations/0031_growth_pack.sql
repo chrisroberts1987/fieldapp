@@ -464,4 +464,34 @@ $$;
 
 grant execute on function public.job_labor_minutes(uuid) to authenticated;
 
+-- Extend the public feedback RPC to surface the org's review
+-- deflection settings so the feedback page can redirect 4-5★
+-- submissions to Google/Yelp instead of dead-ending on a "thanks".
+create or replace function public.get_feedback_by_token(p_token text)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'id',             f.id,
+    'customer_name',  f.customer_name,
+    'rating',         f.rating,
+    'comment',        f.comment,
+    'submitted_at',   f.submitted_at,
+    'org_name',       o.name,
+    'org_logo_url',   o.logo_url,
+    'google_review_url', o.google_review_url,
+    'yelp_review_url',   o.yelp_review_url,
+    'review_deflect_threshold', coalesce(o.review_deflect_threshold, 4)
+  )
+  from public.feedback f
+  join public.organizations o on o.id = f.org_id
+  where f.token = p_token;
+$$;
+
+revoke all on function public.get_feedback_by_token(text) from public;
+grant execute on function public.get_feedback_by_token(text) to anon, authenticated;
+
 commit;

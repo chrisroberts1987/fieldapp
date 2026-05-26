@@ -48,6 +48,8 @@ export default function Settings() {
         check_payable_to: org.check_payable_to || '',
         check_mail_to:    org.check_mail_to    || '',
         payment_notes:    org.payment_notes    || '',
+        google_review_url: org.google_review_url || '',
+        yelp_review_url:   org.yelp_review_url   || '',
       });
       setLogoPreview(org.logo_url || null);
     }
@@ -129,6 +131,8 @@ export default function Settings() {
         check_payable_to: form.check_payable_to.trim()|| null,
         check_mail_to:    form.check_mail_to.trim()   || null,
         payment_notes:    form.payment_notes.trim()   || null,
+        google_review_url: form.google_review_url.trim() || null,
+        yelp_review_url:   form.yelp_review_url.trim()   || null,
       })
       .eq('id', orgId);
     if (updErr) {
@@ -289,6 +293,24 @@ export default function Settings() {
               value={form.income_tax_rate}
               onChange={e => setForm(p => ({...p, income_tax_rate:e.target.value}))}/>
             <div style={{fontSize:11,color:'#7a8db0',marginTop:4}}>Used by the Tax view to estimate quarterly/annual taxes. 25% is a sensible default for most US sole proprietors; ask your accountant.</div>
+          </Field>
+        </Section>
+
+        <Section title="Public reviews">
+          <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.5,marginBottom:12}}>
+            When a customer rates you 4 or 5 stars, they're redirected to leave a public review. Negative ratings stay private — only you see them.
+          </div>
+          <Field label="Google review URL">
+            <input style={inputStyle} type="url" placeholder="https://g.page/r/..."
+              value={form.google_review_url}
+              onChange={e => setForm(p => ({...p, google_review_url:e.target.value}))}/>
+            <div style={{fontSize:11,color:'#7a8db0',marginTop:4}}>From your Google Business profile → "Get more reviews" → "Share review form".</div>
+          </Field>
+          <Field label="Yelp review URL (optional)">
+            <input style={inputStyle} type="url" placeholder="https://www.yelp.com/biz/..."
+              value={form.yelp_review_url}
+              onChange={e => setForm(p => ({...p, yelp_review_url:e.target.value}))}/>
+            <div style={{fontSize:11,color:'#7a8db0',marginTop:4}}>Used as a fallback if no Google URL is set.</div>
           </Field>
         </Section>
 
