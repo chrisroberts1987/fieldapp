@@ -5,6 +5,7 @@ import {
   jobScheduledSMS,
   invoiceSentSMS,
   paymentReceivedSMS,
+  onMyWaySMS,
 } from '../../../lib/sms/templates';
 
 // POST /api/sms/send
@@ -37,6 +38,10 @@ const TYPES = {
   payment_received: {
     builder:  paymentReceivedSMS,
     required: ['amount'],
+  },
+  on_my_way: {
+    builder:  onMyWaySMS,
+    required: ['customerName', 'jobTitle'],
   },
 };
 

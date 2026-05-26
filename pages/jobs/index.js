@@ -22,7 +22,7 @@ const statusMeta = k => STATUSES.find(s => s.key === k) || STATUSES[0];
 
 const EMPTY = {
   customer_id:'', title:'', description:'',
-  status:'scheduled', scheduled_date: todayStr(), price:'', notes:'',
+  status:'scheduled', scheduled_date: todayStr(), scheduled_time:'', price:'', notes:'',
   assigned_to_user_id:'',
 };
 
@@ -54,6 +54,12 @@ export default function Jobs() {
   const [quickLabor, setQuickLabor] = useState({ user_id:'', hours:'' });
   const [addingExp, setAddingExp] = useState(false);
   const [addingLabor, setAddingLabor] = useState(false);
+  const [timeEntries, setTimeEntries] = useState([]);
+  const [checklist, setChecklist] = useState([]);
+  const [newChecklistItem, setNewChecklistItem] = useState('');
+  const [materials, setMaterials] = useState([]);
+  const [newMaterial, setNewMaterial] = useState({ name:'', quantity:'1', unit_cost:'' });
+  const [sendingOnMyWay, setSendingOnMyWay] = useState(false);
 
   const loadAll = async () => {
     setLoading(true);
@@ -82,6 +88,18 @@ export default function Jobs() {
 
   useRefetchOnFocus(loadAll, !!orgId);
 
+  // Deep-link: /jobs?open=<id> opens the sheet for that job. Used by
+  // the /schedule calendar and notification bell to jump straight in.
+  useEffect(() => {
+    const id = router.query.open;
+    if (!id || !jobs.length) return;
+    const target = jobs.find(j => j.id === id);
+    if (target) {
+      openEdit(target);
+      router.replace('/jobs', undefined, { shallow: true });
+    }
+  }, [router.query.open, jobs]);
+
   const customerName = id => customers.find(c => c.id === id)?.name || '—';
 
   const openNew = () => { setForm(EMPTY); setSheet('new'); };
@@ -92,21 +110,30 @@ export default function Jobs() {
       description: j.description || '',
       status: j.status || 'scheduled',
       scheduled_date: j.scheduled_date || todayStr(),
+      scheduled_time: j.scheduled_time ? j.scheduled_time.slice(0,5) : '',
       price: j.price ?? '',
       notes: j.notes || '',
       assigned_to_user_id: j.assigned_to_user_id || '',
     });
     setQuickExp({ amount:'', category:'materials', vendor:'' });
     setQuickLabor({ user_id:'', hours:'' });
+    setNewChecklistItem('');
+    setNewMaterial({ name:'', quantity:'1', unit_cost:'' });
     setSheet(j);
-    const [{ data: e }, { data: lb }, { data: ph }] = await Promise.all([
+    const [{ data: e }, { data: lb }, { data: ph }, { data: te }, { data: cl }, { data: mt }] = await Promise.all([
       supabase.from('expenses').select('*').eq('job_id', j.id).order('expense_date', { ascending:false }),
       supabase.from('job_labor').select('*').eq('job_id', j.id).order('work_date', { ascending:false }),
       supabase.from('job_photos').select('*').eq('job_id', j.id).order('created_at', { ascending:false }),
+      supabase.from('time_entries').select('*').eq('job_id', j.id).order('clock_in_at', { ascending:false }),
+      supabase.from('job_checklist_items').select('*').eq('job_id', j.id).order('position'),
+      supabase.from('job_materials').select('*').eq('job_id', j.id).order('created_at'),
     ]);
     setJobExpenses(e || []);
     setJobLabor(lb || []);
     setJobPhotos(ph || []);
+    setTimeEntries(te || []);
+    setChecklist(cl || []);
+    setMaterials(mt || []);
   };
 
   const addJobPhoto = async (ev, kind = 'work') => {
@@ -199,6 +226,128 @@ export default function Jobs() {
     setAddingLabor(false);
   };
 
+  // Time clock. The crew member taps CLOCK IN; we open a time_entries
+  // row. CLOCK OUT closes the row. Open rows surface as "running".
+  // GPS is best-effort — we capture it if the browser hands it over
+  // within 3s, otherwise we just save without coordinates.
+  const myOpenEntry = timeEntries.find(t => t.user_id === user?.id && !t.clock_out_at);
+
+  const tryGetCoords = () => new Promise(resolve => {
+    if (!navigator.geolocation) return resolve({});
+    let done = false;
+    const finish = (val) => { if (!done) { done = true; resolve(val); } };
+    setTimeout(() => finish({}), 3000);
+    navigator.geolocation.getCurrentPosition(
+      p => finish({ lat: +p.coords.latitude.toFixed(6), lng: +p.coords.longitude.toFixed(6) }),
+      ()  => finish({}),
+      { enableHighAccuracy: false, timeout: 2500, maximumAge: 60000 }
+    );
+  });
+
+  const clockIn = async () => {
+    if (!sheet || sheet === 'new' || !orgId || myOpenEntry) return;
+    const { lat, lng } = await tryGetCoords();
+    const { data } = await supabase.from('time_entries').insert({
+      org_id: orgId,
+      job_id: sheet.id,
+      user_id: user.id,
+      clock_in_at: new Date().toISOString(),
+      in_lat: lat ?? null,
+      in_lng: lng ?? null,
+    }).select('*').single();
+    if (data) setTimeEntries(prev => [data, ...prev]);
+  };
+
+  const clockOut = async () => {
+    if (!myOpenEntry) return;
+    const { lat, lng } = await tryGetCoords();
+    const updates = {
+      clock_out_at: new Date().toISOString(),
+      out_lat: lat ?? null,
+      out_lng: lng ?? null,
+    };
+    await supabase.from('time_entries').update(updates).eq('id', myOpenEntry.id);
+    setTimeEntries(prev => prev.map(t => t.id === myOpenEntry.id ? { ...t, ...updates } : t));
+  };
+
+  // Checklist handlers. Foreman can add/remove items; anyone can tick.
+  const addChecklistItem = async () => {
+    const label = newChecklistItem.trim();
+    if (!label || !sheet || sheet === 'new' || !orgId) return;
+    const position = checklist.length;
+    const { data } = await supabase.from('job_checklist_items').insert({
+      org_id: orgId, job_id: sheet.id, label, position,
+    }).select('*').single();
+    if (data) setChecklist(prev => [...prev, data]);
+    setNewChecklistItem('');
+  };
+
+  const toggleChecklist = async (item) => {
+    const completed = !item.completed_at;
+    const updates = completed
+      ? { completed_at: new Date().toISOString(), completed_by: user.id }
+      : { completed_at: null, completed_by: null };
+    await supabase.from('job_checklist_items').update(updates).eq('id', item.id);
+    setChecklist(prev => prev.map(c => c.id === item.id ? { ...c, ...updates } : c));
+  };
+
+  const deleteChecklistItem = async (id) => {
+    await supabase.from('job_checklist_items').delete().eq('id', id);
+    setChecklist(prev => prev.filter(c => c.id !== id));
+  };
+
+  // Materials handlers.
+  const addMaterial = async () => {
+    const name = newMaterial.name.trim();
+    if (!name || !sheet || sheet === 'new' || !orgId) return;
+    const quantity = Number(newMaterial.quantity) || 1;
+    const unit_cost = Number(newMaterial.unit_cost) || 0;
+    const { data } = await supabase.from('job_materials').insert({
+      org_id: orgId, job_id: sheet.id, name, quantity, unit_cost,
+    }).select('*').single();
+    if (data) setMaterials(prev => [...prev, data]);
+    setNewMaterial({ name:'', quantity:'1', unit_cost:'' });
+  };
+
+  const removeMaterial = async (id) => {
+    await supabase.from('job_materials').delete().eq('id', id);
+    setMaterials(prev => prev.filter(m => m.id !== id));
+  };
+
+  // "We're on the way" — fires email + SMS to the customer with the
+  // crew member's name and a default ETA. Stamps jobs.on_my_way_at so
+  // the button reads "Re-send" the second time.
+  const sendOnMyWay = async () => {
+    if (!sheet || sheet === 'new' || !form.customer_id) return;
+    const cust = customers.find(c => c.id === form.customer_id);
+    if (!cust) return;
+    if (!cust.email && !cust.phone) {
+      alert('Customer has no phone or email on file.');
+      return;
+    }
+    setSendingOnMyWay(true);
+    const crewName = (user?.email || '').split('@')[0] || 'Your crew';
+    const data = {
+      customerName: cust.name || 'there',
+      jobTitle: form.title || 'your job',
+      crewName,
+      etaMins: 30,
+    };
+    let anyOk = false;
+    if (cust.email) {
+      const r = await sendEmail({ type: 'on_my_way', to: cust.email, data });
+      if (r?.ok) anyOk = true;
+    }
+    if (cust.phone) {
+      sendSMS({ type: 'on_my_way', to: cust.phone, data }).catch(() => {});
+      anyOk = true;
+    }
+    await supabase.from('jobs').update({ on_my_way_at: new Date().toISOString() }).eq('id', sheet.id);
+    setSheet(prev => prev && prev !== 'new' ? { ...prev, on_my_way_at: new Date().toISOString() } : prev);
+    setSendingOnMyWay(false);
+    alert(anyOk ? `Notified ${cust.name}.` : 'Could not send. Check email/phone on file.');
+  };
+
   const removeJobLabor = async (id) => {
     await supabase.from('job_labor').delete().eq('id', id);
     setJobLabor(prev => prev.filter(l => l.id !== id));
@@ -215,6 +364,7 @@ export default function Jobs() {
       ...form,
       customer_id: form.customer_id || null,
       scheduled_date: form.scheduled_date || null,
+      scheduled_time: form.scheduled_time || null,
       price: form.price === '' ? 0 : Number(form.price),
       assigned_to_user_id: newAssignee,
       assigned_at: (newAssignee && newAssignee !== prevAssignee) ? new Date().toISOString() : (sheet !== 'new' ? sheet?.assigned_at : null),
@@ -512,6 +662,12 @@ export default function Jobs() {
                   style={inputStyle}/>
               </div>
               <div style={{flex:1}}>
+                <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Time</div>
+                <input type="time" value={form.scheduled_time || ''}
+                  onChange={e => setForm(p => ({...p, scheduled_time:e.target.value}))}
+                  style={inputStyle}/>
+              </div>
+              <div style={{flex:1}}>
                 <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Price ($)</div>
                 <input type="number" inputMode="decimal" placeholder="0.00" value={form.price}
                   onChange={e => setForm(p => ({...p, price:e.target.value}))}
@@ -534,6 +690,152 @@ export default function Jobs() {
                 placeholder="Crew callouts, access, parts needed..."
                 style={{...inputStyle, resize:'vertical', minHeight:60, fontFamily:'inherit'}}/>
             </div>
+
+            {sheet !== 'new' && form.customer_id && (
+              <div style={{margin:'14px 16px'}}>
+                <button
+                  onClick={sendOnMyWay}
+                  disabled={sendingOnMyWay}
+                  style={{
+                    width:'100%',
+                    background: sheet.on_my_way_at ? '#1a2236' : '#fbbf24',
+                    border: sheet.on_my_way_at ? '1px solid #fbbf24' : 'none',
+                    color: sheet.on_my_way_at ? '#fbbf24' : '#111827',
+                    borderRadius:10, padding:'14px',
+                    fontSize:13, fontWeight:800, letterSpacing:'.06em',
+                    cursor:'pointer', fontFamily:'inherit',
+                  }}>
+                  {sendingOnMyWay ? 'SENDING...' : (sheet.on_my_way_at ? '🚐 RE-NOTIFY CUSTOMER' : '🚐 ON MY WAY')}
+                </button>
+                {sheet.on_my_way_at && (
+                  <div style={{fontSize:11,color:'#7a8db0',marginTop:6,textAlign:'center'}}>
+                    Last sent {new Date(sheet.on_my_way_at).toLocaleString()}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {sheet !== 'new' && (
+              <div style={{margin:'14px 16px',padding:'12px',background:'#0f1626',border:'1px solid #2e3f60',borderRadius:10}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                  <div style={{fontSize:11,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0'}}>Time clock</div>
+                  <div style={{fontSize:11,color:myOpenEntry ? '#fbbf24' : '#7a8db0'}}>
+                    {myOpenEntry
+                      ? `Running since ${new Date(myOpenEntry.clock_in_at).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })}`
+                      : `${timeEntries.filter(t => t.clock_out_at).length} entries`}
+                  </div>
+                </div>
+                <button
+                  onClick={myOpenEntry ? clockOut : clockIn}
+                  style={{
+                    width:'100%',
+                    background: myOpenEntry ? '#f26060' : '#2edf87',
+                    border:'none', borderRadius:8, color:'#111827',
+                    padding:'12px', fontWeight:800, letterSpacing:'.06em', fontSize:13,
+                    cursor:'pointer', fontFamily:'inherit',
+                  }}>
+                  {myOpenEntry ? '⏹  CLOCK OUT' : '▶  CLOCK IN'}
+                </button>
+                {timeEntries.length > 0 && (
+                  <div style={{marginTop:10,display:'flex',flexDirection:'column',gap:4}}>
+                    {timeEntries.slice(0,5).map(t => {
+                      const mins = t.clock_out_at
+                        ? Math.round((new Date(t.clock_out_at) - new Date(t.clock_in_at)) / 60000)
+                        : null;
+                      return (
+                        <div key={t.id} style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#c8d4ee',padding:'4px 0',borderBottom:'1px solid #1a2236'}}>
+                          <div>{memberEmail(t.user_id).split('@')[0]}</div>
+                          <div style={{color:'#7a8db0'}}>
+                            {mins != null ? `${Math.floor(mins/60)}h ${mins%60}m` : 'running'}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {sheet !== 'new' && (
+              <div style={{margin:'14px 16px',padding:'12px',background:'#0f1626',border:'1px solid #2e3f60',borderRadius:10}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                  <div style={{fontSize:11,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0'}}>Checklist</div>
+                  <div style={{fontSize:11,color:'#7a8db0'}}>
+                    {checklist.filter(c => c.completed_at).length}/{checklist.length}
+                  </div>
+                </div>
+                {checklist.map(item => (
+                  <div key={item.id} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 0'}}>
+                    <button onClick={() => toggleChecklist(item)}
+                      style={{
+                        width:22, height:22, borderRadius:5,
+                        background: item.completed_at ? '#2edf87' : 'transparent',
+                        border: '1.5px solid ' + (item.completed_at ? '#2edf87' : '#7a8db0'),
+                        color:'#111827', fontWeight:900, cursor:'pointer', fontFamily:'inherit', flexShrink:0,
+                      }}>
+                      {item.completed_at ? '✓' : ''}
+                    </button>
+                    <div style={{flex:1,fontSize:13,color:item.completed_at ? '#7a8db0' : '#f0f4ff',textDecoration:item.completed_at ? 'line-through' : 'none'}}>{item.label}</div>
+                    {isOffice(role) && (
+                      <button onClick={() => deleteChecklistItem(item.id)}
+                        style={{background:'transparent',border:'none',color:'#7a8db0',fontSize:13,cursor:'pointer',padding:4}}>×</button>
+                    )}
+                  </div>
+                ))}
+                {isOffice(role) && (
+                  <div style={{display:'flex',gap:6,marginTop:8}}>
+                    <input value={newChecklistItem}
+                      onChange={e => setNewChecklistItem(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && addChecklistItem()}
+                      placeholder="Add a step..."
+                      style={{...inputStyle, flex:1}}/>
+                    <button onClick={addChecklistItem}
+                      style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'0 14px',fontWeight:700,fontSize:12,cursor:'pointer'}}>ADD</button>
+                  </div>
+                )}
+                {!checklist.length && !isOffice(role) && (
+                  <div style={{fontSize:12,color:'#7a8db0',fontStyle:'italic'}}>Foreman hasn't added steps for this job.</div>
+                )}
+              </div>
+            )}
+
+            {sheet !== 'new' && (
+              <div style={{margin:'14px 16px',padding:'12px',background:'#0f1626',border:'1px solid #2e3f60',borderRadius:10}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                  <div style={{fontSize:11,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0'}}>Materials used</div>
+                  <div style={{fontSize:11,color:'#7a8db0'}}>
+                    {fmt$(materials.reduce((s, m) => s + Number(m.quantity || 0) * Number(m.unit_cost || 0), 0))}
+                  </div>
+                </div>
+                {materials.map(m => (
+                  <div key={m.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:'1px solid #1a2236',fontSize:13}}>
+                    <div style={{flex:1}}>
+                      <div style={{color:'#f0f4ff'}}>{m.name}</div>
+                      <div style={{fontSize:11,color:'#7a8db0'}}>{m.quantity} × {fmt$(m.unit_cost)}</div>
+                    </div>
+                    <div style={{color:'#c8d4ee',marginRight:8}}>{fmt$(Number(m.quantity) * Number(m.unit_cost))}</div>
+                    <button onClick={() => removeMaterial(m.id)}
+                      style={{background:'transparent',border:'none',color:'#7a8db0',fontSize:13,cursor:'pointer',padding:4}}>×</button>
+                  </div>
+                ))}
+                <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr auto',gap:6,marginTop:8}}>
+                  <input value={newMaterial.name}
+                    onChange={e => setNewMaterial(p => ({...p, name:e.target.value}))}
+                    placeholder="Item"
+                    style={inputStyle}/>
+                  <input type="number" inputMode="decimal" value={newMaterial.quantity}
+                    onChange={e => setNewMaterial(p => ({...p, quantity:e.target.value}))}
+                    placeholder="Qty"
+                    style={inputStyle}/>
+                  <input type="number" inputMode="decimal" value={newMaterial.unit_cost}
+                    onChange={e => setNewMaterial(p => ({...p, unit_cost:e.target.value}))}
+                    placeholder="$/ea"
+                    style={inputStyle}/>
+                  <button onClick={addMaterial}
+                    style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'0 14px',fontWeight:700,fontSize:12,cursor:'pointer'}}>ADD</button>
+                </div>
+              </div>
+            )}
 
             {sheet !== 'new' && (() => {
               const revenue = Number(form.price) || 0;

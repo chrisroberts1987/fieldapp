@@ -10,6 +10,7 @@ import {
   jobScheduledEmail,
   crewInviteEmail,
   welcomeEmail,
+  onMyWayEmail,
 } from '../../../lib/email/templates';
 
 export const config = {
@@ -46,6 +47,10 @@ const TYPES = {
   job_scheduled: {
     template: jobScheduledEmail,
     required: ['customerName', 'jobTitle', 'scheduledDate'],
+  },
+  on_my_way: {
+    template: onMyWayEmail,
+    required: ['customerName', 'jobTitle'],
   },
   crew_invite: {
     template: crewInviteEmail,

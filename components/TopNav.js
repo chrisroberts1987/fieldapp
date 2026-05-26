@@ -15,6 +15,7 @@ const ALL_TABS = [
   { label:'Customers', route:'/customers', showFor:'office' },
   { label:'Leads',     route:'/leads',     showFor:'office' },
   { label:'Quotes',    route:'/quotes',    showFor:'foreman' },
+  { label:'Schedule',  route:'/schedule',  showFor:'all' },
   { label:'Jobs',      route:'/jobs',      showFor:'all' },
   { label:'Invoices',  route:'/invoices',  showFor:'foreman' },
   { label:'Expenses',  route:'/expenses',  showFor:'all',     // also serves /mileage via inner sub-nav
