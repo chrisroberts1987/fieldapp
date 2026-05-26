@@ -62,6 +62,15 @@ export default function InstallPrompt() {
       if (cancelled) return;
       if (!session) return;
 
+      // Don't fire while the welcome tour is still running for a
+      // first-time user. Both popping at once is confusing. After
+      // the contractor finishes (or skips) the tour, user_metadata
+      // gets stamped; on their next /dashboard visit the prompt is
+      // free to appear.
+      const meta = session.user?.user_metadata || {};
+      const tourFinished = meta.onboarding_completed_at || meta.onboarding_skipped_at;
+      if (!tourFinished) return;
+
       setPlatform(p);
 
       // Wait a moment so the dashboard has time to settle before we

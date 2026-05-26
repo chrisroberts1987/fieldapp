@@ -73,16 +73,21 @@ export default function TourOverlay() {
     if (!user) return;
     if (hasOrg !== true) return; // not yet known, or no org — don't fire
     if (!TOUR_ROUTES.has(router.pathname)) return;
-    if (active) return;
-    if (dismissedThisSessionRef.current) return; // user dismissed/finished — stay closed
-    const isDemo = user.email === DEMO_EMAIL;
+
+    // Forced replay (from Settings → "Replay welcome tour") must
+    // override BOTH the active gate and the dismissed flag so a user
+    // who already finished/skipped can still re-watch.
     const forced = typeof window !== 'undefined' && sessionStorage.getItem(SS_FORCE_KEY) === '1';
-    const seen = user.user_metadata?.onboarding_completed_at || user.user_metadata?.onboarding_skipped_at;
     if (forced) {
       sessionStorage.removeItem(SS_FORCE_KEY);
       dismissedThisSessionRef.current = false;
       setStep(0); setActive(true); return;
     }
+
+    if (active) return;
+    if (dismissedThisSessionRef.current) return; // user dismissed/finished — stay closed
+    const isDemo = user.email === DEMO_EMAIL;
+    const seen = user.user_metadata?.onboarding_completed_at || user.user_metadata?.onboarding_skipped_at;
     if (isDemo || !seen) {
       setStep(0); setActive(true);
     }
@@ -444,6 +449,18 @@ function Spotlight({ rect, missing, step, total, progressPct, title, body, prima
   const width  = rect.width + PAD * 2;
   const height = rect.height + PAD * 2;
 
+  // Place the tooltip on whichever side of the target has more room.
+  // The previous fixed-to-bottom layout would cover the target when
+  // the target itself was in the lower half of the viewport — the
+  // contractor couldn't see what the tour was pointing at.
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const GAP = 14;
+  const targetCenter = rect.top + rect.height / 2;
+  const placeAbove = targetCenter > vh * 0.55;
+  const tooltipPos = placeAbove
+    ? { bottom: `calc(${Math.max(8, vh - rect.top + GAP)}px + env(safe-area-inset-bottom, 0px))` }
+    : { top: `${Math.min(vh - 220, rect.bottom + GAP)}px` };
+
   return (
     <>
       {/* Outline ring on the spotlight itself */}
@@ -455,13 +472,10 @@ function Spotlight({ rect, missing, step, total, progressPct, title, body, prima
         animation: 'tourRingPulse 2s ease-in-out infinite',
       }}/>
 
-      {/* Tooltip — fixed at the bottom of the viewport so it's always
-          visible with its Next button reachable regardless of where the
-          target sits on the page. Accounts for the mobile bottom nav
-          (~64px) + iOS safe-area inset. */}
+      {/* Tooltip — positioned dynamically to NOT cover the target. */}
       <div style={{
         position:'fixed', left: '50%',
-        bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
+        ...tooltipPos,
         transform: 'translateX(-50%)',
         width: 'calc(100% - 24px)', maxWidth: 460,
         background: '#1a2236',
