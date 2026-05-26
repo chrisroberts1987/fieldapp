@@ -39,6 +39,7 @@ export default function Schedule() {
   const [jobs, setJobs] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [members, setMembers] = useState([]);
+  const [recurring, setRecurring] = useState([]);
   const [view, setView] = useState('week'); // 'week' | 'day'
   const [anchor, setAnchor] = useState(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [loading, setLoading] = useState(true);
@@ -55,7 +56,7 @@ export default function Schedule() {
     setLoading(true);
     const weekStart = startOfWeek(anchor);
     const weekEnd   = addDays(weekStart, 7);
-    const [{ data: j }, { data: c }, { data: m }] = await Promise.all([
+    const [{ data: j }, { data: c }, { data: m }, { data: rec }] = await Promise.all([
       supabase.from('jobs')
         .select('id, title, status, customer_id, assigned_to_user_id, scheduled_date, scheduled_time, price')
         .eq('org_id', orgId)
@@ -64,12 +65,41 @@ export default function Schedule() {
         .order('scheduled_date'),
       supabase.from('customers').select('id, name').eq('org_id', orgId),
       supabase.rpc('list_org_members', { p_org_id: orgId }),
+      supabase.from('recurring_jobs').select('*').eq('org_id', orgId).eq('active', true),
     ]);
     setJobs(j || []);
     setCustomers(c || []);
     setMembers(Array.isArray(m) ? m : []);
+    setRecurring(rec || []);
     setLoading(false);
   };
+
+  // Project recurring plans forward into the visible window. Cron will
+  // materialize each one on its next_run_date, but we want the user to
+  // see future occurrences before they exist as real jobs. These are
+  // rendered as ghost chips with a RECURRING tag.
+  function projectRecurring(plan, fromDate, toDate) {
+    const out = [];
+    const advance = (d) => {
+      const x = new Date(d);
+      switch (plan.cadence) {
+        case 'weekly':    x.setDate(x.getDate() + 7);  break;
+        case 'biweekly':  x.setDate(x.getDate() + 14); break;
+        case 'monthly':   x.setMonth(x.getMonth() + 1); break;
+        case 'quarterly': x.setMonth(x.getMonth() + 3); break;
+        case 'yearly':    x.setFullYear(x.getFullYear() + 1); break;
+      }
+      return x;
+    };
+    let cur = new Date(plan.next_run_date);
+    let safety = 0;
+    while (cur < toDate && safety < 200) {
+      if (cur >= fromDate) out.push(new Date(cur));
+      cur = advance(cur);
+      safety++;
+    }
+    return out;
+  }
 
   useEffect(() => {
     if (orgId) load();
@@ -150,6 +180,20 @@ export default function Schedule() {
           const iso = isoDay(day);
           const dayJobs = visibleJobs.filter(j => j.scheduled_date === iso)
             .sort((a,b) => (a.scheduled_time || '99:99').localeCompare(b.scheduled_time || '99:99'));
+          // Ghost preview rows for recurring plans that fall on this
+          // day but haven't been materialized into a real job yet.
+          // Office-only — crew shouldn't see plans for unassigned work.
+          const dayStart = new Date(day);
+          const dayEnd   = addDays(day, 1);
+          const ghostRecurring = isOffice(role)
+            ? recurring.flatMap(plan => {
+                const occurrences = projectRecurring(plan, dayStart, dayEnd);
+                return occurrences.map(occ => ({
+                  id: 'rec-' + plan.id + '-' + isoDay(occ),
+                  plan, occ,
+                }));
+              })
+            : [];
           const isToday = sameDay(day, todayObj);
           return (
             <div key={iso}
@@ -171,9 +215,34 @@ export default function Schedule() {
                 <div style={{fontSize:10,color:'#7a8db0',fontWeight:600}}>{dayJobs.length || ''}</div>
               </div>
 
-              {dayJobs.length === 0 && (
+              {dayJobs.length === 0 && ghostRecurring.length === 0 && (
                 <div style={{fontSize:11,color:'#5a6c8c',fontStyle:'italic',marginTop:'auto',marginBottom:'auto',textAlign:'center'}}>No jobs</div>
               )}
+
+              {ghostRecurring.map(g => {
+                const color = '#a855f7';
+                return (
+                  <div key={g.id}
+                    style={{
+                      background: color + '0a',
+                      border: '1px dashed ' + color + '66',
+                      borderLeftWidth: 3,
+                      borderLeftStyle: 'solid',
+                      borderLeftColor: color,
+                      borderRadius: 6,
+                      padding: '8px 10px',
+                      opacity: 0.85,
+                    }}
+                    title="Recurring plan — a real job will be created automatically on this date.">
+                    <div style={{fontSize:10,color:color,fontWeight:700,letterSpacing:'.06em'}}>🔁 RECURRING</div>
+                    <div style={{fontSize:13,fontWeight:600,lineHeight:1.25,color:'#f0f4ff'}}>{g.plan.title}</div>
+                    <div style={{fontSize:11,color:'#a8b8d8',marginTop:2}}>{customerName(g.plan.customer_id)}</div>
+                    {g.plan.price ? (
+                      <div style={{fontSize:11,color:'#7a8db0',marginTop:2}}>{fmt$(g.plan.price)}</div>
+                    ) : null}
+                  </div>
+                );
+              })}
 
               {dayJobs.map(j => {
                 const color = STATUS_COLOR[j.status] || '#7a8db0';

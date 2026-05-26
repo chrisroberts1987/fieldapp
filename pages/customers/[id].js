@@ -183,6 +183,12 @@ export default function CustomerDetail() {
     } else {
       await supabase.from('recurring_jobs').insert(payload);
     }
+    // If next_run_date is today or past, materialize immediately so
+    // the first occurrence shows up right away instead of waiting
+    // for the 7am UTC cron tick.
+    if (payload.next_run_date <= new Date().toISOString().slice(0, 10)) {
+      await supabase.rpc('materialize_recurring_jobs');
+    }
     setRecurringForm(null);
     await loadAll();
   };
