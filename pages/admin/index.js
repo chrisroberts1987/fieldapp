@@ -192,19 +192,9 @@ function BusinessesSection() {
       </div>
 
       {!data ? <Loading/> : (
-        <div style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,overflow:'hidden'}}>
-          <div style={tableHeader}>
-            <div style={{flex:'1 1 200px',minWidth:0}}>Business</div>
-            <div style={hideMobile}>Owner</div>
-            <div style={hideMobile}>Signed Up</div>
-            <div style={hideMobile}>Last Active</div>
-            <div style={{flex:'0 0 70px',textAlign:'right'}}>Jobs</div>
-            <div style={{flex:'0 0 70px',textAlign:'right'}}>Inv</div>
-            <div style={{flex:'0 0 90px',textAlign:'center'}}>Status</div>
-            <div style={{flex:'0 0 100px'}}/>
-          </div>
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
           {filtered.length === 0 ? (
-            <div style={{padding:'40px 16px',textAlign:'center',color:'#7a8db0'}}>No businesses match.</div>
+            <div style={{padding:'40px 16px',textAlign:'center',color:'#7a8db0',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12}}>No businesses match.</div>
           ) : filtered.map(b => (
             <BusinessRow key={b.id} b={b} onView={() => setDetail(b)} />
           ))}
@@ -216,24 +206,44 @@ function BusinessesSection() {
   );
 }
 
+// Card layout (vs the old fixed-column table). The previous table
+// added up to >330px of fixed column widths which left negative
+// space for the name + pushed the View button off-screen on
+// phones. A flex-wrapping card with the name at the top and the
+// stats wrapping below renders cleanly at every viewport size.
 function BusinessRow({ b, onView }) {
   const statusColor = b.status === 'active' ? '#2edf87' : b.status === 'trial' ? '#fbbf24' : '#f26060';
   return (
-    <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',borderTop:'1px solid #2e3f60',fontSize:13}}>
-      <div style={{flex:'1 1 200px',minWidth:0}}>
-        <div style={{color:'#f0f4ff',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{b.name}</div>
-        <div style={{fontSize:11,color:'#7a8db0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{b.ownerEmail || b.businessEmail || '—'}</div>
+    <div onClick={onView}
+      style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'12px 14px',cursor:'pointer',transition:'border-color .15s'}}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = '#4f9eff66'; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = '#2e3f60'; }}>
+      <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:8}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.04em',color:'#f0f4ff',lineHeight:1.15,wordBreak:'break-word'}}>
+            {b.name || 'Unnamed business'}
+          </div>
+          <div style={{fontSize:12,color:'#7a8db0',marginTop:3,wordBreak:'break-word'}}>
+            {b.ownerEmail || b.businessEmail || 'No email on file'}
+            {b.ownerName ? ` · ${b.ownerName}` : ''}
+          </div>
+        </div>
+        <span style={{background:statusColor+'22',color:statusColor,border:'1px solid '+statusColor+'66',borderRadius:999,padding:'2px 9px',fontSize:10,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap',flexShrink:0}}>
+          {b.status}
+        </span>
       </div>
-      <div style={hideMobile}><span style={{fontSize:12,color:'#c8d4ee'}}>{b.ownerName || '—'}</span></div>
-      <div style={hideMobile}><span style={{fontSize:12,color:'#c8d4ee'}}>{fmtDateLoose(b.createdAt)}</span></div>
-      <div style={hideMobile}><span style={{fontSize:12,color:'#c8d4ee'}}>{fmtDateLoose(b.lastActive)}</span></div>
-      <div style={{flex:'0 0 70px',textAlign:'right',color:'#c8d4ee',fontVariantNumeric:'tabular-nums'}}>{b.jobsCount}</div>
-      <div style={{flex:'0 0 70px',textAlign:'right',color:'#c8d4ee',fontVariantNumeric:'tabular-nums'}}>{b.invoicesCount}</div>
-      <div style={{flex:'0 0 90px',textAlign:'center'}}>
-        <span style={{background:statusColor+'22',color:statusColor,border:'1px solid '+statusColor+'66',borderRadius:999,padding:'2px 9px',fontSize:10,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase'}}>{b.status}</span>
-      </div>
-      <div style={{flex:'0 0 100px',textAlign:'right'}}>
-        <button onClick={onView} style={{...btnGhost,padding:'5px 10px',fontSize:11}}>View</button>
+      <div style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'center',fontSize:12,color:'#7a8db0'}}>
+        <span><strong style={{color:'#c8d4ee'}}>{b.jobsCount ?? 0}</strong> jobs</span>
+        <span><strong style={{color:'#c8d4ee'}}>{b.invoicesCount ?? 0}</strong> invoices</span>
+        <span><strong style={{color:'#c8d4ee'}}>{b.customersCount ?? 0}</strong> customers</span>
+        <span style={{color:'#7a8db0'}}>signed up {fmtDateLoose(b.createdAt)}</span>
+        {b.lastActive && b.lastActive !== b.createdAt && (
+          <span style={{color:'#7a8db0'}}>active {fmtDateLoose(b.lastActive)}</span>
+        )}
+        <button onClick={e => { e.stopPropagation(); onView(); }}
+          style={{marginLeft:'auto',background:'#4f9eff22',border:'1px solid #4f9eff66',borderRadius:8,color:'#4f9eff',padding:'5px 12px',fontSize:11,fontWeight:700,letterSpacing:'.06em',cursor:'pointer',fontFamily:'inherit'}}>
+          VIEW
+        </button>
       </div>
     </div>
   );
@@ -457,8 +467,20 @@ function SupportSection() {
     // support we want email matches preferentially; surface the
     // first hit that has the email exactly, otherwise the first.
     const list = Array.isArray(r) ? r : (r.businesses || []);
-    const exact = list.find(b => (b.owner_email || '').toLowerCase() === q);
-    const first = exact || list[0] || null;
+    // Endpoint matches name OR email server-side; we still narrow
+    // by exact email locally so "joe@x.com" beats "joeschmoe@y.com".
+    const exact = list.find(b => {
+      const oe = (b.ownerEmail || '').toLowerCase();
+      const be = (b.businessEmail || '').toLowerCase();
+      return oe === q || be === q;
+    });
+    // Fall back to substring match if no exact hit.
+    const sub = list.find(b => {
+      const oe = (b.ownerEmail || '').toLowerCase();
+      const be = (b.businessEmail || '').toLowerCase();
+      return oe.includes(q) || be.includes(q);
+    });
+    const first = exact || sub || list[0] || null;
     if (!first) { setErr('No business found with that email.'); return; }
     setMatch(first);
   };
@@ -491,9 +513,9 @@ function SupportSection() {
               <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:24,letterSpacing:'.04em',margin:'4px 0 0',color:'#f0f4ff'}}>
                 {(match.name || 'Unnamed').toUpperCase()}
               </div>
-              <div style={{fontSize:13,color:'#c8d4ee',marginTop:4}}>{match.owner_email || '—'}</div>
+              <div style={{fontSize:13,color:'#c8d4ee',marginTop:4}}>{match.ownerEmail || match.businessEmail || '—'}</div>
               <div style={{fontSize:11,color:'#7a8db0',marginTop:2}}>
-                {match.subscription_status || 'no plan'} · {match.job_count ?? 0} jobs · {match.invoice_count ?? 0} invoices · joined {match.created_at ? fmtDate(match.created_at) : '—'}
+                {match.status || 'no plan'} · {match.jobsCount ?? 0} jobs · {match.invoicesCount ?? 0} invoices · joined {match.createdAt ? fmtDateLoose(match.createdAt) : '—'}
               </div>
             </div>
             <button onClick={() => setOpenId(match.id)}
