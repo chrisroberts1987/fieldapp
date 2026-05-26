@@ -536,6 +536,9 @@ export default function Jobs() {
     // doesn't block job completion or invoice creation. A skipped
     // signature (`{ skipped:true }`) is here just to bypass the
     // re-prompt gate — no upload.
+    // signatureMeta gets passed into the completion email so the
+    // customer's receipt embeds the signature they just made.
+    let signatureMeta = null;
     if (signature && signature.dataUrl && savedJobId) {
       try {
         const blob = await (await fetch(signature.dataUrl)).blob();
@@ -545,11 +548,13 @@ export default function Jobs() {
           .upload(path, blob, { contentType: 'image/png', upsert: false });
         if (!upErr) {
           const { data: pub } = supabase.storage.from('job-signatures').getPublicUrl(path);
+          const signedAt = new Date().toISOString();
           await supabase.from('jobs').update({
             signature_url:  pub?.publicUrl || null,
             signed_by_name: signature.name,
-            signed_at:      new Date().toISOString(),
+            signed_at:      signedAt,
           }).eq('id', savedJobId);
+          signatureMeta = { url: pub?.publicUrl || null, name: signature.name, at: signedAt };
         }
       } catch {
         // Silent — signature is bonus, not a blocker.
@@ -680,7 +685,14 @@ export default function Jobs() {
         await sendEmail({
           type: 'job_completed',
           to: cust.email,
-          data: { customerName: cust.name, jobTitle: payload.title, description: payload.description || null },
+          data: {
+            customerName: cust.name,
+            jobTitle:     payload.title,
+            description:  payload.description || null,
+            signatureUrl: signatureMeta?.url || null,
+            signedByName: signatureMeta?.name || null,
+            signedAt:     signatureMeta?.at  || null,
+          },
         });
       }
 

@@ -108,16 +108,27 @@ export default function CustomerPortal() {
             ...invoices.filter(i => i.status === 'paid').map(i => ({ kind:'invoice', date:i.paid_date || i.issued_date, ...i })),
             ...jobs.filter(j => j.status === 'completed').map(j => ({ kind:'job', date:j.scheduled_date, ...j })),
           ].sort((a,b) => (b.date || '').localeCompare(a.date || '')).slice(0, 12).map(item => (
-            <div key={item.kind + ':' + item.id} style={rowStyle}>
-              <div style={{flex:1}}>
-                <div style={{fontWeight:600}}>{item.kind === 'invoice' ? (item.notes || 'Invoice') : item.title}</div>
-                <div style={{fontSize:11,color:'#7a8db0'}}>
-                  {item.date ? fmtDate(item.date) : ''}{item.kind === 'invoice' ? ' · paid' : ' · completed'}
+            <div key={item.kind + ':' + item.id} style={{...rowStyle, flexDirection:'column', alignItems:'stretch'}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:600}}>{item.kind === 'invoice' ? (item.notes || 'Invoice') : item.title}</div>
+                  <div style={{fontSize:11,color:'#7a8db0'}}>
+                    {item.date ? fmtDate(item.date) : ''}{item.kind === 'invoice' ? ' · paid' : ' · completed'}
+                    {item.kind === 'job' && item.signature_url ? ' · ✓ signed' : ''}
+                  </div>
                 </div>
+                {item.amount || item.price ? (
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:'#7a8db0'}}>{fmt$(item.amount || item.price)}</div>
+                ) : null}
               </div>
-              {item.amount || item.price ? (
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:'#7a8db0'}}>{fmt$(item.amount || item.price)}</div>
-              ) : null}
+              {item.kind === 'job' && item.signature_url && (
+                <div style={{marginTop:8,background:'#fff',borderRadius:8,padding:6}}>
+                  <img src={item.signature_url} alt="Your signature" style={{display:'block',width:'100%',maxHeight:90,objectFit:'contain'}}/>
+                  {item.signed_by_name && (
+                    <div style={{fontSize:11,color:'#5a6c8c',textAlign:'center',marginTop:4}}>Signed by {item.signed_by_name}</div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </Section>

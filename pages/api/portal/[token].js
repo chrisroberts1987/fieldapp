@@ -33,7 +33,7 @@ export default async function handler(req, res) {
       .select('name, business_email, logo_url')
       .eq('id', customer.org_id).maybeSingle(),
     sb.from('jobs')
-      .select('id, title, status, scheduled_date, scheduled_time, price')
+      .select('id, title, status, scheduled_date, scheduled_time, price, signature_url, signed_by_name, signed_at')
       .eq('customer_id', customer.id)
       .order('scheduled_date', { ascending: false, nullsFirst: false }),
     sb.from('quotes')

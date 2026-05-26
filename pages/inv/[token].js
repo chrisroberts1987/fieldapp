@@ -107,6 +107,18 @@ export default function PublicInvoice() {
         {!isPaid && <Row label="Status" value="Unpaid" color="#fbbf24"/>}
         {inv.notes && <Row label="Notes" value={inv.notes}/>}
 
+        {inv.job?.signature_url && (
+          <div style={{marginTop:18,padding:'14px',background:'rgba(46,223,135,0.06)',border:'1px solid rgba(46,223,135,0.35)',borderRadius:12}}>
+            <div style={{fontSize:11,fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',color:'#2edf87',marginBottom:8}}>✓ You signed off on this work</div>
+            <div style={{background:'#fff',borderRadius:8,padding:8,marginBottom:8}}>
+              <img src={inv.job.signature_url} alt="Your signature" style={{display:'block',width:'100%',maxHeight:140,objectFit:'contain'}}/>
+            </div>
+            <div style={{fontSize:12,color:'#c8d4ee'}}>
+              Signed by {inv.job.signed_by_name || 'you'}{inv.job.signed_at ? ` on ${new Date(inv.job.signed_at).toLocaleDateString()}` : ''}.
+            </div>
+          </div>
+        )}
+
         {!isPaid && org.card_payments_enabled && (
           <div style={{marginTop:22}}>
             <button onClick={pay} disabled={paying}
