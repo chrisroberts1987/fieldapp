@@ -14,18 +14,40 @@ export default function QuoteDetail() {
   const { orgId, loading: orgLoading } = useOrg(user);
   const [quote, setQuote] = useState(null);
   const [customers, setCustomers] = useState([]);
+  const [services, setServices] = useState([]);
+  const [lineItems, setLineItems] = useState([]);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
 
   const load = async () => {
-    const [{ data: q }, { data: c }] = await Promise.all([
+    const [{ data: q }, { data: c }, { data: s }, { data: li }] = await Promise.all([
       supabase.from('quotes').select('*').eq('id', id).eq('org_id', orgId).maybeSingle(),
       supabase.from('customers').select('id,name,email,phone').eq('org_id', orgId).order('name'),
+      supabase.from('services').select('*').eq('org_id', orgId).eq('active', true).order('name'),
+      supabase.from('quote_line_items').select('*').eq('quote_id', id).order('position'),
     ]);
     setQuote(q || null);
     setCustomers(c || []);
+    setServices(s || []);
+    setLineItems(li || []);
   };
+
+  // Line items math: each line is qty × unit_price, summed for the
+  // quote total. We keep quote.amount in sync on save so existing
+  // downstream code (invoice creation, dashboard widgets) keeps
+  // working without changes.
+  const lineTotal = (li) => Number(li.quantity || 0) * Number(li.unit_price || 0);
+  const computedTotal = lineItems.reduce((s, li) => s + lineTotal(li), 0);
+
+  const addLineItem = (service) => {
+    const blank = service
+      ? { id: 'tmp-' + Math.random(), quote_id: id, service_id: service.id, name: service.name, quantity: 1, unit_price: Number(service.unit_price || 0), position: lineItems.length }
+      : { id: 'tmp-' + Math.random(), quote_id: id, service_id: null, name: '', quantity: 1, unit_price: 0, position: lineItems.length };
+    setLineItems(prev => [...prev, blank]);
+  };
+  const updateLineItem = (idx, patch) => setLineItems(prev => prev.map((li, i) => i === idx ? { ...li, ...patch } : li));
+  const removeLineItem = (idx) => setLineItems(prev => prev.filter((_, i) => i !== idx));
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -61,10 +83,14 @@ export default function QuoteDetail() {
       return;
     }
     setSaving(true);
+    // If line items are present, use their sum as the quote amount —
+    // the field is then effectively read-only. If no line items, fall
+    // back to the manually-entered amount.
+    const finalAmount = lineItems.length > 0 ? computedTotal : (Number(quote.amount) || 0);
     const { error: e } = await supabase.from('quotes').update({
       title: quote.title.trim(),
       description: quote.description,
-      amount: Number(quote.amount) || 0,
+      amount: finalAmount,
       customer_id: quote.customer_id || null,
       customer_name: quote.customer_name.trim(),
       customer_email: quote.customer_email || null,
@@ -72,7 +98,23 @@ export default function QuoteDetail() {
       valid_until: quote.valid_until || null,
       notes: quote.notes || null,
     }).eq('id', id);
-    if (e) setError(e.message);
+    if (e) { setError(e.message); setSaving(false); return; }
+    // Sync line items. Simplest reliable approach: delete then
+    // re-insert. Quote line items are short-lived per quote and the
+    // table has no FKs pointing in, so this is safe.
+    await supabase.from('quote_line_items').delete().eq('quote_id', id);
+    if (lineItems.length > 0) {
+      await supabase.from('quote_line_items').insert(
+        lineItems.map((li, idx) => ({
+          quote_id: id,
+          service_id: li.service_id || null,
+          name: (li.name || '').trim() || 'Item',
+          quantity: Number(li.quantity) || 0,
+          unit_price: Number(li.unit_price) || 0,
+          position: idx,
+        }))
+      );
+    }
     setSaving(false);
   };
 
@@ -180,8 +222,14 @@ export default function QuoteDetail() {
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:8}}>
             <div>
-              <div style={fieldLabel}>Amount ($) *</div>
-              <input type="number" inputMode="decimal" value={quote.amount ?? ''} onChange={e => update('amount', e.target.value)} style={inputStyle} disabled={isClosed}/>
+              <div style={fieldLabel}>
+                Amount ($) {lineItems.length > 0 ? '(from line items)' : '*'}
+              </div>
+              <input type="number" inputMode="decimal"
+                value={lineItems.length > 0 ? computedTotal.toFixed(2) : (quote.amount ?? '')}
+                onChange={e => update('amount', e.target.value)}
+                style={{...inputStyle, opacity: lineItems.length > 0 ? 0.7 : 1}}
+                disabled={isClosed || lineItems.length > 0}/>
             </div>
             <div>
               <div style={fieldLabel}>Valid Until</div>
@@ -192,6 +240,60 @@ export default function QuoteDetail() {
             <div style={fieldLabel}>Internal Notes (not shown to customer)</div>
             <textarea maxLength={2000} value={quote.notes || ''} onChange={e => update('notes', e.target.value)} style={{...inputStyle, minHeight:50, resize:'vertical', fontFamily:'inherit'}} disabled={isClosed}/>
           </div>
+        </Section>
+
+        <Section title="Line items">
+          <div style={{fontSize:12,color:'#c8d4ee',marginBottom:10}}>
+            Add itemized services. The amount above becomes the sum of these lines. Leave empty for a single flat-rate quote.
+          </div>
+          {lineItems.length > 0 && (
+            <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:10}}>
+              {lineItems.map((li, idx) => (
+                <div key={li.id} style={{display:'grid',gridTemplateColumns:'2fr 60px 80px 70px auto',gap:6,alignItems:'center'}}>
+                  <input value={li.name} disabled={isClosed}
+                    onChange={e => updateLineItem(idx, { name:e.target.value })}
+                    placeholder="Description" style={inputStyle}/>
+                  <input type="number" inputMode="decimal" value={li.quantity}
+                    onChange={e => updateLineItem(idx, { quantity:e.target.value })}
+                    disabled={isClosed} placeholder="Qty" style={inputStyle}/>
+                  <input type="number" inputMode="decimal" value={li.unit_price}
+                    onChange={e => updateLineItem(idx, { unit_price:e.target.value })}
+                    disabled={isClosed} placeholder="$/ea" style={inputStyle}/>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,color:'#c8d4ee',textAlign:'right'}}>{fmt$(lineTotal(li))}</div>
+                  {!isClosed && (
+                    <button onClick={() => removeLineItem(idx)}
+                      style={{background:'transparent',border:'none',color:'#7a8db0',cursor:'pointer',fontSize:16}}>×</button>
+                  )}
+                </div>
+              ))}
+              <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0 0',borderTop:'1px solid #2e3f60',marginTop:4}}>
+                <div style={{fontSize:12,color:'#7a8db0',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase'}}>Total</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:'#2edf87'}}>{fmt$(computedTotal)}</div>
+              </div>
+            </div>
+          )}
+          {!isClosed && (
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              <button onClick={() => addLineItem(null)}
+                style={{...btnGhost, padding:'8px 12px', fontSize:12}}>+ CUSTOM LINE</button>
+              {services.length > 0 && (
+                <select onChange={e => {
+                  const svc = services.find(s => s.id === e.target.value);
+                  if (svc) { addLineItem(svc); e.target.value = ''; }
+                }} value="" style={{...inputStyle, flex:'1 1 200px', minWidth:0}}>
+                  <option value="">+ From catalog...</option>
+                  {services.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} — {fmt$(s.unit_price)}/{s.unit}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+          {services.length === 0 && (
+            <div style={{fontSize:11,color:'#7a8db0',marginTop:8}}>
+              Tip: Build a price book at <a onClick={() => router.push('/services')} style={{color:'#4f9eff',cursor:'pointer'}}>Services</a> so common items autofill.
+            </div>
+          )}
         </Section>
 
         {!isClosed && (

@@ -6,6 +6,7 @@ import TopNav from '../components/TopNav';
 import { validateUpload, ACCEPT_ATTR } from '../lib/uploads';
 import { launchTour } from '../components/TourOverlay';
 import { enablePushNotifications, disablePushNotifications, notificationPermission, isPushSupported } from '../lib/push/client';
+import TwoFactorSection from '../components/TwoFactorSection';
 
 export default function Settings() {
   const router = useRouter();
@@ -336,6 +337,8 @@ export default function Settings() {
         </button>
 
         <PushToggle/>
+
+        <TwoFactorSection/>
 
         <Section title="Switch to MyForeman">
           <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.55,marginBottom:12}}>

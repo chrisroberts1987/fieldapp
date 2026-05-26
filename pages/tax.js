@@ -167,6 +167,65 @@ export default function Tax() {
     a.remove();
   };
 
+  // QuickBooks-friendly CSV. Columns match QB Online's import template
+  // for invoices (Date, Invoice No, Customer, Item, Description, Qty,
+  // Rate, Amount). One row per paid invoice — sufficient for revenue
+  // import. Expenses use the QB "Expenses" template (Date, Vendor,
+  // Account, Memo, Amount).
+  const downloadQuickbooks = () => {
+    const csv = (s) => `"${String(s ?? '').replace(/"/g, '""')}"`;
+    const linesInv = ['Date,Invoice No,Customer,Item,Description,Qty,Rate,Amount'];
+    paid.forEach(p => {
+      linesInv.push([
+        p.paid_date,
+        csv(p.id?.slice(0, 8) || ''),
+        csv(p.customer_name || ''),
+        csv('Services'),
+        csv(p.notes || 'Service rendered'),
+        '1',
+        Number(p.amount || 0).toFixed(2),
+        Number(p.amount || 0).toFixed(2),
+      ].join(','));
+    });
+    const linesExp = ['Date,Vendor,Account,Memo,Amount'];
+    expenses.forEach(e => {
+      linesExp.push([
+        e.expense_date,
+        csv(e.vendor || 'Vendor'),
+        csv(qbCategory(e.category)),
+        csv(e.description || e.category),
+        Number(e.amount || 0).toFixed(2),
+      ].join(','));
+    });
+    const all = '### QuickBooks Online — Invoices\n' + linesInv.join('\n')
+              + '\n\n### QuickBooks Online — Expenses\n' + linesExp.join('\n');
+    const blob = new Blob([all], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `myforeman-quickbooks-${year}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+  // Map MyForeman expense categories to QB Online's Schedule C chart
+  // of accounts so the rows land in roughly the right buckets after
+  // import.
+  function qbCategory(cat) {
+    return {
+      materials: 'Supplies',
+      fuel:      'Vehicle:Fuel',
+      labor:     'Subcontractors',
+      equipment: 'Equipment',
+      meals:     'Meals & Entertainment',
+      vehicle:   'Vehicle:Maintenance',
+      tools:     'Tools',
+      office:    'Office Supplies',
+      insurance: 'Insurance',
+      software:  'Software',
+      other:     'Other Expenses',
+    }[cat] || 'Other Expenses';
+  }
+
   const today      = new Date();
   const nextDue    = quarters.find(q => q.due >= today) || null;
 
@@ -235,10 +294,14 @@ export default function Tax() {
             <div style={{marginTop:6,fontSize:11,color:'#7a8db0',lineHeight:1.55}}>
               Deductions: {fmt$(ytdExpensesDeductible)} expenses{ytdExpensesDeductible !== ytdExpensesRaw && <> (of {fmt$(ytdExpensesRaw)} logged, meals 50%)</>} + {fmt$(ytdMileageDeduction)} mileage ({ytdMiles.toFixed(1)} mi × ${IRS_RATE.toFixed(2)})
             </div>
-            <div style={{marginTop:14}}>
+            <div style={{marginTop:14,display:'flex',gap:8,flexWrap:'wrap'}}>
               <button onClick={downloadCSV}
                 style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'8px 14px',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:13,letterSpacing:'.06em',fontWeight:700,cursor:'pointer'}}>
                 EXPORT FOR ACCOUNTANT (CSV)
+              </button>
+              <button onClick={downloadQuickbooks}
+                style={{background:'#2edf87',border:'none',borderRadius:8,color:'#111827',padding:'8px 14px',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:13,letterSpacing:'.06em',fontWeight:700,cursor:'pointer'}}>
+                EXPORT FOR QUICKBOOKS
               </button>
             </div>
             {nextDue && (

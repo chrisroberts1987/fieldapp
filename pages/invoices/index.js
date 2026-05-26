@@ -8,6 +8,7 @@ import TopNav from '../../components/TopNav';
 import { sendEmail, sendInvoiceEmail } from '../../lib/email/client';
 import { firePushEvent } from '../../lib/push/fire';
 import MarkPaidModal from '../../components/MarkPaidModal';
+import { logAudit } from '../../lib/audit';
 
 const FILTERS = [
   { key:'all',    label:'All' },
@@ -168,8 +169,13 @@ export default function Invoices() {
 
   const del = async (id) => {
     if (!confirm('Delete this invoice?')) return;
+    const target = invoices.find(x => x.id === id);
     await supabase.from('invoices').delete().eq('id', id);
     setInvoices(inv => inv.filter(x => x.id !== id));
+    logAudit({
+      orgId, action: 'invoice.deleted', targetType: 'invoice', targetId: id,
+      details: { amount: target?.amount, customer_id: target?.customer_id },
+    });
   };
 
   const quickMarkPaid = (inv) => {
