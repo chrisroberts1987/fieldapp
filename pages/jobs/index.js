@@ -334,11 +334,32 @@ export default function Jobs() {
       anyOk = true;
     }
 
-    // Auto-clock-in the crew member. The point of On My Way is "I'm
-    // starting this job now" — making them tap a second button to
-    // also start the timer was extra clicks for no gain. Skipped if
-    // they're already clocked in to this or any other job.
-    if (!myOpenEntry) {
+    // Auto-clock-in for THIS visit. For multi-day jobs, we want one
+    // entry per workday — so if there's already an open entry on
+    // this job from a previous calendar day, close it out first
+    // (capped at start + 8 hours so an abandoned timer never
+    // records 24h+ of "work"), then open a new one for today.
+    // Same-day open entries are kept — the user is just re-tapping.
+    const todayIso = todayStr();
+    if (myOpenEntry) {
+      const startedIso = (myOpenEntry.clock_in_at || '').slice(0, 10);
+      if (startedIso && startedIso < todayIso) {
+        // Stale: close it at clock_in + 8h (or now, whichever is earlier).
+        const startedMs = new Date(myOpenEntry.clock_in_at).getTime();
+        const capMs     = startedMs + 8 * 3600 * 1000;
+        const nowMs     = Date.now();
+        const closedAt  = new Date(Math.min(capMs, nowMs)).toISOString();
+        await supabase.from('time_entries').update({
+          clock_out_at: closedAt,
+          notes: (myOpenEntry.notes ? myOpenEntry.notes + ' · ' : '') + 'Auto-closed at next visit (cap 8h)',
+        }).eq('id', myOpenEntry.id);
+        // Open a fresh entry for today below.
+      }
+    }
+    // Only open a new entry if the user is not currently clocked in
+    // to this job for today.
+    const stillOpen = myOpenEntry && (myOpenEntry.clock_in_at || '').slice(0, 10) === todayIso;
+    if (!stillOpen) {
       const { data: te } = await supabase.from('time_entries').insert({
         org_id: orgId,
         job_id: sheet.id,
@@ -521,13 +542,30 @@ export default function Jobs() {
         .is('clock_out_at', null);
       if (openEntries && openEntries.length > 0) {
         const { lat, lng } = await tryGetCoords();
-        const closedAt = new Date().toISOString();
+        const nowIso = new Date().toISOString();
+        const nowMs  = Date.now();
+        const today  = todayStr();
         for (const te of openEntries) {
+          // If the entry was opened today, close at right-now with
+          // the current GPS for accurate mileage. If it was opened
+          // on a prior day (crew forgot to mark complete each
+          // evening on a multi-day job), cap at start + 8h and skip
+          // the mileage row — we don't have a trustworthy end point
+          // for a trip that "ended" days ago.
+          const startedIso = (te.clock_in_at || '').slice(0, 10);
+          const sameDay    = startedIso === today;
+          const closedAt   = sameDay
+            ? nowIso
+            : new Date(Math.min(new Date(te.clock_in_at).getTime() + 8 * 3600 * 1000, nowMs)).toISOString();
           await supabase.from('time_entries').update({
             clock_out_at: closedAt,
-            out_lat: lat ?? null,
-            out_lng: lng ?? null,
+            out_lat: sameDay ? (lat ?? null) : null,
+            out_lng: sameDay ? (lng ?? null) : null,
+            notes: sameDay
+              ? te.notes
+              : (te.notes ? te.notes + ' · ' : '') + 'Auto-closed on completion (cap 8h)',
           }).eq('id', te.id);
+          if (!sameDay) continue; // skip the mileage row for stale-close days
 
           // Mileage row from this entry's start ↔ now coordinates.
           // Uses OSRM (OpenStreetMap routing) driving distance; falls
@@ -759,34 +797,34 @@ export default function Jobs() {
               </div>
             </div>
 
-            <div style={{display:'flex',gap:8,margin:'10px 16px',flexWrap:'wrap'}}>
-              <div style={{flex:'1 1 120px'}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,margin:'10px 16px'}}>
+              <div>
                 <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Start date</div>
                 <input type="date" value={form.scheduled_date || ''}
                   onChange={e => setForm(p => ({...p, scheduled_date:e.target.value}))}
                   style={inputStyle}/>
               </div>
-              <div style={{flex:'1 1 120px'}}>
-                <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>End date (multi-day)</div>
+              <div>
+                <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>End date</div>
                 <input type="date" value={form.scheduled_end_date || ''}
                   min={form.scheduled_date || undefined}
                   onChange={e => setForm(p => ({...p, scheduled_end_date:e.target.value}))}
-                  style={inputStyle}
-                  placeholder="Optional"/>
+                  style={inputStyle}/>
               </div>
-              <div style={{flex:'1 1 90px'}}>
-                <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Time</div>
+              <div>
+                <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Start time</div>
                 <input type="time" value={form.scheduled_time || ''}
                   onChange={e => setForm(p => ({...p, scheduled_time:e.target.value}))}
                   style={inputStyle}/>
               </div>
-              <div style={{flex:'1 1 90px'}}>
+              <div>
                 <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Price ($)</div>
                 <input type="number" inputMode="decimal" placeholder="0.00" value={form.price}
                   onChange={e => setForm(p => ({...p, price:e.target.value}))}
                   style={inputStyle}/>
               </div>
             </div>
+            <div style={{margin:'-4px 16px 0',fontSize:11,color:'#7a8db0'}}>End date is optional. Set it for multi-day jobs.</div>
 
             <div style={{margin:'10px 16px'}}>
               <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Description</div>
