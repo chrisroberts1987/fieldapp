@@ -15,6 +15,7 @@ const ALL_TABS = [
   { label:'Customers', route:'/customers', showFor:'office' },
   { label:'Leads',     route:'/leads',     showFor:'office' },
   { label:'Quotes',    route:'/quotes',    showFor:'foreman' },
+  { label:'Services',  route:'/services',  showFor:'foreman' },
   { label:'Schedule',  route:'/schedule',  showFor:'all' },
   { label:'Jobs',      route:'/jobs',      showFor:'all' },
   { label:'Invoices',  route:'/invoices',  showFor:'foreman' },
@@ -312,14 +313,16 @@ function MobileBottomNav({ role, active, router, onSignOut }) {
   const [moreOpen, setMoreOpen] = useState(false);
 
   const allPrimary = [
-    { route:'/dashboard', label:'Dashboard', icon:<DashIcon/>,    showFor:'all' },
-    { route:'/leads',     label:'Leads',     icon:<PhoneIcon/>,   showFor:'office' },
-    { route:'/quotes',    label:'Quotes',    icon:<ScrollIcon/>,  showFor:'foreman' },
-    { route:'/jobs',      label:'Jobs',      icon:<WrenchIcon/>,  showFor:'all' },
-    { route:'/invoices',  label:'Invoices',  icon:<ReceiptIcon/>, showFor:'foreman' },
+    { route:'/dashboard', label:'Dashboard', icon:<DashIcon/>,     showFor:'all' },
+    { route:'/leads',     label:'Leads',     icon:<PhoneIcon/>,    showFor:'office' },
+    { route:'/schedule',  label:'Schedule',  icon:<CalendarIcon/>, showFor:'all' },
+    { route:'/jobs',      label:'Jobs',      icon:<WrenchIcon/>,   showFor:'all' },
+    { route:'/invoices',  label:'Invoices',  icon:<ReceiptIcon/>,  showFor:'foreman' },
   ];
   const allMore = [
     { route:'/customers', label:'Customers', icon:<PeopleIcon/>,  showFor:'office' },
+    { route:'/quotes',    label:'Quotes',    icon:<ScrollIcon/>,  showFor:'foreman' },
+    { route:'/services',  label:'Services',  icon:<PriceTagIcon/>,showFor:'foreman' },
     { route:'/crew',      label:'Crew',      icon:<CrewIcon/>,    showFor:'all',     alsoMatches:['/approvals'] },
     { route:'/expenses',  label:'Expenses',  icon:<WalletIcon/>,  showFor:'all',     alsoMatches:['/mileage'] },
     { route:'/tax',       label:'Tax',       icon:<PieIcon/>,     showFor:'foreman' },
@@ -455,6 +458,8 @@ function LogoutIcon()  { return svg(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1
 function MailIcon()    { return svg(<><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2 7 12 13 22 7"/></>); }
 function CardIcon()    { return svg(<><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></>); }
 function StarTabIcon() { return svg(<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/>); }
+function CalendarIcon(){ return svg(<><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>); }
+function PriceTagIcon(){ return svg(<><path d="M20.59 13.41 13 21 3 11V3h8l9.59 9.59a2 2 0 0 1 0 2.83Z"/><circle cx="7.5" cy="7.5" r="1.5"/></>); }
 
 function MenuItem({ label, onClick, danger }) {
   return (
