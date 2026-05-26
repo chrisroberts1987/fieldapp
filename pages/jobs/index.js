@@ -219,19 +219,32 @@ export default function Jobs() {
       assigned_to_user_id: newAssignee,
       assigned_at: (newAssignee && newAssignee !== prevAssignee) ? new Date().toISOString() : (sheet !== 'new' ? sheet?.assigned_at : null),
     };
+    // Auto-promote pending → scheduled when a date is now set. The
+    // contractor's intent is clear: putting a date on a pending job
+    // means they've scheduled it. Without this, contractors who set
+    // the date without touching the status buttons would silently
+    // skip the customer notification.
+    if (payload.status === 'pending' && payload.scheduled_date) {
+      payload.status = 'scheduled';
+    }
     // A trigger in migration 0012 auto-creates the invoice when a job hits
     // 'completed' status, so the client side just persists the change.
     const wasCompleted = sheet !== 'new' && sheet?.status === 'completed';
     const nowCompleted = payload.status === 'completed';
-    // Detect newly-scheduled jobs so we can email the customer the date.
-    // Two qualifying transitions:
-    //   pending → scheduled with a date
-    //   no date → date set (date filled in for the first time)
+    // Detect newly-scheduled jobs so we can email the customer. Fires
+    // when either:
+    //   - status transitions pending → scheduled (with a date), OR
+    //   - a date is set on a job that didn't have one before, OR
+    //   - the date itself changes (rescheduled)
+    // Skips when the customer was already notified (status was already
+    // scheduled AND the date didn't change).
     const prevDate   = sheet !== 'new' ? sheet?.scheduled_date : null;
     const prevStatus = sheet !== 'new' ? sheet?.status : null;
+    const dateChanged = payload.scheduled_date !== prevDate;
     const justScheduled = !!payload.scheduled_date && (
-      (prevStatus === 'pending' && payload.status === 'scheduled') ||
-      (!prevDate && payload.status === 'scheduled')
+      (prevStatus === 'pending') ||
+      (!prevDate) ||
+      (dateChanged && payload.status === 'scheduled')
     );
     let savedJobId = sheet !== 'new' ? sheet.id : null;
     if (sheet === 'new') {
@@ -249,14 +262,16 @@ export default function Jobs() {
     }
 
     // Fire the "your job is scheduled" notifications to the customer
-    // on the transition from pending (or no-date) → scheduled with a
-    // date. Email + SMS both go out — fire-and-forget, silent on
-    // failure (SMS no-ops if Twilio isn't configured yet).
+    // on the transition. Email + SMS both go out. We surface a
+    // visible result (toast) so the contractor knows whether the
+    // customer was actually notified — previously this was
+    // fire-and-forget which made silent failures invisible.
+    let scheduleNotice = null;
     if (justScheduled && payload.customer_id) {
       const cust = customers.find(c => c.id === payload.customer_id);
       const human = fmtDate(payload.scheduled_date);
       if (cust?.email) {
-        await sendEmail({
+        const r = await sendEmail({
           type: 'job_scheduled',
           to: cust.email,
           data: {
@@ -266,6 +281,11 @@ export default function Jobs() {
             description: payload.description || null,
           },
         });
+        scheduleNotice = r?.ok
+          ? { ok: true,  text: `Emailed ${cust.email} the scheduled date.` }
+          : { ok: false, text: `Customer email didn't send: ${r?.error || 'unknown error'}` };
+      } else if (cust) {
+        scheduleNotice = { ok: false, text: `No email on file for ${cust.name}. Add one in Customers to auto-notify them next time.` };
       }
       if (cust?.phone) {
         // Best-effort SMS — server endpoint returns skipped:true if
@@ -324,6 +344,11 @@ export default function Jobs() {
     await loadAll();
     setSaving(false);
     setSheet(null);
+    if (scheduleNotice) {
+      // Quick contractor-facing feedback so they know the customer
+      // was (or wasn't) notified.
+      alert(scheduleNotice.text);
+    }
   };
 
   const del = async (id) => {
