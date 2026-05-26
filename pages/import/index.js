@@ -4,44 +4,49 @@ import * as XLSX from 'xlsx';
 import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
 import TopNav from '../../components/TopNav';
-import { TARGET_SCHEMAS, PRESETS, detectFormat, buildDefaultMapping } from '../../lib/import/presets';
+import {
+  TARGET_SCHEMAS, ENTITY_ORDER, ENTITY_LABELS,
+  PRESETS, detectFormat, buildDefaultMapping, classifySheet,
+} from '../../lib/import/presets';
 
-// Five-step data import flow:
-//   1. Pick what to import (customers / jobs / invoices)
-//   2. Drop a CSV or Excel file
-//   3. We auto-detect format (Jobber / Housecall / QuickBooks) and
-//      pre-fill the column mapping; user can override.
-//   4. Preview the first 5 mapped rows.
-//   5. Run the import. Server-side dedupe means re-running is safe;
-//      nothing gets overwritten.
+// Unified import flow. The contractor drops in EVERYTHING — one
+// multi-sheet xlsx from Jobber, or all their QuickBooks CSVs at
+// once, or whatever — and we:
+//   1. Parse every sheet across every file
+//   2. Auto-classify each sheet as customers / quotes / jobs /
+//      invoices / expenses / mileage based on sheet name + headers
+//   3. Auto-detect the source platform (Jobber / Housecall /
+//      QuickBooks / generic) for column mapping
+//   4. Show one preview: 'we'll create X customers, Y jobs, Z
+//      invoices...' with the option to override classifications
+//      or skip entire sheets
+//   5. Run a validate-only pass server-side to surface dedupes +
+//      errors BEFORE writing anything
+//   6. The contractor reviews the preview, then ONE button commits
+//      the whole import in dependency order with auto-create
+//      placeholders for any customers referenced but not in the
+//      customer sheet
 //
-// Hard caps: 1000 rows per import, .csv/.xlsx/.xls only. The xlsx
-// (SheetJS) lib parses everything client-side so the server only
-// sees a clean array of typed rows.
+// Caps: 5000 rows per entity, 30000 across all entities, 6MB per
+// file, 10 files per upload.
 
-const MAX_ROWS = 1000;
-const ENTITIES = [
-  { key: 'customers', label: 'Customers' },
-  { key: 'jobs',      label: 'Jobs' },
-  { key: 'invoices',  label: 'Invoices' },
-];
+const MAX_FILES_PER_UPLOAD = 10;
 
 export default function ImportPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const { orgId, loading: orgLoading } = useOrg(user);
 
-  const [entity, setEntity]     = useState('customers');
-  const [fileName, setFileName] = useState('');
-  const [headers, setHeaders]   = useState([]);
-  const [rows, setRows]         = useState([]);     // raw rows: array of { header: cellValue }
-  const [presetId, setPresetId] = useState('generic');
-  const [mapping, setMapping]   = useState({});     // targetKey → sourceHeader
-  const [parseErr, setParseErr] = useState('');
+  const [sheets, setSheets]       = useState([]); // [{ id, fileName, sheetName, headers, rows, entity, mapping }]
+  const [parseErr, setParseErr]   = useState('');
 
-  const [running, setRunning] = useState(false);
-  const [result, setResult]   = useState(null);     // { inserted, skipped, errors }
-  const [runErr, setRunErr]   = useState('');
+  const [previewing, setPreviewing] = useState(false);
+  const [preview, setPreview]       = useState(null); // server response from validateOnly
+  const [previewErr, setPreviewErr] = useState('');
+
+  const [running, setRunning]   = useState(false);
+  const [result, setResult]     = useState(null);
+  const [runErr, setRunErr]     = useState('');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -54,83 +59,151 @@ export default function ImportPage() {
     if (user && !orgLoading && !orgId) router.push('/onboarding');
   }, [user, orgLoading, orgId]);
 
-  // Re-run auto-detect + mapping whenever the entity or headers change.
-  useEffect(() => {
-    if (!headers.length) return;
-    const det = detectFormat(headers, entity);
-    setPresetId(det.id);
-    setMapping(buildDefaultMapping(det.id, entity, headers));
-  }, [entity, headers]);
+  const onFiles = async (fileList) => {
+    setParseErr(''); setPreview(null); setResult(null);
+    const files = Array.from(fileList || []).slice(0, MAX_FILES_PER_UPLOAD);
+    if (files.length === 0) return;
 
-  const onFile = async (file) => {
-    setParseErr(''); setResult(null); setRunErr('');
-    if (!file) return;
-    const okExt = /\.(csv|xlsx|xls)$/i.test(file.name);
-    if (!okExt) {
-      setParseErr('Please upload a .csv, .xlsx, or .xls file.');
-      return;
-    }
-    if (file.size > 8 * 1024 * 1024) {
-      setParseErr('File is too large. 8 MB max.');
-      return;
-    }
-    try {
-      const buf = await file.arrayBuffer();
-      const wb  = XLSX.read(buf, { type: 'array' });
-      const sheetName = wb.SheetNames[0];
-      const sheet     = wb.Sheets[sheetName];
-      if (!sheet) { setParseErr('No sheet found in file.'); return; }
-      const json = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
-      if (!json.length) { setParseErr('File has no rows.'); return; }
-      if (json.length > MAX_ROWS) {
-        setParseErr(`File has ${json.length} rows. Maximum is ${MAX_ROWS} per import. Split the file and try again.`);
-        return;
+    const next = [];
+    for (const file of files) {
+      if (!/\.(csv|xlsx|xls)$/i.test(file.name)) {
+        setParseErr(`${file.name}: unsupported file type. Use .csv, .xlsx, or .xls.`);
+        continue;
       }
-      const cols = Object.keys(json[0]);
-      setFileName(file.name);
-      setHeaders(cols);
-      setRows(json);
-    } catch (e) {
-      setParseErr(e?.message || 'Could not read file.');
+      if (file.size > 6 * 1024 * 1024) {
+        setParseErr(`${file.name}: file too large (max 6 MB).`);
+        continue;
+      }
+      try {
+        const buf = await file.arrayBuffer();
+        const wb  = XLSX.read(buf, { type: 'array' });
+        for (const sheetName of wb.SheetNames) {
+          const sheet = wb.Sheets[sheetName];
+          const json  = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+          if (!json.length) continue;
+          const headers = Object.keys(json[0]);
+          const entity  = classifySheet(sheetName, headers);
+          const fmt     = detectFormat(headers, entity === 'unknown' ? 'customers' : entity);
+          const mapping = entity === 'unknown'
+            ? {}
+            : buildDefaultMapping(fmt.id, entity, headers);
+          next.push({
+            id: `${file.name}::${sheetName}`,
+            fileName: file.name,
+            sheetName,
+            headers,
+            rows: json,
+            entity,
+            presetId: fmt.id,
+            mapping,
+          });
+        }
+      } catch (e) {
+        setParseErr(`${file.name}: could not read (${e?.message || 'unknown'})`);
+      }
     }
+    setSheets(prev => [...prev, ...next]);
   };
 
   const onDrop = (e) => {
     e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file) onFile(file);
+    if (e.dataTransfer.files?.length) onFiles(e.dataTransfer.files);
   };
 
-  const schema = TARGET_SCHEMAS[entity];
+  const setSheetEntity = (id, entity) => {
+    setSheets(prev => prev.map(s => {
+      if (s.id !== id) return s;
+      if (entity === 'unknown' || entity === 'skip') return { ...s, entity: entity, mapping: {} };
+      const fmt = detectFormat(s.headers, entity);
+      return { ...s, entity, presetId: fmt.id, mapping: buildDefaultMapping(fmt.id, entity, s.headers) };
+    }));
+    setPreview(null);
+  };
 
-  // Has every required field been mapped?
-  const ready = headers.length > 0 && schema.every(f => !f.required || mapping[f.key]);
+  const setSheetMapping = (id, key, src) => {
+    setSheets(prev => prev.map(s => s.id === id ? { ...s, mapping: { ...s.mapping, [key]: src } } : s));
+    setPreview(null);
+  };
 
-  // Build the typed payload from rows × mapping, ready to POST.
-  const buildPayload = () => rows.map(r => {
-    const out = {};
-    for (const f of schema) {
-      const src = mapping[f.key];
-      if (src) out[f.key] = r[src];
+  const dropSheet = (id) => {
+    setSheets(prev => prev.filter(s => s.id !== id));
+    setPreview(null);
+  };
+
+  const reset = () => {
+    setSheets([]); setPreview(null); setResult(null);
+    setParseErr(''); setPreviewErr(''); setRunErr('');
+  };
+
+  // Build the batched payload from all classified sheets.
+  const buildBatches = () => {
+    const batches = {};
+    for (const e of ENTITY_ORDER) batches[e] = [];
+    for (const s of sheets) {
+      if (!s.entity || s.entity === 'unknown' || s.entity === 'skip') continue;
+      if (!ENTITY_ORDER.includes(s.entity)) continue;
+      const schema = TARGET_SCHEMAS[s.entity];
+      const reqsMissing = schema.some(f => f.required && !s.mapping[f.key]);
+      if (reqsMissing) continue; // skip sheets with unmapped required fields
+      for (const row of s.rows) {
+        const out = {};
+        for (const f of schema) {
+          const src = s.mapping[f.key];
+          if (src) out[f.key] = row[src];
+        }
+        batches[s.entity].push(out);
+      }
     }
-    return out;
-  });
+    return batches;
+  };
 
-  const previewRows = buildPayload().slice(0, 5);
+  // Sheets that are fully ready to import (entity + all required mapped)
+  const sheetReady = (s) => {
+    if (!s.entity || s.entity === 'unknown' || s.entity === 'skip') return false;
+    const schema = TARGET_SCHEMAS[s.entity];
+    return schema.every(f => !f.required || s.mapping[f.key]);
+  };
+  const anyReady = sheets.some(sheetReady);
+
+  // Per-entity totals for the inline preview header
+  const totals = (() => {
+    const t = {};
+    for (const e of ENTITY_ORDER) t[e] = 0;
+    for (const s of sheets) if (sheetReady(s)) t[s.entity] += s.rows.length;
+    return t;
+  })();
+
+  const runValidate = async () => {
+    if (!anyReady) return;
+    setPreviewing(true); setPreviewErr(''); setPreview(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.push('/login'); return; }
+      const r = await fetch('/api/import/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ validateOnly: true, batches: buildBatches() }),
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) { setPreviewErr(body?.error || `Preview failed (${r.status})`); return; }
+      setPreview(body);
+    } catch (e) {
+      setPreviewErr(e?.message || 'Network error.');
+    } finally {
+      setPreviewing(false);
+    }
+  };
 
   const runImport = async () => {
-    if (!ready || running) return;
+    if (!anyReady || running) return;
     setRunning(true); setRunErr(''); setResult(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/login'); return; }
       const r = await fetch('/api/import/run', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ entity, rows: buildPayload() }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ validateOnly: false, batches: buildBatches() }),
       });
       const body = await r.json().catch(() => ({}));
       if (!r.ok) { setRunErr(body?.error || `Import failed (${r.status})`); return; }
@@ -142,197 +215,241 @@ export default function ImportPage() {
     }
   };
 
-  const reset = () => {
-    setFileName(''); setHeaders([]); setRows([]);
-    setMapping({}); setPresetId('generic');
-    setResult(null); setRunErr(''); setParseErr('');
-  };
-
-  if (!user || orgLoading) {
-    return <div style={loadingStyle}>Loading...</div>;
-  }
+  if (!user || orgLoading) return <div style={loadingStyle}>Loading...</div>;
 
   return (
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif",paddingBottom:80}}>
       <TopNav active="/settings"/>
 
-      <div style={{maxWidth:760,margin:'24px auto 14px',padding:'0 16px'}}>
+      <div style={{maxWidth:820,margin:'24px auto 14px',padding:'0 16px'}}>
         {router.query.from === 'onboarding'
           ? <button onClick={() => router.push('/onboarding')} style={backStyle}>← Back to setup</button>
           : <button onClick={() => router.push('/settings')} style={backStyle}>← Settings</button>}
         <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase',marginTop:8}}>Switch to MyForeman</div>
-        <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:36,letterSpacing:'.04em',margin:'4px 0 0'}}>IMPORT DATA</h1>
+        <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:36,letterSpacing:'.04em',margin:'4px 0 0'}}>IMPORT EVERYTHING</h1>
         <div style={{fontSize:13,color:'#c8d4ee',marginTop:8,lineHeight:1.55}}>
-          Coming from Jobber, Housecall Pro, QuickBooks, or a spreadsheet? Bring your customers, jobs, and invoices over in a few minutes. We never overwrite anything you already have. Re-running an import is safe.
+          Drop in your full export from Jobber, Housecall Pro, QuickBooks, or any spreadsheet. Multi-sheet workbooks and multiple CSVs both work. We classify what's in each sheet, auto-create any missing customers, and run the whole thing in one shot. Nothing gets overwritten and you'll see exactly what will happen before you commit.
         </div>
       </div>
 
-      <div style={{maxWidth:760,margin:'18px auto 0',padding:'0 16px'}}>
+      <div style={{maxWidth:820,margin:'18px auto 0',padding:'0 16px'}}>
 
-        {/* Step 1: pick entity */}
-        <Section step="1" title="What are you importing?">
-          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-            {ENTITIES.map(opt => (
-              <button key={opt.key} onClick={() => { setEntity(opt.key); setResult(null); }}
-                style={{
-                  background: entity === opt.key ? '#4f9eff' : 'transparent',
-                  border: '1.5px solid ' + (entity === opt.key ? '#4f9eff' : '#2e3f60'),
-                  borderRadius: 999, color: entity === opt.key ? '#fff' : '#c8d4ee',
-                  padding: '8px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                  fontFamily: 'inherit', letterSpacing: '.05em',
-                }}>
-                {opt.label.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          {entity !== 'customers' && (
-            <div style={{marginTop:10,fontSize:12,color:'#fbbf24',background:'#fbbf2412',border:'1px solid #fbbf2433',borderRadius:8,padding:'8px 12px',lineHeight:1.5}}>
-              Heads up: {entity} are linked to customers. If a customer in your file doesn't exist in MyForeman yet, the row will be skipped with an error. Import customers first.
+        {/* Drop zone */}
+        <div onDragOver={e => e.preventDefault()} onDrop={onDrop}
+          style={{border:'1.5px dashed #2e3f60',borderRadius:12,padding:'24px 16px',textAlign:'center',background:'#1a2236',marginBottom:14}}>
+          <div style={{fontSize:32,marginBottom:8}}>📂</div>
+          <label style={{cursor:'pointer'}}>
+            <input type="file" accept=".csv,.xlsx,.xls" multiple
+              onChange={e => onFiles(e.target.files)}
+              style={{display:'none'}}/>
+            <div style={{display:'inline-block',background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'10px 18px',fontSize:13,fontWeight:700,letterSpacing:'.05em'}}>
+              CHOOSE FILES
             </div>
-          )}
-        </Section>
-
-        {/* Step 2: upload */}
-        <Section step="2" title="Upload your file">
-          <div onDragOver={e => e.preventDefault()} onDrop={onDrop}
-            style={{border:'1.5px dashed #2e3f60',borderRadius:12,padding:'24px 16px',textAlign:'center',background:'#1a2236'}}>
-            <div style={{fontSize:32,marginBottom:8}}>📄</div>
-            <label style={{cursor:'pointer'}}>
-              <input type="file" accept=".csv,.xlsx,.xls"
-                onChange={e => onFile(e.target.files?.[0])}
-                style={{display:'none'}}/>
-              <div style={{display:'inline-block',background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'10px 18px',fontSize:13,fontWeight:700,letterSpacing:'.05em'}}>
-                CHOOSE FILE
-              </div>
-            </label>
-            <div style={{fontSize:12,color:'#7a8db0',marginTop:10}}>
-              or drag and drop · .csv, .xlsx, .xls · max {MAX_ROWS} rows
-            </div>
-            {fileName && (
-              <div style={{marginTop:14,padding:'10px 12px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:8,display:'flex',justifyContent:'space-between',alignItems:'center',gap:10}}>
-                <div style={{fontSize:13,color:'#f0f4ff',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                  {fileName} <span style={{color:'#7a8db0',fontSize:11}}>· {rows.length} rows</span>
-                </div>
-                <button onClick={reset} style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:6,color:'#c8d4ee',padding:'4px 10px',fontSize:11,cursor:'pointer'}}>Change</button>
-              </div>
-            )}
+          </label>
+          <div style={{fontSize:12,color:'#7a8db0',marginTop:10}}>
+            or drag and drop · multiple files at once · multi-sheet xlsx supported
           </div>
           {parseErr && <ErrorBox text={parseErr}/>}
-        </Section>
+        </div>
 
-        {/* Step 3: detected format + mapping */}
-        {headers.length > 0 && (
-          <Section step="3" title="Match your columns">
-            <div style={{fontSize:12,color:'#c8d4ee',marginBottom:10,lineHeight:1.5}}>
-              {presetId === 'generic'
-                ? "We couldn't auto-detect the format, so pick the matching column for each field below. Required fields are starred."
-                : <>Detected <strong style={{color:'#2edf87'}}>{PRESETS.find(p => p.id === presetId)?.label}</strong> format. Defaults pre-filled below — adjust any that aren't right.</>}
+        {/* Detected sheets */}
+        {sheets.length > 0 && (
+          <div style={{marginBottom:14}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,flexWrap:'wrap',gap:8}}>
+              <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.12em',textTransform:'uppercase',fontWeight:700}}>
+                {sheets.length} sheet{sheets.length === 1 ? '' : 's'} detected
+              </div>
+              <button onClick={reset} style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:6,color:'#c8d4ee',padding:'4px 10px',fontSize:11,cursor:'pointer'}}>Reset</button>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
-              {schema.map(f => (
-                <div key={f.key} style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-                  <div style={{flex:'0 0 140px',fontSize:12,color:'#c8d4ee',fontWeight:600}}>
-                    {f.label}{f.required && <span style={{color:'#fbbf24',marginLeft:4}}>*</span>}
-                  </div>
-                  <select value={mapping[f.key] || ''}
-                    onChange={e => setMapping(m => ({ ...m, [f.key]: e.target.value }))}
-                    style={{flex:'1 1 200px',background:'#1a2236',border:'1px solid #2e3f60',borderRadius:8,color:'#f0f4ff',padding:'8px 10px',fontSize:13,fontFamily:'inherit'}}>
-                    <option value="">— skip —</option>
-                    {headers.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                </div>
+              {sheets.map(s => (
+                <SheetCard key={s.id} sheet={s}
+                  onEntity={(e) => setSheetEntity(s.id, e)}
+                  onMap={(k, src) => setSheetMapping(s.id, k, src)}
+                  onDrop={() => dropSheet(s.id)}
+                />
               ))}
-            </div>
-          </Section>
-        )}
-
-        {/* Step 4: preview */}
-        {headers.length > 0 && ready && (
-          <Section step="4" title={`Preview (first ${Math.min(5, previewRows.length)} rows)`}>
-            <div style={{overflowX:'auto',border:'1px solid #2e3f60',borderRadius:8}}>
-              <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-                <thead>
-                  <tr style={{background:'#1a2236'}}>
-                    {schema.filter(f => mapping[f.key]).map(f => (
-                      <th key={f.key} style={{textAlign:'left',padding:'8px 10px',color:'#7a8db0',fontWeight:600,whiteSpace:'nowrap',borderBottom:'1px solid #2e3f60'}}>
-                        {f.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {previewRows.map((r, i) => (
-                    <tr key={i} style={{borderTop:'1px solid #1f2a40'}}>
-                      {schema.filter(f => mapping[f.key]).map(f => (
-                        <td key={f.key} style={{padding:'8px 10px',color:'#f0f4ff',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:200}}>
-                          {String(r[f.key] ?? '')}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Section>
-        )}
-
-        {/* Step 5: run */}
-        {headers.length > 0 && ready && !result && (
-          <div style={{marginTop:18,marginBottom:18}}>
-            <button onClick={runImport} disabled={running}
-              style={{width:'100%',background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'14px 0',fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.08em',cursor:running?'progress':'pointer',opacity:running?0.6:1}}>
-              {running ? `IMPORTING ${rows.length} ROWS…` : `IMPORT ${rows.length} ${entity.toUpperCase()}`}
-            </button>
-            {runErr && <ErrorBox text={runErr}/>}
-            <div style={{fontSize:11,color:'#7a8db0',textAlign:'center',marginTop:8,lineHeight:1.5}}>
-              Nothing in MyForeman gets overwritten. Duplicates (matched by email/phone for customers, by customer + amount + date for invoices) are silently skipped.
             </div>
           </div>
         )}
 
-        {/* Result */}
-        {result && <ResultCard result={result} entity={entity} onAnother={reset}/>}
+        {/* Totals + Preview action */}
+        {anyReady && !result && (
+          <div style={{background:'#1e2a42',border:'1px solid #4f9eff44',borderRadius:12,padding:'14px 14px',marginBottom:14}}>
+            <div style={{fontSize:11,color:'#4f9eff',letterSpacing:'.12em',textTransform:'uppercase',fontWeight:700,marginBottom:8}}>Ready to import</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:14,fontSize:13,color:'#c8d4ee',marginBottom:12}}>
+              {ENTITY_ORDER.map(e => totals[e] > 0 && (
+                <span key={e}><strong style={{color:'#f0f4ff'}}>{totals[e]}</strong> {ENTITY_LABELS[e].toLowerCase()}</span>
+              ))}
+            </div>
+            <button onClick={runValidate} disabled={previewing}
+              style={{width:'100%',background:'transparent',border:'1.5px solid #4f9eff',borderRadius:10,color:'#4f9eff',padding:'11px 0',fontWeight:700,fontSize:13,letterSpacing:'.05em',cursor:previewing?'progress':'pointer',opacity:previewing?0.7:1}}>
+              {previewing ? 'CHECKING…' : 'PREVIEW (CHECK FOR DUPES + ERRORS)'}
+            </button>
+            {previewErr && <ErrorBox text={previewErr}/>}
+          </div>
+        )}
+
+        {/* Preview result */}
+        {preview && !result && (
+          <PreviewCard preview={preview} totals={totals}
+            onCommit={runImport} committing={running}
+            runErr={runErr}/>
+        )}
+
+        {/* Final result */}
+        {result && <ResultCard result={result} onAnother={reset}/>}
       </div>
     </div>
   );
 }
 
-function Section({ step, title, children }) {
+// =============================================================
+// Per-sheet card: shows classification + mapping + raw preview
+// =============================================================
+function SheetCard({ sheet, onEntity, onMap, onDrop }) {
+  const [expanded, setExpanded] = useState(sheet.entity === 'unknown');
+  const isSkip = sheet.entity === 'skip';
+  const isUnknown = sheet.entity === 'unknown';
+  const schema = (sheet.entity && TARGET_SCHEMAS[sheet.entity]) || [];
+  const missingReqs = schema.filter(f => f.required && !sheet.mapping[f.key]).map(f => f.label);
+
+  const pillColor = isUnknown ? '#fbbf24' : isSkip ? '#7a8db0'
+    : missingReqs.length > 0 ? '#fbbf24'
+    : '#2edf87';
+  const pillLabel = isUnknown ? 'Needs entity'
+    : isSkip ? 'Skipped'
+    : missingReqs.length > 0 ? `Map ${missingReqs.join(', ')}`
+    : ENTITY_LABELS[sheet.entity];
+
   return (
-    <div style={{marginBottom:14,background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:12,padding:'14px 14px 14px'}}>
-      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
-        <div style={{width:24,height:24,borderRadius:999,background:'#4f9eff22',border:'1px solid #4f9eff66',color:'#4f9eff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700}}>
-          {step}
+    <div style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'12px 14px'}}>
+      <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:6,flexWrap:'wrap'}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:13,color:'#f0f4ff',fontWeight:600,wordBreak:'break-word'}}>
+            {sheet.sheetName}{sheet.fileName !== sheet.sheetName ? ` · ${sheet.fileName}` : ''}
+          </div>
+          <div style={{fontSize:11,color:'#7a8db0',marginTop:2}}>
+            {sheet.rows.length} rows · {sheet.headers.length} columns{sheet.presetId !== 'generic' && !isSkip && !isUnknown ? ` · ${PRESETS.find(p => p.id === sheet.presetId)?.label} format` : ''}
+          </div>
         </div>
-        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,letterSpacing:'.08em',color:'#f0f4ff'}}>{title.toUpperCase()}</div>
+        <span style={{background:pillColor+'22',color:pillColor,border:'1px solid '+pillColor+'66',borderRadius:999,padding:'2px 9px',fontSize:10,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>
+          {pillLabel}
+        </span>
+        <button onClick={onDrop} title="Remove this sheet from the import"
+          style={{background:'none',border:'1px solid #2e3f60',borderRadius:6,color:'#7a8db0',width:24,height:24,cursor:'pointer',fontSize:12,padding:0,lineHeight:1}}>✕</button>
       </div>
-      {children}
+
+      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginTop:6}}>
+        <label style={{fontSize:11,color:'#7a8db0',letterSpacing:'.06em',textTransform:'uppercase',fontWeight:600}}>Imports as:</label>
+        <select value={sheet.entity || 'unknown'} onChange={e => onEntity(e.target.value)}
+          style={{background:'#0d1726',border:'1px solid #2e3f60',borderRadius:8,color:'#f0f4ff',padding:'6px 10px',fontSize:12,fontFamily:'inherit'}}>
+          <option value="unknown">— pick —</option>
+          {ENTITY_ORDER.map(e => <option key={e} value={e}>{ENTITY_LABELS[e]}</option>)}
+          <option value="skip">Skip this sheet</option>
+        </select>
+        {!isSkip && !isUnknown && (
+          <button onClick={() => setExpanded(x => !x)}
+            style={{marginLeft:'auto',background:'transparent',border:'1px solid #2e3f60',borderRadius:6,color:'#c8d4ee',padding:'5px 10px',fontSize:11,cursor:'pointer'}}>
+            {expanded ? 'Hide mapping' : 'Adjust mapping'}
+          </button>
+        )}
+      </div>
+
+      {expanded && !isSkip && !isUnknown && (
+        <div style={{marginTop:10,padding:'10px 12px',background:'#0d1726',border:'1px solid #2e3f60',borderRadius:8}}>
+          {schema.map(f => (
+            <div key={f.key} style={{display:'flex',alignItems:'center',gap:10,marginBottom:6,flexWrap:'wrap'}}>
+              <div style={{flex:'0 0 140px',fontSize:12,color:'#c8d4ee',fontWeight:600}}>
+                {f.label}{f.required && <span style={{color:'#fbbf24',marginLeft:4}}>*</span>}
+              </div>
+              <select value={sheet.mapping[f.key] || ''} onChange={e => onMap(f.key, e.target.value)}
+                style={{flex:'1 1 200px',background:'#1a2236',border:'1px solid #2e3f60',borderRadius:8,color:'#f0f4ff',padding:'7px 10px',fontSize:12,fontFamily:'inherit'}}>
+                <option value="">— skip —</option>
+                {sheet.headers.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function ResultCard({ result, entity, onAnother }) {
-  const { inserted, skipped, errors } = result;
+// =============================================================
+// Preview card — shows the planned result, gates the IMPORT button
+// =============================================================
+function PreviewCard({ preview, totals, onCommit, committing, runErr }) {
+  const r = preview.results || {};
   return (
-    <div style={{marginTop:18,marginBottom:18,background:'rgba(46,223,135,0.08)',border:'1px solid rgba(46,223,135,0.35)',borderRadius:12,padding:'18px 16px'}}>
+    <div style={{background:'rgba(46,223,135,0.06)',border:'1px solid rgba(46,223,135,0.35)',borderRadius:12,padding:'14px 14px',marginBottom:14}}>
+      <div style={{fontSize:11,color:'#2edf87',letterSpacing:'.12em',textTransform:'uppercase',fontWeight:700,marginBottom:8}}>Preview · nothing imported yet</div>
+      <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:12}}>
+        {ENTITY_ORDER.map(e => r[e] && (totals[e] > 0 || r[e].inserted > 0 || r[e].skipped > 0 || r[e].errors.length > 0) && (
+          <PreviewRow key={e} label={ENTITY_LABELS[e]} stats={r[e]}/>
+        ))}
+      </div>
+      {(r.customers?.autoCreated || 0) > 0 && (
+        <div style={{fontSize:12,color:'#c8d4ee',background:'#1a2236',border:'1px solid #2e3f60',borderRadius:8,padding:'8px 10px',marginBottom:10}}>
+          Will auto-create <strong>{r.customers.autoCreated}</strong> placeholder customer{r.customers.autoCreated === 1 ? '' : 's'} from job/invoice/quote rows whose customers aren't in your file.
+        </div>
+      )}
+      <button onClick={onCommit} disabled={committing}
+        style={{width:'100%',background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'13px 0',fontFamily:"'Bebas Neue',sans-serif",fontSize:17,letterSpacing:'.08em',cursor:committing?'progress':'pointer',opacity:committing?0.6:1}}>
+        {committing ? 'IMPORTING…' : 'COMMIT IMPORT'}
+      </button>
+      {runErr && <ErrorBox text={runErr}/>}
+    </div>
+  );
+}
+
+function PreviewRow({ label, stats }) {
+  return (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 0',gap:8,fontSize:13,color:'#c8d4ee',borderBottom:'1px solid #1f2a40'}}>
+      <span style={{fontWeight:600,color:'#f0f4ff'}}>{label}</span>
+      <span>
+        <strong style={{color:'#2edf87'}}>{stats.inserted}</strong> new
+        {stats.skipped > 0 && <> · <span style={{color:'#7a8db0'}}>{stats.skipped} dupe{stats.skipped === 1 ? '' : 's'}</span></>}
+        {stats.errors.length > 0 && <> · <span style={{color:'#f26060'}}>{stats.errors.length} error{stats.errors.length === 1 ? '' : 's'}</span></>}
+      </span>
+    </div>
+  );
+}
+
+// =============================================================
+// Final result
+// =============================================================
+function ResultCard({ result, onAnother }) {
+  const r = result.results || {};
+  const totalInserted = ENTITY_ORDER.reduce((s, e) => s + ((r[e]?.inserted) || 0), 0);
+  const allErrors = ENTITY_ORDER.flatMap(e =>
+    (r[e]?.errors || []).map(err => ({ ...err, entity: ENTITY_LABELS[e] }))
+  );
+  return (
+    <div style={{marginTop:6,marginBottom:18,background:'rgba(46,223,135,0.08)',border:'1px solid rgba(46,223,135,0.35)',borderRadius:12,padding:'18px 16px'}}>
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
         <div style={{fontSize:24}}>✓</div>
         <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,letterSpacing:'.06em',color:'#2edf87'}}>
-          IMPORT COMPLETE
+          IMPORTED {totalInserted} RECORDS
         </div>
       </div>
-      <div style={{fontSize:14,color:'#f0f4ff',lineHeight:1.6,marginBottom:10}}>
-        Imported <strong>{inserted}</strong> {entity}{skipped > 0 ? `, skipped ${skipped} duplicates` : ''}{errors?.length ? `, ${errors.length} errors` : ''}.
+      <div style={{display:'flex',flexDirection:'column',gap:4,marginBottom:14}}>
+        {ENTITY_ORDER.map(e => r[e] && (r[e].inserted > 0 || r[e].skipped > 0 || (r[e].errors?.length || 0) > 0) && (
+          <PreviewRow key={e} label={ENTITY_LABELS[e]} stats={r[e]}/>
+        ))}
       </div>
-      {errors && errors.length > 0 && (
+      {(r.customers?.autoCreated || 0) > 0 && (
+        <div style={{fontSize:12,color:'#c8d4ee',background:'#1a2236',border:'1px solid #2e3f60',borderRadius:8,padding:'8px 10px',marginBottom:10}}>
+          Auto-created <strong>{r.customers.autoCreated}</strong> placeholder customer{r.customers.autoCreated === 1 ? '' : 's'} from related rows. Fill in their contact info anytime from Customers.
+        </div>
+      )}
+      {allErrors.length > 0 && (
         <details style={{marginBottom:10}}>
-          <summary style={{fontSize:12,color:'#fbbf24',cursor:'pointer',marginBottom:6}}>
-            Show {errors.length} error{errors.length === 1 ? '' : 's'}
-          </summary>
-          <div style={{maxHeight:160,overflowY:'auto',background:'#1a2236',border:'1px solid #2e3f60',borderRadius:8,padding:'8px 12px'}}>
-            {errors.map((e, i) => (
-              <div key={i} style={{fontSize:12,color:'#c8d4ee',padding:'3px 0',borderBottom: i < errors.length - 1 ? '1px solid #2e3f6055' : 'none'}}>
-                <strong style={{color:'#fbbf24'}}>Row {e.row}</strong>: {e.error}
+          <summary style={{fontSize:12,color:'#fbbf24',cursor:'pointer',marginBottom:6}}>Show {allErrors.length} error{allErrors.length === 1 ? '' : 's'}</summary>
+          <div style={{maxHeight:200,overflowY:'auto',background:'#1a2236',border:'1px solid #2e3f60',borderRadius:8,padding:'8px 12px'}}>
+            {allErrors.map((e, i) => (
+              <div key={i} style={{fontSize:12,color:'#c8d4ee',padding:'3px 0',borderBottom: i < allErrors.length - 1 ? '1px solid #2e3f6055' : 'none'}}>
+                <strong style={{color:'#fbbf24'}}>{e.entity} row {e.row}</strong>: {e.error}
               </div>
             ))}
           </div>
@@ -340,7 +457,7 @@ function ResultCard({ result, entity, onAnother }) {
       )}
       <button onClick={onAnother}
         style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'8px 14px',fontSize:12,fontWeight:600,cursor:'pointer'}}>
-        Import another file
+        Import more
       </button>
     </div>
   );
@@ -354,12 +471,5 @@ function ErrorBox({ text }) {
   );
 }
 
-const backStyle = {
-  background: 'none', border: 'none', color: '#7a8db0', cursor: 'pointer',
-  fontSize: 14, padding: 0,
-};
-
-const loadingStyle = {
-  minHeight: '100vh', background: '#111827', display: 'flex',
-  alignItems: 'center', justifyContent: 'center', color: '#f0f4ff', fontFamily: 'sans-serif',
-};
+const backStyle = { background: 'none', border: 'none', color: '#7a8db0', cursor: 'pointer', fontSize: 14, padding: 0 };
+const loadingStyle = { minHeight: '100vh', background: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f0f4ff', fontFamily: 'sans-serif' };
