@@ -5,6 +5,7 @@ import { useOrg } from '../lib/org';
 import Logo from '../components/Logo';
 import { validateUpload, ACCEPT_ATTR } from '../lib/uploads';
 import { PLANS, PLAN_ORDER } from '../lib/billing';
+import { sendEmail } from '../lib/email/client';
 
 // Two-step onboarding:
 //   Step 1: business profile (name, contact, logo, basics)
@@ -140,6 +141,16 @@ export default function Onboarding() {
       })
       .eq('id', newOrgId);
     if (updErr) { setError('Saved company but profile update failed: ' + updErr.message); setSaving(false); return; }
+
+    // Welcome email from the founder. Fire-and-forget — never block
+    // advancing to step 2 on email send.
+    if (user?.email) {
+      sendEmail({
+        type: 'welcome',
+        to: user.email,
+        data: { ownerName: form.owner_name, businessName: form.name },
+      });
+    }
 
     setCreatedOrgId(newOrgId);
     setSaving(false);

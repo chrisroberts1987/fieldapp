@@ -66,7 +66,7 @@ export default function Admin() {
       </nav>
 
       <main style={{maxWidth:1280,margin:'0 auto',padding:'24px 16px 0'}}>
-        {tab === 'overview'   && <OverviewSection />}
+        {tab === 'overview'   && <OverviewSection onGoTo={setTab} />}
         {tab === 'businesses' && <BusinessesSection />}
         {tab === 'usage'      && <UsageSection />}
         {tab === 'support'    && <SupportSection />}
@@ -119,9 +119,11 @@ async function adminFetch(path, opts = {}) {
 // =============================================================
 // Overview
 // =============================================================
-function OverviewSection() {
+function OverviewSection({ onGoTo }) {
   const [data, setData] = useState(null);
   const [err, setErr]   = useState(null);
+  const [detail, setDetail] = useState(null); // org row to drill into
+
   useEffect(() => {
     (async () => {
       const r = await adminFetch('/api/admin/overview');
@@ -130,18 +132,95 @@ function OverviewSection() {
   }, []);
   if (err)   return <ErrorBlock msg={err}/>;
   if (!data) return <Loading/>;
+
+  const tierTotal = (data.byTier.solo || 0) + (data.byTier.crew || 0) + (data.byTier.business || 0);
+
   return (
     <>
       <SectionHeading title="Platform Overview"/>
       <div style={kpiGrid}>
-        <Kpi label="Total Businesses"    value={data.totalBusinesses}    color="#4f9eff"/>
-        <Kpi label="Trial Accounts"      value={data.trialAccounts}      color="#fbbf24" sub="< 14 days old"/>
-        <Kpi label="Active"              value={data.activeSubs}         color="#2edf87" sub="past trial, not suspended"/>
-        <Kpi label="MRR"                 value={'—'}                     color="#7a8db0" sub="pending Stripe"/>
-        <Kpi label="New This Week"       value={data.newSignupsThisWeek} color="#54d4f8"/>
-        <Kpi label="Churned This Month"  value={data.churnedThisMonth}   color="#f26060" sub="suspended"/>
+        <Kpi label="Total Businesses"   value={data.totalBusinesses}    color="#4f9eff" onClick={() => onGoTo('businesses')}/>
+        <Kpi label="Trialing"           value={data.trialAccounts}      color="#fbbf24" sub="card on file, day 1–14" onClick={() => onGoTo('businesses')}/>
+        <Kpi label="Active"             value={data.activeSubs}         color="#2edf87" sub="paying" onClick={() => onGoTo('businesses')}/>
+        <Kpi label="MRR"                value={'$' + (data.mrr || 0).toLocaleString()} color="#2edf87" sub="monthly recurring"/>
+        <Kpi label="Conversion"         value={data.conversionRate != null ? `${data.conversionRate}%` : '—'} color="#54d4f8" sub={`trial → paid (n=${data.conversionCohortSize})`}/>
+        <Kpi label="New This Week"      value={data.newSignupsThisWeek} color="#54d4f8" onClick={() => onGoTo('businesses')}/>
+        <Kpi label="Past Due"           value={data.pastDue}            color="#fbbf24" sub="payment failed"/>
+        <Kpi label="Churned This Month" value={data.churnedThisMonth}   color="#f26060" sub="suspended"/>
       </div>
+
+      <Subhead>Subscriptions by Tier</Subhead>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10,marginBottom:18}}>
+        <TierCard tier="solo"     count={data.byTier.solo     || 0} total={tierTotal} accent="#4f9eff"/>
+        <TierCard tier="crew"     count={data.byTier.crew     || 0} total={tierTotal} accent="#2edf87"/>
+        <TierCard tier="business" count={data.byTier.business || 0} total={tierTotal} accent="#b197fc"/>
+      </div>
+
+      <Subhead>Recent Signups</Subhead>
+      <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:18}}>
+        {data.recentSignups.length === 0 && <div style={empty}>No signups yet.</div>}
+        {data.recentSignups.map(s => (
+          <SignupRow key={s.id} signup={s} onClick={() => setDetail({ id: s.id, name: s.name })}/>
+        ))}
+      </div>
+
+      {detail && (
+        <BusinessDetailModal
+          business={detail}
+          onClose={() => setDetail(null)}
+          onChanged={() => {}}
+        />
+      )}
     </>
+  );
+}
+
+function TierCard({ tier, count, total, accent }) {
+  const label = tier[0].toUpperCase() + tier.slice(1);
+  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+  return (
+    <div style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'14px 14px'}}>
+      <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:8}}>
+        <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.12em',textTransform:'uppercase',fontWeight:700}}>{label}</div>
+        <div style={{fontSize:11,color:'#7a8db0'}}>{pct}%</div>
+      </div>
+      <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:30,letterSpacing:'.02em',color:accent,lineHeight:1.1,marginTop:4}}>{count}</div>
+      <div style={{height:4,background:'#0d1726',borderRadius:999,overflow:'hidden',marginTop:8}}>
+        <div style={{width:pct+'%',height:'100%',background:accent,transition:'width .3s'}}/>
+      </div>
+    </div>
+  );
+}
+
+function SignupRow({ signup, onClick }) {
+  const days = signup.created_at
+    ? Math.floor((Date.now() - new Date(signup.created_at).getTime()) / 86_400_000)
+    : null;
+  const ago = days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days}d ago`;
+  const statusColor = signup.subscription_status === 'active' ? '#2edf87'
+    : signup.subscription_status === 'trialing' ? '#fbbf24'
+    : '#7a8db0';
+  const statusLabel = signup.subscription_status === 'active' ? 'Paying'
+    : signup.subscription_status === 'trialing' ? 'Trial'
+    : signup.subscription_status || 'No plan';
+  return (
+    <div onClick={onClick}
+      style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:10,transition:'border-color .15s'}}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = '#4f9eff66'; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = '#2e3f60'; }}>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:14,color:'#f0f4ff',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+          {signup.name || 'Unnamed business'}
+        </div>
+        <div style={{fontSize:12,color:'#7a8db0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+          {signup.owner_name ? signup.owner_name + ' · ' : ''}{signup.business_email || 'no email'}
+        </div>
+      </div>
+      <span style={{background:statusColor+'22',color:statusColor,border:'1px solid '+statusColor+'66',borderRadius:999,padding:'2px 9px',fontSize:10,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>
+        {statusLabel}{signup.subscription_tier ? ` · ${signup.subscription_tier}` : ''}
+      </span>
+      <span style={{fontSize:11,color:'#7a8db0',whiteSpace:'nowrap'}}>{ago}</span>
+    </div>
   );
 }
 
@@ -562,12 +641,17 @@ function SectionHeading({ title, subtitle }) {
     </div>
   );
 }
-function Kpi({ label, value, color, sub }) {
+function Kpi({ label, value, color, sub, onClick }) {
+  const interactive = typeof onClick === 'function';
   return (
-    <div style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'14px 14px'}}>
+    <div onClick={onClick}
+      onMouseEnter={interactive ? e => { e.currentTarget.style.borderColor = '#4f9eff66'; } : undefined}
+      onMouseLeave={interactive ? e => { e.currentTarget.style.borderColor = '#2e3f60'; } : undefined}
+      style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'14px 14px',cursor: interactive ? 'pointer' : 'default',transition:'border-color .15s'}}>
       <div style={{fontSize:10,color:'#7a8db0',letterSpacing:'.12em',textTransform:'uppercase',fontWeight:700}}>{label}</div>
       <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:30,letterSpacing:'.02em',color,lineHeight:1.1,marginTop:4}}>{value}</div>
       {sub && <div style={{fontSize:11,color:'#7a8db0',marginTop:3}}>{sub}</div>}
+      {interactive && <div style={{fontSize:10,color:'#4f9eff',marginTop:6,letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700}}>Open →</div>}
     </div>
   );
 }

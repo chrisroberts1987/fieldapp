@@ -9,6 +9,7 @@ import {
   jobCompletedEmail,
   jobScheduledEmail,
   crewInviteEmail,
+  welcomeEmail,
 } from '../../../lib/email/templates';
 
 export const config = {
@@ -49,6 +50,15 @@ const TYPES = {
   crew_invite: {
     template: crewInviteEmail,
     required: ['role', 'inviteUrl'],
+  },
+  // Sender is MyForeman itself (not the contractor's business), so
+  // this type ignores the caller's org and uses our platform identity.
+  // The founder's address is the reply-to so any response goes to a
+  // human, not noreply@.
+  welcome: {
+    template: welcomeEmail,
+    required: ['ownerName'],
+    fromPlatform: true,
   },
 };
 
@@ -91,18 +101,30 @@ export default async function handler(req, res) {
     }
   }
 
-  // Look up the caller's org for branding. We use the user's session so
-  // RLS confirms they're a member — they can only send "as" an org they
-  // belong to.
-  const { data: mem } = await sb.from('org_members')
-    .select('org_id').eq('user_id', user.id)
-    .order('joined_at', { ascending: true }).limit(1).maybeSingle();
-  if (!mem) return res.status(403).json({ error: 'No org membership.' });
+  // Branding source: for most email types we use the caller's org
+  // (contractor's business name on the From line, replies to their
+  // inbox). For the welcome type — sent FROM MyForeman to a new
+  // contractor — we override with platform identity so the From line
+  // reads 'MyForeman' and replies route to the founder.
+  let org;
+  if (cfg.fromPlatform) {
+    org = {
+      name: 'MyForeman',
+      business_email: process.env.ADMIN_EMAIL || 'chris.roberts@myforemanhq.com',
+      logo_url: null,
+    };
+  } else {
+    const { data: mem } = await sb.from('org_members')
+      .select('org_id').eq('user_id', user.id)
+      .order('joined_at', { ascending: true }).limit(1).maybeSingle();
+    if (!mem) return res.status(403).json({ error: 'No org membership.' });
 
-  const { data: org } = await sb.from('organizations')
-    .select('name, business_email, logo_url')
-    .eq('id', mem.org_id).maybeSingle();
-  if (!org) return res.status(404).json({ error: 'Org not found.' });
+    const { data: orgRow } = await sb.from('organizations')
+      .select('name, business_email, logo_url')
+      .eq('id', mem.org_id).maybeSingle();
+    if (!orgRow) return res.status(404).json({ error: 'Org not found.' });
+    org = orgRow;
+  }
 
   let built;
   try {

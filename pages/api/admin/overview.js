@@ -1,13 +1,21 @@
 import { verifyAdmin } from '../../../lib/adminAuth';
+import { PLANS } from '../../../lib/billing';
 
-// Platform KPI strip for the admin dashboard. Until Stripe is wired
-// up there's no subscription source-of-truth, so we proxy:
-//   • trial   = created within the last 14 days
-//   • active  = older than 14 days, not suspended
-//   • churned = suspended this month
-// MRR is shown as "pending Stripe" placeholder.
+// Platform KPIs for the admin Overview tab. Now sources subscription
+// data from the real Stripe-synced columns (subscription_status,
+// subscription_tier) instead of the old created_at proxies.
+//
+// MRR is computed by summing monthly-equivalent revenue across every
+// org with subscription_status='active' or 'trialing' (counting
+// trialing as projected future MRR — most contractors complete the
+// trial). Annual plans are amortized at PLANS[tier].annual / 12.
+//
+// Conversion = active paying / (eligible cohort), where the cohort
+// is every org older than the trial window. Younger orgs are still
+// in trial and shouldn't count against the rate.
 
 const TRIAL_DAYS = 14;
+const SIGNUPS_LIMIT = 12;
 
 export default async function handler(req, res) {
   const ctx = await verifyAdmin(req, res, { allowMethods: ['GET'] });
@@ -19,21 +27,77 @@ export default async function handler(req, res) {
   const weekAgo     = new Date(now.getTime() - 7  * 86_400_000).toISOString();
   const monthStart  = new Date(now.getUTCFullYear(), now.getUTCMonth(), 1).toISOString();
 
-  const [orgsAll, orgsTrial, orgsActive, orgsNewWeek, orgsChurned] = await Promise.all([
-    sb.from('organizations').select('id', { count:'exact', head:true }),
-    sb.from('organizations').select('id', { count:'exact', head:true }).gte('created_at', trialCutoff).is('suspended_at', null),
-    sb.from('organizations').select('id', { count:'exact', head:true }).lt('created_at', trialCutoff).is('suspended_at', null),
-    sb.from('organizations').select('id', { count:'exact', head:true }).gte('created_at', weekAgo),
-    sb.from('organizations').select('id', { count:'exact', head:true }).gte('suspended_at', monthStart),
-  ]);
+  // One big pull. ~500 cap is fine for now; pagination when we grow.
+  const { data: orgs, error } = await sb
+    .from('organizations')
+    .select('id, name, owner_name, business_email, created_at, suspended_at, subscription_status, subscription_tier, subscription_current_period_end')
+    .order('created_at', { ascending: false })
+    .limit(1000);
+  if (error) return res.status(500).json({ error: error.message });
+
+  // Aggregates
+  const total = orgs.length;
+  let trialAccounts = 0;
+  let activeSubs    = 0;
+  let pastDue       = 0;
+  let canceled      = 0;
+  let newSignupsThisWeek = 0;
+  let churnedThisMonth   = 0;
+  let mrr = 0;
+  const byTier = { solo: 0, crew: 0, business: 0 };
+
+  for (const o of orgs) {
+    if (o.created_at >= weekAgo) newSignupsThisWeek++;
+    if (o.suspended_at && o.suspended_at >= monthStart) churnedThisMonth++;
+
+    const s = o.subscription_status;
+    const t = o.subscription_tier;
+    if (s === 'trialing') trialAccounts++;
+    if (s === 'active') activeSubs++;
+    if (s === 'past_due') pastDue++;
+    if (s === 'canceled' || s === 'unpaid' || s === 'incomplete_expired') canceled++;
+
+    // Tier breakdown only counts orgs currently paying / on trial
+    // with a chosen tier. Suspended orgs excluded.
+    if (!o.suspended_at && t && PLANS[t] && (s === 'active' || s === 'trialing')) {
+      byTier[t] = (byTier[t] || 0) + 1;
+      mrr += PLANS[t].monthly; // monthly equivalent; annual amortizes the same
+    }
+  }
+
+  // Conversion rate: of orgs older than the trial window, what % are
+  // actively subscribed with a tier (i.e. they made it past trial
+  // and are paying or in their second cycle)?
+  const eligible = orgs.filter(o => o.created_at < trialCutoff && !o.suspended_at);
+  const converted = eligible.filter(o => o.subscription_status === 'active' && o.subscription_tier);
+  const conversionRate = eligible.length > 0
+    ? Math.round((converted.length / eligible.length) * 100)
+    : null;
+
+  // Recent signups list (last N, surfaced with the basics needed to
+  // render a clickable card on the overview).
+  const recentSignups = orgs.slice(0, SIGNUPS_LIMIT).map(o => ({
+    id: o.id,
+    name: o.name,
+    owner_name: o.owner_name,
+    business_email: o.business_email,
+    created_at: o.created_at,
+    subscription_status: o.subscription_status,
+    subscription_tier:   o.subscription_tier,
+  }));
 
   res.status(200).json({
-    totalBusinesses:    orgsAll.count    || 0,
-    trialAccounts:      orgsTrial.count  || 0,
-    activeSubs:         orgsActive.count || 0,
-    newSignupsThisWeek: orgsNewWeek.count|| 0,
-    churnedThisMonth:   orgsChurned.count|| 0,
-    mrr: null, // populated once Stripe is wired
-    mrrPending: true,
+    totalBusinesses:    total,
+    trialAccounts,
+    activeSubs,
+    pastDue,
+    canceled,
+    newSignupsThisWeek,
+    churnedThisMonth,
+    mrr,
+    byTier,
+    conversionRate,
+    conversionCohortSize: eligible.length,
+    recentSignups,
   });
 }
