@@ -39,15 +39,26 @@ export default function Admin() {
   return (
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif",paddingBottom:80}}>
       <AdminHeader user={user} router={router} />
-      <nav style={{display:'flex',gap:4,padding:'0 16px',borderBottom:'1px solid #2e3f60',background:'#0d1726',overflowX:'auto'}}>
+      <nav style={{
+        display:'flex',
+        gap:0,
+        padding:'0 8px',
+        borderBottom:'1px solid #2e3f60',
+        background:'#0d1726',
+        overflowX:'auto',
+        WebkitOverflowScrolling:'touch',
+        scrollbarWidth:'none',
+      }}>
         {['overview','businesses','usage','support'].map(k => (
           <button key={k} onClick={() => setTab(k)}
             style={{
               background:'transparent', border:'none',
               borderBottom: tab === k ? '2px solid #4f9eff' : '2px solid transparent',
               color: tab === k ? '#f0f4ff' : '#7a8db0',
-              padding:'12px 14px', fontSize:13, fontWeight: tab === k ? 700 : 600,
+              padding:'12px 12px', fontSize:12, fontWeight: tab === k ? 700 : 600,
               letterSpacing:'.05em', cursor:'pointer', fontFamily:'inherit',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
             }}>
             {k.toUpperCase()}
           </button>
@@ -70,16 +81,16 @@ export default function Admin() {
 function AdminHeader({ user, router }) {
   const signOut = async () => { await supabase.auth.signOut(); router.push('/login'); };
   return (
-    <div style={{background:'#0d1726',borderBottom:'1px solid #1f2a40',padding:'14px 16px'}}>
-      <div style={{maxWidth:1280,margin:'0 auto',display:'flex',alignItems:'center',justifyContent:'space-between',gap:14}}>
-        <div style={{display:'flex',alignItems:'center',gap:14}}>
+    <div style={{background:'#0d1726',borderBottom:'1px solid #1f2a40',padding:'12px 14px'}}>
+      <div style={{maxWidth:1280,margin:'0 auto',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0}}>
           <Logo size="sm" />
-          <span style={{background:'#fbbf2422',color:'#fbbf24',border:'1px solid #fbbf2466',borderRadius:999,padding:'2px 9px',fontSize:10,fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase'}}>Platform Admin</span>
+          <span style={{background:'#fbbf2422',color:'#fbbf24',border:'1px solid #fbbf2466',borderRadius:999,padding:'2px 9px',fontSize:10,fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',whiteSpace:'nowrap'}}>Admin</span>
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <span style={{fontSize:12,color:'#7a8db0'}}>{user?.email}</span>
-          <button onClick={() => router.push('/dashboard')} style={btnGhost}>App →</button>
-          <button onClick={signOut} style={{...btnGhost,color:'#f26060',borderColor:'#f2606055'}}>Sign Out</button>
+        <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+          <button onClick={() => router.push('/dashboard')} style={{...btnGhost,padding:'6px 10px',fontSize:11}}>App</button>
+          <button onClick={() => router.push('/settings')} style={{...btnGhost,padding:'6px 10px',fontSize:11}}>Settings</button>
+          <button onClick={signOut} style={{...btnGhost,color:'#f26060',borderColor:'#f2606055',padding:'6px 10px',fontSize:11}}>Sign Out</button>
         </div>
       </div>
     </div>
