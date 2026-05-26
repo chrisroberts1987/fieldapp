@@ -22,6 +22,7 @@ const ALL_TABS = [
   { label:'Tax',       route:'/tax',       showFor:'foreman' },
   { label:'Crew',      route:'/crew',      showFor:'all',     // also serves /approvals via inner sub-nav
                                             alsoMatches:['/approvals'] },
+  { label:'Reviews',   route:'/reviews',   showFor:'foreman' },
   { label:'Insights',  route:'/insights',  showFor:'foreman' },
 ];
 
@@ -321,6 +322,7 @@ function MobileBottomNav({ role, active, router, onSignOut }) {
     { route:'/crew',      label:'Crew',      icon:<CrewIcon/>,    showFor:'all',     alsoMatches:['/approvals'] },
     { route:'/expenses',  label:'Expenses',  icon:<WalletIcon/>,  showFor:'all',     alsoMatches:['/mileage'] },
     { route:'/tax',       label:'Tax',       icon:<PieIcon/>,     showFor:'foreman' },
+    { route:'/reviews',   label:'Reviews',   icon:<StarTabIcon/>, showFor:'foreman' },
     { route:'/insights',  label:'Insights',  icon:<ChartIcon/>,   showFor:'foreman' },
     { route:'/billing',   label:'Billing',   icon:<CardIcon/>,    showFor:'foreman' },
     { route:'/settings',  label:'Settings',  icon:<GearIcon/>,    showFor:'all' },
@@ -451,6 +453,7 @@ function GearIcon()    { return svg(<><circle cx="12" cy="12" r="3"/><path d="M1
 function LogoutIcon()  { return svg(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>); }
 function MailIcon()    { return svg(<><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2 7 12 13 22 7"/></>); }
 function CardIcon()    { return svg(<><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></>); }
+function StarTabIcon() { return svg(<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/>); }
 
 function MenuItem({ label, onClick, danger }) {
   return (

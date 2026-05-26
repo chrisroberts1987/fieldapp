@@ -30,7 +30,7 @@ export default function Dashboard() {
       activeJobs, openLeads, customers, unpaidInvoices,
       paidThisMonth, paidLastMonth, paidYtd, expThisMonth, expLastMonth, expYtd,
       overdueInvoices, sentQuotes, staleLeads, pendingExp, pendingMi,
-      todayJobs,
+      todayJobs, reviewsResp,
     ] = await Promise.all([
       supabase.from('jobs').select('id', { count:'exact', head:true })
         .eq('org_id', oid).in('status', ['scheduled','in_progress']),
@@ -63,6 +63,9 @@ export default function Dashboard() {
       supabase.from('jobs').select('id, title, customer_id, status')
         .eq('org_id', oid).eq('scheduled_date', today).in('status', ['scheduled','in_progress'])
         .order('created_at', { ascending:true }).limit(20),
+      supabase.from('feedback').select('rating, comment, submitted_at, customer_name')
+        .eq('org_id', oid).not('submitted_at', 'is', null)
+        .order('submitted_at', { ascending: false }).limit(50),
     ]);
 
     const sumAmt = rs => (rs.data || []).reduce((s, r) => s + Number(r.amount || 0), 0);
@@ -96,6 +99,7 @@ export default function Dashboard() {
       staleLeads:       staleLeads.data || [],
       pendingApprovals: (pendingExp.count || 0) + (pendingMi.count || 0),
       todayJobs:        todayJobs.data || [],
+      reviews:          reviewsResp.data || [],
     });
   };
 
@@ -280,9 +284,10 @@ export default function Dashboard() {
             <FinanceCard label="Est. Tax YTD" value={fmt$(estTaxYtd)}          color="#fbbf24" sub={`${taxRate}% of net`} onClick={() => router.push('/tax')}/>
           </div>
 
-          <div className="finance-grid" style={{marginBottom:28}}>
+          <div className="finance-grid" style={{marginBottom:14}}>
             <FinanceCard label="Outstanding"  value={fmt$(stats.outstandingSum)} color="#fbbf24" sub={`${stats.unpaidCount} unpaid`} onClick={() => router.push('/invoices')}/>
             <FinanceCard label="Avg Invoice"  value={fmt$(stats.avgInvoice)}     color="#4f9eff" sub={`${stats.ytdInvoiceCount} invoiced`}/>
+            <ReviewsCard reviews={stats.reviews || []} onClick={() => router.push('/reviews')}/>
           </div>
         </div>
 
@@ -445,6 +450,29 @@ function FinanceCard({ label, value, color, sub, onClick }) {
       <div style={{fontSize:10,color:'#7a8db0',letterSpacing:'.12em',textTransform:'uppercase',fontWeight:700,marginBottom:6}}>{label}</div>
       <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:26,letterSpacing:'.02em',color}}>{value}</div>
       {sub && <div style={{fontSize:11,color:'#7a8db0',marginTop:4}}>{sub}</div>}
+    </div>
+  );
+}
+
+function ReviewsCard({ reviews, onClick }) {
+  const count = reviews.length;
+  const avg = count > 0 ? reviews.reduce((s, r) => s + (r.rating || 0), 0) / count : null;
+  const color = avg == null ? '#7a8db0' : avg >= 4.5 ? '#2edf87' : avg >= 3.5 ? '#fbbf24' : '#f26060';
+  return (
+    <div onClick={onClick}
+      style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:12,padding:'16px 16px',cursor:'pointer',transition:'border-color .15s'}}
+      onMouseOver={e => (e.currentTarget.style.borderColor = color)}
+      onMouseOut={e => (e.currentTarget.style.borderColor = '#2e3f60')}>
+      <div style={{fontSize:10,color:'#7a8db0',letterSpacing:'.12em',textTransform:'uppercase',fontWeight:700,marginBottom:6}}>Reviews</div>
+      <div style={{display:'flex',alignItems:'baseline',gap:8}}>
+        <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:26,letterSpacing:'.02em',color}}>
+          {avg == null ? '—' : avg.toFixed(1)}
+        </div>
+        <span style={{color:'#fbbf24',fontSize:14,letterSpacing:1,whiteSpace:'nowrap'}}>
+          {avg == null ? '☆☆☆☆☆' : '★★★★★'.slice(0, Math.round(avg)) + '☆☆☆☆☆'.slice(Math.round(avg))}
+        </span>
+      </div>
+      <div style={{fontSize:11,color:'#7a8db0',marginTop:4}}>{count} review{count === 1 ? '' : 's'}</div>
     </div>
   );
 }
