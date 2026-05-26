@@ -298,6 +298,57 @@ export default function Jobs() {
     setMaterials(prev => prev.filter(m => m.id !== id));
   };
 
+  // End the current workday on this job WITHOUT closing the job
+  // itself. For multi-day jobs: crew taps this at end of day so the
+  // hours + mileage reflect real time spent, not the 8h auto-close
+  // cap that kicks in when they forget. Next morning's On My Way
+  // opens a fresh entry. Same flow as full completion below, just
+  // skipping the status change + customer email + invoice trigger.
+  const [endingDay, setEndingDay] = useState(false);
+  const endMyWorkday = async () => {
+    if (!myOpenEntry || !sheet || sheet === 'new') return;
+    setEndingDay(true);
+    const { lat, lng } = await tryGetCoords();
+    const closedAt = new Date().toISOString();
+    await supabase.from('time_entries').update({
+      clock_out_at: closedAt,
+      out_lat: lat ?? null,
+      out_lng: lng ?? null,
+    }).eq('id', myOpenEntry.id);
+
+    // Mileage from the day's start point to right-now. Same logic
+    // as the completion flow: real OSRM driving distance if both
+    // endpoints, skipped under 0.1mi.
+    if (myOpenEntry.in_lat != null && myOpenEntry.in_lng != null && lat != null && lng != null) {
+      const route = await lookupRouteMiles(myOpenEntry.in_lat, myOpenEntry.in_lng, lat, lng);
+      if (route.miles >= 0.1) {
+        await supabase.from('mileage_logs').insert({
+          org_id: orgId,
+          user_id: user.id,
+          job_id:  sheet.id,
+          log_date: todayStr(),
+          miles: route.miles,
+          start_lat: myOpenEntry.in_lat, start_lng: myOpenEntry.in_lng,
+          end_lat:   lat,                end_lng:   lng,
+          purpose:  'business',
+          method:   'gps',
+          notes:    route.source === 'osrm'
+            ? "Auto-logged at end of workday (OSRM driving distance)"
+            : "Auto-logged at end of workday (straight-line; OSRM unavailable)",
+          approval_status: 'pending',
+        });
+      }
+    }
+
+    // Refresh the time entry list so the UI picks up the closed row
+    // and the running indicator clears.
+    const { data: te } = await supabase.from('time_entries')
+      .select('*').eq('job_id', sheet.id)
+      .order('clock_in_at', { ascending: false });
+    setTimeEntries(te || []);
+    setEndingDay(false);
+  };
+
   // "We're on the way" — fires email + SMS to the customer with the
   // crew member's name and a default ETA. Stamps jobs.on_my_way_at so
   // the button reads "Re-send" the second time.
@@ -894,9 +945,21 @@ export default function Jobs() {
                   </div>
                 </div>
                 {myOpenEntry && (
-                  <div style={{fontSize:12,color:'#7a8db0',marginBottom:8,lineHeight:1.5}}>
-                    Auto-stops + logs mileage when this job is marked complete.
-                  </div>
+                  <>
+                    <div style={{fontSize:12,color:'#7a8db0',marginBottom:8,lineHeight:1.5}}>
+                      Stops automatically when this job is marked complete. For multi-day jobs, end your workday here so today's hours and mileage are accurate.
+                    </div>
+                    <button onClick={endMyWorkday} disabled={endingDay}
+                      style={{
+                        width:'100%', background:'#fbbf24', border:'none',
+                        borderRadius:8, color:'#111827', padding:'10px',
+                        fontWeight:800, letterSpacing:'.06em', fontSize:12,
+                        cursor:'pointer', fontFamily:'inherit', marginBottom:8,
+                        opacity: endingDay ? 0.6 : 1,
+                      }}>
+                      {endingDay ? 'ENDING DAY…' : '⏸  END MY WORKDAY'}
+                    </button>
+                  </>
                 )}
                 <div style={{display:'flex',flexDirection:'column',gap:4}}>
                   {timeEntries.slice(0, 5).map(t => {
