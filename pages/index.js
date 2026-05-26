@@ -206,18 +206,19 @@ function Hero({ router, supabase }) {
    No duplicate CTA at bottom.
    ===================================================== */
 function Compare() {
+  // Category-level differentiators, not specific features (those
+  // live in the Features section below — repeating them here was
+  // the duplication problem). One row per "thing you'd ask in a
+  // buying meeting."
   const rows = [
-    { label:'Setup time',                                values:['None',   '4–8 hrs',     '10 min'] },
-    { label:'Lead → Paid pipeline',                      values:['no',     'yes',         'yes'] },
-    { label:'Mobile-first PWA',                          values:['no',     'partial',     'yes'] },
-    { label:'Customer self-booking page',                values:['no',     'partial',     'yes'] },
-    { label:'Card payments direct to you',               values:['no',     'partial',     'yes'] },
-    { label:'Auto-invoice + auto-chase (7/14/30d)',      values:['no',     'partial',     'yes'] },
-    { label:'On-the-way auto-tracks time + mileage',     values:['no',     'no',          'yes'] },
-    { label:'Customer signs off on the phone',           values:['no',     'partial',     'yes'] },
-    { label:'Recurring jobs + customer portal',          values:['no',     'partial',     'yes'] },
-    { label:'AI business coach',                         values:['no',     'no',          'yes'], ai:true },
-    { label:'Live demo',                                 values:['N/A',    'Sales call',  'One tap'] },
+    { label:'Setup time',                       values:['None',   '4–8 hrs',     '10 min'] },
+    { label:'Monthly cost',                     values:['$0',     '$99–$300',    '$39–$159'] },
+    { label:'Lead → Paid in one app',           values:['no',     'yes',         'yes'] },
+    { label:'Mobile-first PWA',                 values:['no',     'partial',     'yes'] },
+    { label:'Card payments (no platform cut)',  values:['no',     'partial',     'yes'] },
+    { label:'Automation does the chasing',      values:['no',     'partial',     'yes'] },
+    { label:'AI business coach',                values:['no',     'no',          'yes'], ai:true },
+    { label:'Live demo',                        values:['N/A',    'Sales call',  'One tap'] },
   ];
   const cols      = ['Texts & sheets', 'Jobber / HCP', 'MyForeman'];
   const colsShort = ['Texts',          'Old-school',   'MyForeman'];
@@ -332,33 +333,33 @@ function CompareCell({ value, isUs }) {
    WORKFLOW — five steps, tight copy.
    ===================================================== */
 function Workflow() {
+  // Workflow is the chronological story (lead → paid). Features
+  // section below is the by-feature deep dive. To avoid duplication,
+  // each stage gets ONE short phrase here — the details live below.
   const steps = [
-    { label:'Book',     color:'#54d4f8', icon:<PhoneIcon/>,  desc:'Customers self-book from your shareable link. No more voicemail tag.' },
-    { label:'Quote',    color:'#b197fc', icon:<ScrollIcon/>, desc:'Send a line-item quote with one-tap approval. Auto-converts to a job.' },
-    { label:'Work',     color:'#4f9eff', icon:<WrenchIcon/>, desc:'On-the-way texts the customer, starts the clock, tracks the mileage.' },
-    { label:'Invoice',  color:'#fbbf24', icon:<DocIcon/>,    desc:'Auto-billed at completion with a Pay Now link. Reminders go out for you.' },
-    { label:'Paid',     color:'#2edf87', icon:<CheckIcon/>,  desc:'Money lands in your Stripe. Review request fires. Books update.' },
+    { label:'Book',     color:'#54d4f8', icon:<PhoneIcon/>,  desc:'Lead lands.' },
+    { label:'Quote',    color:'#b197fc', icon:<ScrollIcon/>, desc:'Customer approves.' },
+    { label:'Work',     color:'#4f9eff', icon:<WrenchIcon/>, desc:'Crew gets it done.' },
+    { label:'Invoice',  color:'#fbbf24', icon:<DocIcon/>,    desc:'Bill goes out.' },
+    { label:'Paid',     color:'#2edf87', icon:<CheckIcon/>,  desc:'Money lands.' },
   ];
   return (
     <section className="section">
       <div className="section-inner">
         <h2 className="section-headline" style={{textAlign:'center'}}>One app. The whole job.</h2>
         <p className="section-lede" style={{textAlign:'center',margin:'0 auto 32px'}}>
-          Every step of the lead-to-paid funnel, end to end. Nothing falls through the cracks.
+          Every step of the funnel, in one place. Nothing falls through the cracks.
         </p>
         <div className="workflow-grid">
           {steps.map((s, i) => (
-            <div key={s.label} style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,padding:'20px 16px',display:'flex',flexDirection:'column',gap:10,position:'relative'}}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <div style={{width:40,height:40,borderRadius:9,background:s.color+'22',border:'1px solid '+s.color+'66',display:'flex',alignItems:'center',justifyContent:'center',color:s.color}}>
-                  {s.icon}
-                </div>
-                <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:14,color:'#7a8db0',letterSpacing:'.08em'}}>0{i+1}</div>
+            <div key={s.label} style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,padding:'18px 14px',display:'flex',flexDirection:'column',gap:8,alignItems:'center',textAlign:'center',position:'relative'}}>
+              <div style={{width:44,height:44,borderRadius:10,background:s.color+'22',border:'1px solid '+s.color+'66',display:'flex',alignItems:'center',justifyContent:'center',color:s.color}}>
+                {s.icon}
               </div>
-              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.06em',color:s.color}}>
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.06em',color:s.color,marginTop:4}}>
                 {s.label.toUpperCase()}
               </div>
-              <div style={{fontSize:13,lineHeight:1.5,color:'#c8d4ee'}}>{s.desc}</div>
+              <div style={{fontSize:13,color:'#c8d4ee'}}>{s.desc}</div>
             </div>
           ))}
         </div>
@@ -397,7 +398,7 @@ function Features() {
     {
       icon: <BoltIcon/>,
       title: 'Auto-invoice → chase → review',
-      body: 'Job marked complete. Invoice fires. Customer gets a Pay Now link. Past 7/14/30 days? Reminders fire. Paid? Review request fires. You stop chasing checks.',
+      body: 'Job marked complete: invoice fires with a Pay Now link. One week past due: friendly reminder. Two weeks: firmer one. A month: final notice. Once they pay, a review request goes out. You stop chasing checks.',
     },
     {
       icon: <CardIcon/>,
@@ -562,11 +563,11 @@ function PricingCard({ plan, billing, router }) {
       </button>
       <div style={{display:'flex',flexDirection:'column',gap:7,marginTop:4,paddingTop:14,borderTop:'1px solid #2e3f60'}}>
         {[
-          'Self-booking link',
-          'Lead → quote → job → invoice',
-          'Card + Venmo + Zelle + Cash App',
-          'AI insights + monthly coach',
-          'Unlimited everything',
+          'Every feature, no add-on tiers',
+          'Unlimited customers, jobs, invoices',
+          'Branded customer emails',
+          'PWA on iPhone + Android',
+          '14-day free trial',
         ].map(f => (
           <div key={f} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:'#c8d4ee'}}>
             <span style={{color:'#2edf87',flexShrink:0,fontWeight:700}}>✓</span> {f}
