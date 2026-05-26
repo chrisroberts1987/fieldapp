@@ -1,15 +1,24 @@
 import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
 
 // First-visit modal that walks the user through adding MyForeman to
 // their phone's home screen. Different copy for iOS Safari (which
 // requires manual Share → Add to Home Screen) vs Android Chrome
 // (which fires beforeinstallprompt for a one-tap install).
 //
-// Dismissed state persists in localStorage so it only shows once.
-// We also auto-hide if the app is already running standalone (it's
-// already installed).
+// Only fires when:
+//   - User is signed in (no auth = guest = don't prompt)
+//   - On /dashboard (post-signup landing, not the marketing page)
+//   - Mobile (no point on desktop)
+//   - Not already installed (display-mode standalone)
+//   - Not dismissed previously (localStorage)
+//
+// The /dashboard gate alone keeps the prompt off the landing page,
+// signup/login, and every public guest route. It only pops once the
+// contractor is actually inside their account and likely to want it.
 
 const LS_DISMISSED = 'myforeman_install_prompt_dismissed';
+const ALLOWED_PATHS = new Set(['/dashboard']);
 
 function detectPlatform() {
   if (typeof navigator === 'undefined') return null;
@@ -31,44 +40,55 @@ export default function InstallPrompt() {
   const [deferred, setDeferred] = useState(null); // BeforeInstallPromptEvent
 
   useEffect(() => {
-    // Don't show: not on mobile, already installed, already dismissed,
-    // or on a guest/customer-facing flow (quote form, quote approval,
-    // public invoice, feedback) where the visitor isn't a contractor.
     if (typeof window === 'undefined') return;
     if (isStandalone()) return;
     if (localStorage.getItem(LS_DISMISSED) === '1') return;
+
+    // Only on /dashboard. Landing page, signup, login, and every
+    // public guest route stay clean.
     const path = window.location.pathname || '';
-    if (/^\/(inv|q|quote|feedback|invite|login|signup|reset|privacy|terms|contact)(\/|$)/.test(path)) return;
+    if (!ALLOWED_PATHS.has(path)) return;
 
     const p = detectPlatform();
     if (!p) return;
-    setPlatform(p);
 
-    // For Android we wait for the beforeinstallprompt event before
-    // showing — that way we know the browser is ready to install.
-    if (p === 'android') {
-      const handler = (e) => {
-        e.preventDefault();
-        setDeferred(e);
-        setShow(true);
-      };
-      window.addEventListener('beforeinstallprompt', handler);
-      // If the event has already fired before this hook runs, the
-      // browser may still re-dispatch on focus. Short delay also
-      // gives Chrome time to fire it.
-      const t = setTimeout(() => {
-        // If the event didn't fire (already installed in a different
-        // mode, or unsupported), show the generic Android instructions.
-        if (!deferred) setShow(true);
-      }, 1500);
-      return () => { window.removeEventListener('beforeinstallprompt', handler); clearTimeout(t); };
-    }
+    // Require an active session — guests viewing /dashboard while
+    // signed out get redirected anyway, but be defensive in case
+    // the redirect hasn't fired yet.
+    let cancelled = false;
+    let cleanup = null;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (!session) return;
 
-    // iOS — show after a brief delay so it doesn't clip the first paint.
-    if (p === 'ios') {
-      const t = setTimeout(() => setShow(true), 1200);
-      return () => clearTimeout(t);
-    }
+      setPlatform(p);
+
+      // Wait a moment so the dashboard has time to settle before we
+      // pop the modal. 4 seconds gives the contractor a glance at
+      // their app before we ask them to install it.
+      if (p === 'android') {
+        const handler = (e) => {
+          e.preventDefault();
+          if (cancelled) return;
+          setDeferred(e);
+          setShow(true);
+        };
+        window.addEventListener('beforeinstallprompt', handler);
+        const t = setTimeout(() => {
+          if (cancelled) return;
+          // If beforeinstallprompt didn't fire by now, fall back to
+          // the manual-instructions card.
+          if (!deferred) setShow(true);
+        }, 4000);
+        cleanup = () => { window.removeEventListener('beforeinstallprompt', handler); clearTimeout(t); };
+      } else if (p === 'ios') {
+        const t = setTimeout(() => { if (!cancelled) setShow(true); }, 4000);
+        cleanup = () => clearTimeout(t);
+      }
+    })();
+
+    return () => { cancelled = true; if (cleanup) cleanup(); };
   }, []);
 
   const dismiss = () => {
