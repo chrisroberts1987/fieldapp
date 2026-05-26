@@ -10,6 +10,7 @@ import { sendEmail, sendInvoiceEmail } from '../../lib/email/client';
 import { sendSMS } from '../../lib/sms/client';
 import { validateUpload, ACCEPT_ATTR } from '../../lib/uploads';
 import { firePushEvent } from '../../lib/push/fire';
+import { lookupRouteMiles } from '../../lib/mileage';
 
 const STATUSES = [
   { key:'pending',     label:'Pending',     color:'#a855f7' },  // approved-but-not-scheduled, eg. just converted from a quote
@@ -479,23 +480,27 @@ export default function Jobs() {
             out_lng: lng ?? null,
           }).eq('id', te.id);
 
-          // Mileage row from this entry's start ↔ now coordinates
-          // (straight-line miles). Skipped if either endpoint is
-          // missing or the distance is GPS-jitter small.
+          // Mileage row from this entry's start ↔ now coordinates.
+          // Prefers Mapbox driving distance when MAPBOX_TOKEN is set;
+          // falls back to straight-line haversine if the lookup
+          // fails. Skipped if either endpoint is missing or the
+          // distance is GPS-jitter small.
           if (te.in_lat != null && te.in_lng != null && lat != null && lng != null) {
-            const miles = haversineMiles(te.in_lat, te.in_lng, lat, lng);
-            if (miles >= 0.1) {
+            const route = await lookupRouteMiles(te.in_lat, te.in_lng, lat, lng);
+            if (route.miles >= 0.1) {
               await supabase.from('mileage_logs').insert({
                 org_id: orgId,
                 user_id: te.user_id,
                 job_id:  savedJobId,
                 log_date: todayStr(),
-                miles: Number(miles.toFixed(2)),
+                miles: route.miles,
                 start_lat: te.in_lat, start_lng: te.in_lng,
                 end_lat:   lat,       end_lng:   lng,
                 purpose:  'business',
                 method:   'gps',
-                notes:    'Auto-logged on job completion',
+                notes:    route.source === 'mapbox'
+                  ? 'Auto-logged on job completion (Mapbox driving distance)'
+                  : 'Auto-logged on job completion (straight-line; Mapbox unavailable)',
                 approval_status: 'pending',
               });
             }
@@ -1100,21 +1105,6 @@ function contactBtn(color) {
     fontFamily: 'inherit',
     whiteSpace: 'nowrap',
   };
-}
-
-// Great-circle distance in miles between two GPS points. Used to
-// estimate the trip when a crew member clocks in at one place and
-// clocks out at another. NOT driving distance — straight-line as
-// the crow flies. Good enough for an MVP; if a contractor cares
-// about mile-accurate logs they can edit the row in /mileage.
-function haversineMiles(lat1, lng1, lat2, lng2) {
-  const R = 3959; // earth radius in miles
-  const toRad = d => d * Math.PI / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a = Math.sin(dLat/2)**2
-          + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2;
-  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function ProfitLine({ label, value, color, bold, suffix }) {
