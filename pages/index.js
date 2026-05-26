@@ -211,14 +211,16 @@ function Compare() {
   // the duplication problem). One row per "thing you'd ask in a
   // buying meeting."
   const rows = [
-    { label:'Setup time',                       values:['None',   '4–8 hrs',     '10 min'] },
-    { label:'Monthly cost',                     values:['$0',     '$99–$300',    '$39–$159'] },
-    { label:'Lead → Paid in one app',           values:['no',     'yes',         'yes'] },
-    { label:'Mobile-first PWA',                 values:['no',     'partial',     'yes'] },
-    { label:'Card payments (no platform cut)',  values:['no',     'partial',     'yes'] },
-    { label:'Automation does the chasing',      values:['no',     'partial',     'yes'] },
-    { label:'AI business coach',                values:['no',     'no',          'yes'], ai:true },
-    { label:'Live demo',                        values:['N/A',    'Sales call',  'One tap'] },
+    { label:'Setup time',                          values:['None',   '4–8 hrs',     '10 min'] },
+    { label:'Monthly cost',                        values:['$0',     '$99–$300',    '$39–$159'] },
+    { label:'Lead → Paid in one app',              values:['no',     'yes',         'yes'] },
+    { label:'Mobile-first PWA',                    values:['no',     'partial',     'yes'] },
+    { label:'Direct deposits, no platform cut',    values:['no',     'partial',     'yes'] },
+    { label:'Switch from your old platform',       values:['no',     'partial',     '10 min import'] },
+    { label:'Tax + accountant-ready exports',      values:['no',     'Add-on $$',   'yes'] },
+    { label:'Automation does the chasing',         values:['no',     'partial',     'yes'] },
+    { label:'AI business coach',                   values:['no',     'no',          'yes'], ai:true },
+    { label:'Live demo',                           values:['N/A',    'Sales call',  'One tap'] },
   ];
   const cols      = ['Texts & sheets', 'Jobber / HCP', 'MyForeman'];
   const colsShort = ['Texts',          'Old-school',   'MyForeman'];
@@ -376,24 +378,23 @@ function Features() {
   const cards = [
     {
       icon: <LinkIcon/>,
-      title: 'Customer self-booking',
-      body: 'Share a link. Customers pick a service, pick a time, and land in your leads queue with a notification. Zero voicemail tag, zero back-and-forth.',
+      title: 'Leads from everywhere',
+      body: 'Booking link customers fill out themselves. Quote-request link for fast pricing. QR code for yard signs, trucks, business cards. Phone, walk-in, referrals get tagged by source so you know what\'s actually working.',
+    },
+    {
+      icon: <DownloadIcon/>,
+      title: 'Switch in 10 minutes',
+      body: 'Bring your customers, quotes, jobs, invoices, expenses, and mileage from Jobber, Housecall Pro, QuickBooks, or any spreadsheet. One pass, validate-first preview, missing customers auto-create as you go. Nothing lost.',
     },
     {
       icon: <TruckIcon/>,
       title: '“On my way” auto-tracks',
-      body: 'One tap texts the customer their crew name + ETA, starts the time clock, and starts the GPS trip. End the day, mileage logs itself with real driving distance.',
+      body: 'One tap texts the customer their crew name + ETA, starts the time clock, and starts the GPS trip. Mark the job complete and mileage logs itself with real driving distance.',
     },
     {
       icon: <SignIcon/>,
       title: 'Customer signs off',
       body: "Finger on the screen at completion. Signature lands on the invoice + emailed receipt + customer portal. Disputes don't happen when the receipt has their name on it.",
-    },
-    {
-      ai: true,
-      icon: <CoachIcon/>,
-      title: 'AI insights every month',
-      body: 'MyForeman reads your revenue, jobs, customers, and expenses and ships you 4-5 specific moves. Pricing fixes, slow-month plays, retention hooks. Actionable, not generic.',
     },
     {
       icon: <BoltIcon/>,
@@ -403,7 +404,23 @@ function Features() {
     {
       icon: <CardIcon/>,
       title: 'Cards + Venmo + Zelle + Cash App',
-      body: 'Customers pay any way they want. Cards run through your own Stripe (we take no cut). Cash app handles tap-to-pay from the invoice. We just close the loop.',
+      body: 'Customers pay any way they want. Cards run through your own Stripe (we take no cut). Cash App, Venmo, Zelle, PayPal, and check info land on the invoice with tap-to-pay deeplinks.',
+    },
+    {
+      icon: <CycleIcon/>,
+      title: 'Recurring + multi-day + portal',
+      body: 'Set a maintenance plan once, jobs materialize on cadence. Multi-day jobs span the calendar correctly. Customer portal shows quotes, scheduled visits, and unpaid invoices — no login needed.',
+    },
+    {
+      icon: <ChartIcon/>,
+      title: 'Tax + accountant exports',
+      body: 'Quarterly tax estimates that account for income, expenses, and IRS mileage. Accountant CSV and QuickBooks Online CSV exports at year-end. Your books, ready when they ask.',
+    },
+    {
+      ai: true,
+      icon: <CoachIcon/>,
+      title: 'AI business coach',
+      body: 'Every month MyForeman reads your revenue, jobs, customers, and expenses and ships 4-5 specific moves. Pricing fixes, slow-month plays, retention hooks. Actionable, not generic.',
     },
   ];
 
@@ -672,5 +689,27 @@ function SignIcon() { return (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/>
     <path d="M14.06 6.19l3.75 3.75"/>
+  </svg>
+);}
+function DownloadIcon() { return (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+    <polyline points="7 10 12 15 17 10"/>
+    <line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+);}
+function CycleIcon() { return (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="23 4 23 10 17 10"/>
+    <polyline points="1 20 1 14 7 14"/>
+    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/>
+    <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
+  </svg>
+);}
+function ChartIcon() { return (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="12" y1="20" x2="12" y2="10"/>
+    <line x1="18" y1="20" x2="18" y2="4"/>
+    <line x1="6"  y1="20" x2="6"  y2="14"/>
   </svg>
 );}
