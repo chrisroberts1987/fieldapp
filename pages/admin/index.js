@@ -40,7 +40,7 @@ export default function Admin() {
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif",paddingBottom:80}}>
       <AdminHeader user={user} router={router} />
       <nav style={{display:'flex',gap:4,padding:'0 16px',borderBottom:'1px solid #2e3f60',background:'#0d1726',overflowX:'auto'}}>
-        {['overview','businesses','usage'].map(k => (
+        {['overview','businesses','usage','support'].map(k => (
           <button key={k} onClick={() => setTab(k)}
             style={{
               background:'transparent', border:'none',
@@ -58,6 +58,7 @@ export default function Admin() {
         {tab === 'overview'   && <OverviewSection />}
         {tab === 'businesses' && <BusinessesSection />}
         {tab === 'usage'      && <UsageSection />}
+        {tab === 'support'    && <SupportSection />}
       </main>
     </div>
   );
@@ -287,6 +288,23 @@ function BusinessDetailModal({ business, onClose, onChanged }) {
     onClose();
   };
 
+  // Generate a one-time magic-link the admin can paste in an
+  // incognito window to sign in as the org owner. Admin's primary
+  // session stays intact.
+  const impersonate = async () => {
+    if (!confirm(`Generate a one-time sign-in link for ${business.name}'s owner?\n\nOpen the URL in an incognito window to avoid clobbering your admin session.`)) return;
+    setBusy(true);
+    const r = await adminFetch(`/api/admin/business/${business.id}/impersonate`, { method: 'POST' });
+    setBusy(false);
+    if (r.error) { alert(r.error); return; }
+    try {
+      await navigator.clipboard.writeText(r.url);
+      alert(`Sign-in link copied to clipboard.\n\nOwner: ${r.owner_email}\nExpires in ${r.expires_in_hours}h, single-use.\n\nPaste it in an incognito window.`);
+    } catch {
+      window.prompt(`Owner: ${r.owner_email}\nExpires in ${r.expires_in_hours}h.\n\nCopy this link and paste in incognito:`, r.url);
+    }
+  };
+
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()}
       style={{position:'fixed',inset:0,background:'rgba(0,0,0,.78)',zIndex:200,display:'flex',alignItems:'flex-end',backdropFilter:'blur(4px)'}}>
@@ -357,7 +375,11 @@ function BusinessDetailModal({ business, onClose, onChanged }) {
                 ))}
               </div>
 
-              <div style={{display:'flex',gap:8,marginTop:18,paddingTop:14,borderTop:'1px solid #2e3f60'}}>
+              <div style={{display:'flex',gap:8,marginTop:18,paddingTop:14,borderTop:'1px solid #2e3f60',flexWrap:'wrap'}}>
+                <button onClick={impersonate} disabled={busy}
+                  style={{...btnGhost,color:'#4f9eff',borderColor:'#4f9eff55',flex:'1 1 100%'}}>
+                  Impersonate owner (1-hour link)
+                </button>
                 <button onClick={toggleSuspend} disabled={busy}
                   style={{...btnGhost,color:data.org.suspended_at?'#2edf87':'#fbbf24',borderColor:(data.org.suspended_at?'#2edf87':'#fbbf24')+'55',flex:1}}>
                   {data.org.suspended_at ? 'Unsuspend' : 'Suspend'}
@@ -405,6 +427,93 @@ function UsageSection() {
         <Kpi label="Total Seats"         value={data.totalSeats}         color="#b197fc" sub="members across all orgs"/>
         <Kpi label="Storage Used"        value={'—'}                     color="#7a8db0" sub="reporting pending"/>
       </div>
+    </>
+  );
+}
+
+// =============================================================
+// Support
+// =============================================================
+// Focused "customer just called, look them up" view. The Businesses
+// tab is for browsing the full list; Support is for fast lookup +
+// action. Drops the user into the same BusinessDetailModal so all
+// the same actions (suspend, delete, impersonate, full data) live
+// in one place.
+function SupportSection() {
+  const [email, setEmail] = useState('');
+  const [busy, setBusy]   = useState(false);
+  const [match, setMatch] = useState(null);
+  const [err, setErr]     = useState('');
+  const [openId, setOpenId] = useState(null);
+
+  const lookup = async () => {
+    const q = email.trim().toLowerCase();
+    if (!q) return;
+    setBusy(true); setErr(''); setMatch(null);
+    const r = await adminFetch(`/api/admin/businesses?search=${encodeURIComponent(q)}`);
+    setBusy(false);
+    if (r.error) { setErr(r.error); return; }
+    // The businesses endpoint matches name OR owner email. For
+    // support we want email matches preferentially; surface the
+    // first hit that has the email exactly, otherwise the first.
+    const list = Array.isArray(r) ? r : (r.businesses || []);
+    const exact = list.find(b => (b.owner_email || '').toLowerCase() === q);
+    const first = exact || list[0] || null;
+    if (!first) { setErr('No business found with that email.'); return; }
+    setMatch(first);
+  };
+
+  const onKeyDown = (e) => { if (e.key === 'Enter') lookup(); };
+
+  return (
+    <>
+      <SectionHeading title="Support" subtitle="Look up a contractor by email and help them. Impersonate to see what they see."/>
+
+      <div style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'18px 14px',marginBottom:14}}>
+        <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.12em',textTransform:'uppercase',fontWeight:700,marginBottom:6}}>Find a contractor</div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <input value={email} onChange={e => setEmail(e.target.value)} onKeyDown={onKeyDown}
+            placeholder="owner@example.com"
+            style={{flex:'1 1 260px',minWidth:0,background:'#0d1726',border:'1px solid #2e3f60',borderRadius:10,color:'#f0f4ff',padding:'12px 14px',fontSize:14,fontFamily:'inherit'}}/>
+          <button onClick={lookup} disabled={busy || !email.trim()}
+            style={{background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'12px 20px',fontFamily:"'Bebas Neue',sans-serif",fontSize:15,letterSpacing:'.06em',cursor:busy?'progress':'pointer',opacity:busy?0.6:1}}>
+            {busy ? 'LOOKING…' : 'LOOK UP'}
+          </button>
+        </div>
+        {err && <div style={{marginTop:10,fontSize:12,color:'#f26060'}}>{err}</div>}
+      </div>
+
+      {match && (
+        <div style={{background:'#1e2a42',border:'1px solid #4f9eff44',borderRadius:12,padding:'16px 14px',marginBottom:14}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,flexWrap:'wrap'}}>
+            <div style={{minWidth:0,flex:1}}>
+              <div style={{fontSize:11,color:'#4f9eff',letterSpacing:'.12em',textTransform:'uppercase',fontWeight:700}}>Match</div>
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:24,letterSpacing:'.04em',margin:'4px 0 0',color:'#f0f4ff'}}>
+                {(match.name || 'Unnamed').toUpperCase()}
+              </div>
+              <div style={{fontSize:13,color:'#c8d4ee',marginTop:4}}>{match.owner_email || '—'}</div>
+              <div style={{fontSize:11,color:'#7a8db0',marginTop:2}}>
+                {match.subscription_status || 'no plan'} · {match.job_count ?? 0} jobs · {match.invoice_count ?? 0} invoices · joined {match.created_at ? fmtDate(match.created_at) : '—'}
+              </div>
+            </div>
+            <button onClick={() => setOpenId(match.id)}
+              style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'10px 16px',fontFamily:"'Bebas Neue',sans-serif",fontSize:13,letterSpacing:'.06em',cursor:'pointer'}}>
+              OPEN FULL VIEW
+            </button>
+          </div>
+          <div style={{fontSize:12,color:'#7a8db0',marginTop:10,lineHeight:1.55}}>
+            Open the full view to see members, jobs, invoices, payment status, and to impersonate the owner. Impersonation generates a one-time sign-in link you paste in an incognito window so your admin session stays intact.
+          </div>
+        </div>
+      )}
+
+      {openId && (
+        <BusinessDetailModal
+          business={{ id: openId, name: match?.name || '' }}
+          onClose={() => setOpenId(null)}
+          onChanged={() => {}}
+        />
+      )}
     </>
   );
 }
