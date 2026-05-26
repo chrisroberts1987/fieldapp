@@ -226,11 +226,12 @@ export default function Jobs() {
     setAddingLabor(false);
   };
 
-  // Time clock. CLOCK IN opens a time_entries row (also auto-started
-  // by "On My Way"). The clock stops automatically when the job is
-  // marked complete — see the save() flow — no manual clock-out
-  // button. Mileage is logged from the start ↔ end GPS endpoints at
-  // that same moment.
+  // Time tracking is fully automatic: "On My Way" opens a time_entries
+  // row (with GPS start point), and marking the job complete closes
+  // it and writes a mileage_log from start↔end coordinates. No manual
+  // clock-in or clock-out buttons. If a crew wants to log hours
+  // without GPS — e.g., dispute or back-fill — they use the manual
+  // Labor section below (job_labor table).
   //
   // GPS capture is best-effort: 3s timeout, no UI block.
   const myOpenEntry = timeEntries.find(t => t.user_id === user?.id && !t.clock_out_at);
@@ -246,20 +247,6 @@ export default function Jobs() {
       { enableHighAccuracy: false, timeout: 2500, maximumAge: 60000 }
     );
   });
-
-  const clockIn = async () => {
-    if (!sheet || sheet === 'new' || !orgId || myOpenEntry) return;
-    const { lat, lng } = await tryGetCoords();
-    const { data } = await supabase.from('time_entries').insert({
-      org_id: orgId,
-      job_id: sheet.id,
-      user_id: user.id,
-      clock_in_at: new Date().toISOString(),
-      in_lat: lat ?? null,
-      in_lng: lng ?? null,
-    }).select('*').single();
-    if (data) setTimeEntries(prev => [data, ...prev]);
-  };
 
 
   // Checklist handlers. Foreman can add/remove items; anyone can tick.
@@ -779,49 +766,36 @@ export default function Jobs() {
               </div>
             )}
 
-            {sheet !== 'new' && (timeEntries.length > 0 || myOpenEntry) && (
+            {sheet !== 'new' && timeEntries.length > 0 && (
               <div style={{margin:'14px 16px',padding:'12px',background:'#0f1626',border:'1px solid #2e3f60',borderRadius:10}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-                  <div style={{fontSize:11,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0'}}>Time clock</div>
+                  <div style={{fontSize:11,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0'}}>Time on this job</div>
                   <div style={{fontSize:11,color:myOpenEntry ? '#fbbf24' : '#7a8db0'}}>
                     {myOpenEntry
                       ? `Running since ${new Date(myOpenEntry.clock_in_at).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })}`
-                      : `${timeEntries.filter(t => t.clock_out_at).length} entries`}
+                      : `${timeEntries.length} entr${timeEntries.length === 1 ? 'y' : 'ies'}`}
                   </div>
                 </div>
                 {myOpenEntry && (
-                  <div style={{fontSize:12,color:'#7a8db0',marginBottom:10,lineHeight:1.5}}>
-                    Clock stops + mileage logs when this job is marked complete.
+                  <div style={{fontSize:12,color:'#7a8db0',marginBottom:8,lineHeight:1.5}}>
+                    Auto-stops + logs mileage when this job is marked complete.
                   </div>
                 )}
-                {!myOpenEntry && (
-                  <button onClick={clockIn}
-                    style={{
-                      width:'100%', background:'#2edf87', border:'none',
-                      borderRadius:8, color:'#111827', padding:'10px',
-                      fontWeight:800, letterSpacing:'.06em', fontSize:12,
-                      cursor:'pointer', fontFamily:'inherit',
-                    }}>
-                    ▶ CLOCK IN (without notifying customer)
-                  </button>
-                )}
-                {timeEntries.length > 0 && (
-                  <div style={{marginTop:10,display:'flex',flexDirection:'column',gap:4}}>
-                    {timeEntries.slice(0,5).map(t => {
-                      const mins = t.clock_out_at
-                        ? Math.round((new Date(t.clock_out_at) - new Date(t.clock_in_at)) / 60000)
-                        : null;
-                      return (
-                        <div key={t.id} style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#c8d4ee',padding:'4px 0',borderBottom:'1px solid #1a2236'}}>
-                          <div>{memberEmail(t.user_id).split('@')[0]}</div>
-                          <div style={{color:'#7a8db0'}}>
-                            {mins != null ? `${Math.floor(mins/60)}h ${mins%60}m` : 'running'}
-                          </div>
+                <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                  {timeEntries.slice(0, 5).map(t => {
+                    const mins = t.clock_out_at
+                      ? Math.round((new Date(t.clock_out_at) - new Date(t.clock_in_at)) / 60000)
+                      : null;
+                    return (
+                      <div key={t.id} style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#c8d4ee',padding:'4px 0',borderBottom:'1px solid #1a2236'}}>
+                        <div>{memberEmail(t.user_id).split('@')[0]}</div>
+                        <div style={{color:'#7a8db0'}}>
+                          {mins != null ? `${Math.floor(mins/60)}h ${mins%60}m` : 'running'}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
