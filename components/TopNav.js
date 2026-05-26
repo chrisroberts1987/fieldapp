@@ -313,24 +313,24 @@ function MobileBottomNav({ role, active, router, onSignOut }) {
   const [moreOpen, setMoreOpen] = useState(false);
 
   const allPrimary = [
-    { route:'/dashboard', label:'Dashboard', icon:<DashIcon/>,     showFor:'all' },
-    { route:'/leads',     label:'Leads',     icon:<PhoneIcon/>,    showFor:'office' },
-    { route:'/schedule',  label:'Schedule',  icon:<CalendarIcon/>, showFor:'all' },
-    { route:'/jobs',      label:'Jobs',      icon:<WrenchIcon/>,   showFor:'all' },
-    { route:'/invoices',  label:'Invoices',  icon:<ReceiptIcon/>,  showFor:'foreman' },
+    { route:'/dashboard', label:'Dashboard', icon:<DashIcon/>,    showFor:'all' },
+    { route:'/leads',     label:'Leads',     icon:<PhoneIcon/>,   showFor:'office' },
+    { route:'/quotes',    label:'Quotes',    icon:<ScrollIcon/>,  showFor:'foreman' },
+    { route:'/jobs',      label:'Jobs',      icon:<WrenchIcon/>,  showFor:'all' },
+    { route:'/invoices',  label:'Invoices',  icon:<ReceiptIcon/>, showFor:'foreman' },
   ];
   const allMore = [
-    { route:'/customers', label:'Customers', icon:<PeopleIcon/>,  showFor:'office' },
-    { route:'/quotes',    label:'Quotes',    icon:<ScrollIcon/>,  showFor:'foreman' },
-    { route:'/services',  label:'Services',  icon:<PriceTagIcon/>,showFor:'foreman' },
-    { route:'/crew',      label:'Crew',      icon:<CrewIcon/>,    showFor:'all',     alsoMatches:['/approvals'] },
-    { route:'/expenses',  label:'Expenses',  icon:<WalletIcon/>,  showFor:'all',     alsoMatches:['/mileage'] },
-    { route:'/tax',       label:'Tax',       icon:<PieIcon/>,     showFor:'foreman' },
-    { route:'/reviews',   label:'Reviews',   icon:<StarTabIcon/>, showFor:'foreman' },
-    { route:'/insights',  label:'Insights',  icon:<ChartIcon/>,   showFor:'foreman' },
-    { route:'/billing',   label:'Billing',   icon:<CardIcon/>,    showFor:'foreman' },
-    { route:'/settings',  label:'Settings',  icon:<GearIcon/>,    showFor:'all' },
-    { route:'/contact',   label:'Contact',   icon:<MailIcon/>,    showFor:'all' },
+    { route:'/customers', label:'Customers', icon:<PeopleIcon/>,   showFor:'office' },
+    { route:'/schedule',  label:'Schedule',  icon:<CalendarIcon/>, showFor:'all' },
+    { route:'/services',  label:'Services',  icon:<PriceTagIcon/>, showFor:'foreman' },
+    { route:'/crew',      label:'Crew',      icon:<CrewIcon/>,     showFor:'all',     alsoMatches:['/approvals'] },
+    { route:'/expenses',  label:'Expenses',  icon:<WalletIcon/>,   showFor:'all',     alsoMatches:['/mileage'] },
+    { route:'/tax',       label:'Tax',       icon:<PieIcon/>,      showFor:'foreman' },
+    { route:'/reviews',   label:'Reviews',   icon:<StarTabIcon/>,  showFor:'foreman' },
+    { route:'/insights',  label:'Insights',  icon:<ChartIcon/>,    showFor:'foreman' },
+    { route:'/billing',   label:'Billing',   icon:<CardIcon/>,     showFor:'foreman' },
+    { route:'/settings',  label:'Settings',  icon:<GearIcon/>,     showFor:'all' },
+    { route:'/contact',   label:'Contact',   icon:<MailIcon/>,     showFor:'all' },
   ];
   const visible = items => items.filter(t => {
     if (t.showFor === 'all') return true;

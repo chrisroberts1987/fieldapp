@@ -268,6 +268,31 @@ export default function Jobs() {
     };
     await supabase.from('time_entries').update(updates).eq('id', myOpenEntry.id);
     setTimeEntries(prev => prev.map(t => t.id === myOpenEntry.id ? { ...t, ...updates } : t));
+
+    // Auto-create a business mileage_log if we have both endpoints.
+    // Straight-line haversine distance — good enough for an MVP; crew
+    // can edit the row in /mileage if they want to refine. Skips when
+    // either endpoint is missing or the trip is under 0.1 mile (likely
+    // same address, just GPS jitter).
+    const inLat = myOpenEntry.in_lat, inLng = myOpenEntry.in_lng;
+    if (inLat != null && inLng != null && lat != null && lng != null) {
+      const miles = haversineMiles(inLat, inLng, lat, lng);
+      if (miles >= 0.1) {
+        await supabase.from('mileage_logs').insert({
+          org_id: orgId,
+          user_id: user.id,
+          job_id:  sheet.id,
+          log_date: todayStr(),
+          miles: Number(miles.toFixed(2)),
+          start_lat: inLat, start_lng: inLng,
+          end_lat:   lat,   end_lng:   lng,
+          purpose:  'business',
+          method:   'gps',
+          notes:    'Auto-logged from job clock-in/out',
+          approval_status: 'pending',
+        });
+      }
+    }
   };
 
   // Checklist handlers. Foreman can add/remove items; anyone can tick.
@@ -333,6 +358,13 @@ export default function Jobs() {
       crewName,
       etaMins: 30,
     };
+
+    // Capture GPS once and use it for BOTH the customer notification's
+    // ETA tracking (future) and the clock-in start point so the
+    // mileage trip starts the moment they tap "On My Way", not when
+    // they remember to clock in.
+    const { lat, lng } = await tryGetCoords();
+
     let anyOk = false;
     if (cust.email) {
       const r = await sendEmail({ type: 'on_my_way', to: cust.email, data });
@@ -342,10 +374,30 @@ export default function Jobs() {
       sendSMS({ type: 'on_my_way', to: cust.phone, data }).catch(() => {});
       anyOk = true;
     }
+
+    // Auto-clock-in the crew member. The point of On My Way is "I'm
+    // starting this job now" — making them tap a second button to
+    // also start the timer was extra clicks for no gain. Skipped if
+    // they're already clocked in to this or any other job.
+    if (!myOpenEntry) {
+      const { data: te } = await supabase.from('time_entries').insert({
+        org_id: orgId,
+        job_id: sheet.id,
+        user_id: user.id,
+        clock_in_at: new Date().toISOString(),
+        in_lat: lat ?? null,
+        in_lng: lng ?? null,
+        notes: 'Auto-started by On My Way',
+      }).select('*').single();
+      if (te) setTimeEntries(prev => [te, ...prev]);
+    }
+
     await supabase.from('jobs').update({ on_my_way_at: new Date().toISOString() }).eq('id', sheet.id);
     setSheet(prev => prev && prev !== 'new' ? { ...prev, on_my_way_at: new Date().toISOString() } : prev);
     setSendingOnMyWay(false);
-    alert(anyOk ? `Notified ${cust.name}.` : 'Could not send. Check email/phone on file.');
+    alert(anyOk
+      ? `Notified ${cust.name}. Clock started — tap CLOCK OUT when you're done to record mileage.`
+      : 'Could not send. Check email/phone on file.');
   };
 
   const removeJobLabor = async (id) => {
@@ -1057,6 +1109,21 @@ function contactBtn(color) {
     fontFamily: 'inherit',
     whiteSpace: 'nowrap',
   };
+}
+
+// Great-circle distance in miles between two GPS points. Used to
+// estimate the trip when a crew member clocks in at one place and
+// clocks out at another. NOT driving distance — straight-line as
+// the crow flies. Good enough for an MVP; if a contractor cares
+// about mile-accurate logs they can edit the row in /mileage.
+function haversineMiles(lat1, lng1, lat2, lng2) {
+  const R = 3959; // earth radius in miles
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat/2)**2
+          + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2;
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function ProfitLine({ label, value, color, bold, suffix }) {

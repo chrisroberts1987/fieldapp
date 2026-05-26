@@ -8,6 +8,7 @@ import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import { isBlocked } from '../../lib/billing';
 import MarkPaidModal from '../../components/MarkPaidModal';
+import WeekStrip from '../../components/WeekStrip';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -16,6 +17,9 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [crewData, setCrewData] = useState(null); // for supervisor/crew views
   const [payModal, setPayModal] = useState(null);  // foreman quick-pay from action feed
+  const [weekJobs, setWeekJobs] = useState([]);    // jobs in the next 7 days for the WeekStrip
+  const [recurring, setRecurring] = useState([]);  // active recurring plans for ghost previews
+  const [customersIndex, setCustomersIndex] = useState({});
 
   const loadStats = async (oid) => {
     const now = new Date();
@@ -201,9 +205,38 @@ export default function Dashboard() {
     }
     if (isForeman(role)) loadStats(orgId);
     else loadCrewData(orgId);
+    loadWeek(orgId);
   }, [orgId, orgLoading, role, org?.subscription_status, org?.trial_ends_at, org?.stripe_subscription_id]);
 
-  useRefetchOnFocus(refetchStats, !!(orgId && role));
+  // Pull the next 7 days of jobs + active recurring plans for the
+  // dashboard week strip. Crew only sees their own jobs; office sees
+  // everything.
+  const loadWeek = async (oid) => {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const in7   = new Date(today); in7.setDate(in7.getDate() + 7);
+    const toIso = (d) => d.toISOString().slice(0,10);
+    let jq = supabase.from('jobs')
+      .select('id, title, status, customer_id, scheduled_date, scheduled_time, price, assigned_to_user_id')
+      .eq('org_id', oid)
+      .gte('scheduled_date', toIso(today))
+      .lt('scheduled_date',  toIso(in7));
+    if (isCrew(role)) jq = jq.eq('assigned_to_user_id', user.id);
+    const [{ data: j }, { data: rec }, { data: c }] = await Promise.all([
+      jq,
+      isOffice(role)
+        ? supabase.from('recurring_jobs').select('*').eq('org_id', oid).eq('active', true)
+        : Promise.resolve({ data: [] }),
+      supabase.from('customers').select('id, name').eq('org_id', oid),
+    ]);
+    setWeekJobs(j || []);
+    setRecurring(rec || []);
+    const idx = {};
+    (c || []).forEach(x => { idx[x.id] = x.name; });
+    setCustomersIndex(idx);
+  };
+
+  const refetchAll = () => { refetchStats(); if (orgId) loadWeek(orgId); };
+  useRefetchOnFocus(refetchAll, !!(orgId && role));
 
   // Foreman uses the rich financial stats; others use crewData.
   const ready = isForeman(role) ? stats : crewData;
@@ -273,6 +306,12 @@ export default function Dashboard() {
           <Kpi label="Unpaid Invoices" value={stats.unpaidCount}    color="#fbbf24" onClick={() => router.push('/invoices')}/>
           <Kpi label="Customers"       value={stats.customers}      color="#b197fc" onClick={() => router.push('/customers')}/>
         </div>
+
+        <WeekStrip
+          jobs={weekJobs}
+          recurring={recurring}
+          customerName={(id) => customersIndex[id] || '—'}
+          includeRecurring={true}/>
 
         {/* Financial overview */}
         <SectionHeader title="Financials" subtitle="Year to date" />
@@ -356,22 +395,15 @@ function SimpleDashboard({ role, user, org, crewData, router }) {
             : <Kpi label="Miles This Month" value={crewData.myMilesMonth.toFixed(1)} color="#54d4f8" onClick={() => router.push('/mileage')}/>}
         </div>
 
-        {/* Today's jobs */}
-        <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.06em',color:'#f0f4ff',marginBottom:10}}>{supervisor ? "TODAY'S CREW JOBS" : "TODAY'S JOBS"}</div>
-        {crewData.todayJobs.length === 0 ? (
-          <div style={{background:'#1e2a42',border:'1px dashed #2e3f60',borderRadius:12,padding:'20px',textAlign:'center',color:'#7a8db0',fontSize:13,marginBottom:18}}>
-            Nothing scheduled for today.
-            {!supervisor && crewData.poolCount > 0 && <> <a onClick={() => router.push('/jobs')} style={{color:'#4f9eff',cursor:'pointer',fontWeight:700}}>{crewData.poolCount} job{crewData.poolCount===1?'':'s'} in the pool</a> waiting to be claimed.</>}
-          </div>
-        ) : (
-          <div style={{display:'grid',gridTemplateColumns:'1fr',gap:6,marginBottom:18}}>
-            {crewData.todayJobs.map(j => (
-              <div key={j.id} onClick={() => router.push('/jobs')}
-                style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,padding:'12px 14px',cursor:'pointer'}}>
-                <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.04em',color:'#f0f4ff'}}>{j.title}</div>
-                <div style={{fontSize:11,color:'#7a8db0',marginTop:2,textTransform:'uppercase',letterSpacing:'.06em',fontWeight:700}}>{j.status}</div>
-              </div>
-            ))}
+        <WeekStrip
+          jobs={weekJobs}
+          recurring={recurring}
+          customerName={(id) => customersIndex[id] || '—'}
+          includeRecurring={isOffice(role)}/>
+
+        {!supervisor && crewData.poolCount > 0 && (
+          <div style={{background:'#1e2a42',border:'1px dashed #2e3f60',borderRadius:12,padding:'12px 14px',textAlign:'center',color:'#c8d4ee',fontSize:13,marginBottom:18}}>
+            <a onClick={() => router.push('/jobs')} style={{color:'#4f9eff',cursor:'pointer',fontWeight:700}}>{crewData.poolCount} job{crewData.poolCount===1?'':'s'} in the pool</a> waiting to be claimed.
           </div>
         )}
 
