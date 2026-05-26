@@ -226,10 +226,13 @@ export default function Jobs() {
     setAddingLabor(false);
   };
 
-  // Time clock. The crew member taps CLOCK IN; we open a time_entries
-  // row. CLOCK OUT closes the row. Open rows surface as "running".
-  // GPS is best-effort — we capture it if the browser hands it over
-  // within 3s, otherwise we just save without coordinates.
+  // Time clock. CLOCK IN opens a time_entries row (also auto-started
+  // by "On My Way"). The clock stops automatically when the job is
+  // marked complete — see the save() flow — no manual clock-out
+  // button. Mileage is logged from the start ↔ end GPS endpoints at
+  // that same moment.
+  //
+  // GPS capture is best-effort: 3s timeout, no UI block.
   const myOpenEntry = timeEntries.find(t => t.user_id === user?.id && !t.clock_out_at);
 
   const tryGetCoords = () => new Promise(resolve => {
@@ -258,42 +261,6 @@ export default function Jobs() {
     if (data) setTimeEntries(prev => [data, ...prev]);
   };
 
-  const clockOut = async () => {
-    if (!myOpenEntry) return;
-    const { lat, lng } = await tryGetCoords();
-    const updates = {
-      clock_out_at: new Date().toISOString(),
-      out_lat: lat ?? null,
-      out_lng: lng ?? null,
-    };
-    await supabase.from('time_entries').update(updates).eq('id', myOpenEntry.id);
-    setTimeEntries(prev => prev.map(t => t.id === myOpenEntry.id ? { ...t, ...updates } : t));
-
-    // Auto-create a business mileage_log if we have both endpoints.
-    // Straight-line haversine distance — good enough for an MVP; crew
-    // can edit the row in /mileage if they want to refine. Skips when
-    // either endpoint is missing or the trip is under 0.1 mile (likely
-    // same address, just GPS jitter).
-    const inLat = myOpenEntry.in_lat, inLng = myOpenEntry.in_lng;
-    if (inLat != null && inLng != null && lat != null && lng != null) {
-      const miles = haversineMiles(inLat, inLng, lat, lng);
-      if (miles >= 0.1) {
-        await supabase.from('mileage_logs').insert({
-          org_id: orgId,
-          user_id: user.id,
-          job_id:  sheet.id,
-          log_date: todayStr(),
-          miles: Number(miles.toFixed(2)),
-          start_lat: inLat, start_lng: inLng,
-          end_lat:   lat,   end_lng:   lng,
-          purpose:  'business',
-          method:   'gps',
-          notes:    'Auto-logged from job clock-in/out',
-          approval_status: 'pending',
-        });
-      }
-    }
-  };
 
   // Checklist handlers. Foreman can add/remove items; anyone can tick.
   const addChecklistItem = async () => {
@@ -396,7 +363,7 @@ export default function Jobs() {
     setSheet(prev => prev && prev !== 'new' ? { ...prev, on_my_way_at: new Date().toISOString() } : prev);
     setSendingOnMyWay(false);
     alert(anyOk
-      ? `Notified ${cust.name}. Clock started — tap CLOCK OUT when you're done to record mileage.`
+      ? `Notified ${cust.name}. Clock started — mark the job complete when done and we'll log time + mileage automatically.`
       : 'Could not send. Check email/phone on file.');
   };
 
@@ -502,6 +469,51 @@ export default function Jobs() {
             scheduledDate: human,
           },
         });
+      }
+    }
+
+    // When a job transitions to completed, close out any open time
+    // entries on it and auto-log mileage from each — eliminates the
+    // separate Clock Out step. Done before sending the customer
+    // "your job is complete" email so the labor + mileage records
+    // are settled by the time the contractor sees the receipt.
+    if (nowCompleted && !wasCompleted && savedJobId) {
+      const { data: openEntries } = await supabase.from('time_entries')
+        .select('*')
+        .eq('job_id', savedJobId)
+        .is('clock_out_at', null);
+      if (openEntries && openEntries.length > 0) {
+        const { lat, lng } = await tryGetCoords();
+        const closedAt = new Date().toISOString();
+        for (const te of openEntries) {
+          await supabase.from('time_entries').update({
+            clock_out_at: closedAt,
+            out_lat: lat ?? null,
+            out_lng: lng ?? null,
+          }).eq('id', te.id);
+
+          // Mileage row from this entry's start ↔ now coordinates
+          // (straight-line miles). Skipped if either endpoint is
+          // missing or the distance is GPS-jitter small.
+          if (te.in_lat != null && te.in_lng != null && lat != null && lng != null) {
+            const miles = haversineMiles(te.in_lat, te.in_lng, lat, lng);
+            if (miles >= 0.1) {
+              await supabase.from('mileage_logs').insert({
+                org_id: orgId,
+                user_id: te.user_id,
+                job_id:  savedJobId,
+                log_date: todayStr(),
+                miles: Number(miles.toFixed(2)),
+                start_lat: te.in_lat, start_lng: te.in_lng,
+                end_lat:   lat,       end_lng:   lng,
+                purpose:  'business',
+                method:   'gps',
+                notes:    'Auto-logged on job completion',
+                approval_status: 'pending',
+              });
+            }
+          }
+        }
       }
     }
 
@@ -767,7 +779,7 @@ export default function Jobs() {
               </div>
             )}
 
-            {sheet !== 'new' && (
+            {sheet !== 'new' && (timeEntries.length > 0 || myOpenEntry) && (
               <div style={{margin:'14px 16px',padding:'12px',background:'#0f1626',border:'1px solid #2e3f60',borderRadius:10}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
                   <div style={{fontSize:11,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0'}}>Time clock</div>
@@ -777,17 +789,22 @@ export default function Jobs() {
                       : `${timeEntries.filter(t => t.clock_out_at).length} entries`}
                   </div>
                 </div>
-                <button
-                  onClick={myOpenEntry ? clockOut : clockIn}
-                  style={{
-                    width:'100%',
-                    background: myOpenEntry ? '#f26060' : '#2edf87',
-                    border:'none', borderRadius:8, color:'#111827',
-                    padding:'12px', fontWeight:800, letterSpacing:'.06em', fontSize:13,
-                    cursor:'pointer', fontFamily:'inherit',
-                  }}>
-                  {myOpenEntry ? '⏹  CLOCK OUT' : '▶  CLOCK IN'}
-                </button>
+                {myOpenEntry && (
+                  <div style={{fontSize:12,color:'#7a8db0',marginBottom:10,lineHeight:1.5}}>
+                    Clock stops + mileage logs when this job is marked complete.
+                  </div>
+                )}
+                {!myOpenEntry && (
+                  <button onClick={clockIn}
+                    style={{
+                      width:'100%', background:'#2edf87', border:'none',
+                      borderRadius:8, color:'#111827', padding:'10px',
+                      fontWeight:800, letterSpacing:'.06em', fontSize:12,
+                      cursor:'pointer', fontFamily:'inherit',
+                    }}>
+                    ▶ CLOCK IN (without notifying customer)
+                  </button>
+                )}
                 {timeEntries.length > 0 && (
                   <div style={{marginTop:10,display:'flex',flexDirection:'column',gap:4}}>
                     {timeEntries.slice(0,5).map(t => {
