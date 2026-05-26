@@ -178,6 +178,8 @@ export default function Settings() {
 
       <div style={{maxWidth:560,margin:'16px auto 0',padding:'0 16px'}}>
 
+        <DisplayNameSection user={user} orgId={orgId}/>
+
         <Section title="Public Quote Link">
           <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.55,marginBottom:10}}>
             Share this link anywhere: on your website, in texts, on social, in your voicemail. They'll fill out a quick form and land in your Leads pipeline.
@@ -609,6 +611,58 @@ function DangerZone({ user, router }) {
         </button>
       </div>
     </>
+  );
+}
+
+// Per-user display name. Used in "On My Way" SMS/email, signature
+// receipts, and anywhere else the app refers to the crew member by
+// name. Stored on org_members so the same user can have a different
+// display name per org.
+function DisplayNameSection({ user, orgId }) {
+  const [name, setName]   = useState('');
+  const [orig, setOrig]   = useState('');
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState(0);
+
+  useEffect(() => {
+    if (!orgId || !user) return;
+    (async () => {
+      const { data } = await supabase
+        .from('org_members')
+        .select('display_name')
+        .eq('org_id', orgId).eq('user_id', user.id)
+        .maybeSingle();
+      const v = data?.display_name || '';
+      setName(v); setOrig(v);
+    })();
+  }, [orgId, user]);
+
+  const save = async () => {
+    setSaving(true);
+    await supabase.rpc('set_my_display_name', { p_org_id: orgId, p_name: name });
+    setOrig(name);
+    setSaving(false);
+    setSavedAt(Date.now());
+    setTimeout(() => setSavedAt(0), 1800);
+  };
+
+  const dirty = (name || '').trim() !== (orig || '').trim();
+
+  return (
+    <Section title="Your name">
+      <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.5,marginBottom:10}}>
+        How customers see you. Shown in "<strong>{(name || '—').trim() || 'Sam'} is on the way</strong>" texts and emails. Separate from the business name above.
+      </div>
+      <Field label="Display name">
+        <input type="text" maxLength={80} placeholder="Sam Jones"
+          value={name} onChange={e => setName(e.target.value)}
+          style={inputStyle}/>
+      </Field>
+      <button onClick={save} disabled={saving || !dirty}
+        style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'8px 16px',fontWeight:700,letterSpacing:'.04em',fontSize:12,cursor:'pointer',opacity:(saving || !dirty) ? 0.5 : 1}}>
+        {saving ? 'Saving…' : (savedAt ? '✓ Saved' : 'SAVE NAME')}
+      </button>
+    </Section>
   );
 }
 

@@ -361,7 +361,13 @@ export default function Jobs() {
       return;
     }
     setSendingOnMyWay(true);
-    const crewName = (user?.email || '').split('@')[0] || 'Your crew';
+    // Prefer the member's display_name so the customer sees "Sam Jones
+    // is on the way" instead of "sam_47 is on the way". Falls back
+    // to the email prefix if no display name has been set yet.
+    const me = members.find(m => m.user_id === user?.id);
+    const crewName = (me?.display_name && me.display_name.trim())
+      || (user?.email || '').split('@')[0]
+      || 'Your crew';
     const data = {
       customerName: cust.name || 'there',
       jobTitle: form.title || 'your job',
