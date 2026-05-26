@@ -31,6 +31,11 @@ function startOfWeek(d) {
 function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate()+n); return x; }
 function isoDay(d) { return d.toISOString().slice(0,10); }
 function sameDay(a, b) { return a.toDateString() === b.toDateString(); }
+function dayCount(j) {
+  if (!j.scheduled_end_date) return 1;
+  const ms = new Date(j.scheduled_end_date) - new Date(j.scheduled_date);
+  return Math.max(1, Math.round(ms / 86_400_000) + 1);
+}
 
 export default function Schedule() {
   const router = useRouter();
@@ -57,11 +62,14 @@ export default function Schedule() {
     const weekStart = startOfWeek(anchor);
     const weekEnd   = addDays(weekStart, 7);
     const [{ data: j }, { data: c }, { data: m }, { data: rec }] = await Promise.all([
+      // Pull every job whose window OVERLAPS the visible range,
+      // not just ones starting in it. A 5-day job that started
+      // yesterday should still show today.
       supabase.from('jobs')
-        .select('id, title, status, customer_id, assigned_to_user_id, scheduled_date, scheduled_time, price')
+        .select('id, title, status, customer_id, assigned_to_user_id, scheduled_date, scheduled_end_date, scheduled_time, price')
         .eq('org_id', orgId)
-        .gte('scheduled_date', isoDay(weekStart))
-        .lt('scheduled_date',  isoDay(weekEnd))
+        .lt('scheduled_date', isoDay(weekEnd))
+        .or(`scheduled_end_date.gte.${isoDay(weekStart)},and(scheduled_end_date.is.null,scheduled_date.gte.${isoDay(weekStart)})`)
         .order('scheduled_date'),
       supabase.from('customers').select('id, name').eq('org_id', orgId),
       supabase.rpc('list_org_members', { p_org_id: orgId }),
@@ -178,7 +186,19 @@ export default function Schedule() {
       <div style={{padding:'0 12px',display:'grid',gap:8,gridTemplateColumns: view === 'week' ? 'repeat(7, minmax(140px, 1fr))' : '1fr',overflowX: view === 'week' ? 'auto' : 'visible'}}>
         {days.map(day => {
           const iso = isoDay(day);
-          const dayJobs = visibleJobs.filter(j => j.scheduled_date === iso)
+          // A job shows on this day if (single-day && scheduled_date == iso)
+          // OR (multi-day && start <= iso <= end).
+          const dayJobs = visibleJobs.filter(j => {
+            const start = j.scheduled_date;
+            const end   = j.scheduled_end_date || j.scheduled_date;
+            return start && start <= iso && iso <= end;
+          }).map(j => ({
+            ...j,
+            // Annotate for the chip renderer.
+            isStart: j.scheduled_date === iso,
+            isEnd:   (j.scheduled_end_date || j.scheduled_date) === iso,
+            isMultiDay: !!j.scheduled_end_date && j.scheduled_end_date !== j.scheduled_date,
+          }))
             .sort((a,b) => (a.scheduled_time || '99:99').localeCompare(b.scheduled_time || '99:99'));
           // Ghost preview rows for recurring plans that fall on this
           // day but haven't been materialized into a real job yet.
@@ -247,13 +267,18 @@ export default function Schedule() {
               {dayJobs.map(j => {
                 const color = STATUS_COLOR[j.status] || '#7a8db0';
                 const who = assigneeShortName(j.assigned_to_user_id);
+                // For middle days of a multi-day job, render a thin
+                // continuation bar so the foreman can see "this job
+                // is in progress here" without spamming full chip
+                // info on every day. Start day gets full info; end
+                // day shows a small "ends today" tag.
+                const isMiddle = j.isMultiDay && !j.isStart && !j.isEnd;
                 return (
                   <button key={j.id} onClick={() => openJob(j.id)}
                     style={{
-                      background: color + '14',
-                      borderLeft: '3px solid ' + color,
+                      background: color + (isMiddle ? '08' : '14'),
                       borderRadius: 6,
-                      padding: '8px 10px',
+                      padding: isMiddle ? '4px 10px' : '8px 10px',
                       textAlign:'left',
                       color:'#f0f4ff',
                       cursor:'pointer',
@@ -263,16 +288,25 @@ export default function Schedule() {
                       borderLeftStyle:'solid',
                       borderLeftColor: color,
                     }}>
-                    {j.scheduled_time && (
+                    {j.scheduled_time && j.isStart && (
                       <div style={{fontSize:10,color:color,fontWeight:700,letterSpacing:'.04em'}}>{j.scheduled_time.slice(0,5)}</div>
                     )}
+                    {j.isMultiDay && (
+                      <div style={{fontSize:9,color:color,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase'}}>
+                        {j.isStart ? '↦ DAY 1 OF ' + dayCount(j) : (j.isEnd ? '⤓ FINAL DAY' : '⋯ IN PROGRESS')}
+                      </div>
+                    )}
                     <div style={{fontSize:13,fontWeight:600,lineHeight:1.25,overflow:'hidden',textOverflow:'ellipsis'}}>{j.title}</div>
-                    <div style={{fontSize:11,color:'#a8b8d8',marginTop:2}}>{customerName(j.customer_id)}</div>
-                    {j.price ? (
-                      <div style={{fontSize:11,color:'#7a8db0',marginTop:2}}>{fmt$(j.price)}</div>
-                    ) : null}
-                    {who && (
-                      <div style={{fontSize:10,color:color,marginTop:4,fontWeight:600,letterSpacing:'.04em',textTransform:'uppercase'}}>👷 {who}</div>
+                    {!isMiddle && (
+                      <>
+                        <div style={{fontSize:11,color:'#a8b8d8',marginTop:2}}>{customerName(j.customer_id)}</div>
+                        {j.price ? (
+                          <div style={{fontSize:11,color:'#7a8db0',marginTop:2}}>{fmt$(j.price)}</div>
+                        ) : null}
+                        {who && (
+                          <div style={{fontSize:10,color:color,marginTop:4,fontWeight:600,letterSpacing:'.04em',textTransform:'uppercase'}}>👷 {who}</div>
+                        )}
+                      </>
                     )}
                   </button>
                 );

@@ -59,8 +59,20 @@ export default function WeekStrip({ jobs, recurring = [], customerName, includeR
       <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:6,scrollSnapType:'x mandatory'}}>
         {days.map((day, i) => {
           const iso  = isoDay(day);
+          // Multi-day jobs show on every day their window covers,
+          // not just their start date.
           const dayJobs = (jobs || [])
-            .filter(j => j.scheduled_date === iso)
+            .filter(j => {
+              const start = j.scheduled_date;
+              const end   = j.scheduled_end_date || j.scheduled_date;
+              return start && start <= iso && iso <= end;
+            })
+            .map(j => ({
+              ...j,
+              isStart: j.scheduled_date === iso,
+              isEnd:   (j.scheduled_end_date || j.scheduled_date) === iso,
+              isMultiDay: !!j.scheduled_end_date && j.scheduled_end_date !== j.scheduled_date,
+            }))
             .sort((a,b) => (a.scheduled_time || '99:99').localeCompare(b.scheduled_time || '99:99'));
           const ghosts = includeRecurring
             ? recurring.flatMap(plan =>
@@ -97,13 +109,13 @@ export default function WeekStrip({ jobs, recurring = [], customerName, includeR
 
               {dayJobs.map(j => {
                 const color = STATUS_COLOR[j.status] || '#7a8db0';
+                const isMiddle = j.isMultiDay && !j.isStart && !j.isEnd;
                 return (
                   <button key={j.id} onClick={() => router.push(`/jobs?open=${j.id}`)}
                     style={{
-                      background: color + '14',
-                      borderLeft: '3px solid ' + color,
+                      background: color + (isMiddle ? '08' : '14'),
                       borderRadius: 5,
-                      padding: '6px 8px',
+                      padding: isMiddle ? '3px 8px' : '6px 8px',
                       textAlign:'left',
                       color:'#f0f4ff',
                       cursor:'pointer',
@@ -113,11 +125,16 @@ export default function WeekStrip({ jobs, recurring = [], customerName, includeR
                       borderLeftStyle:'solid',
                       borderLeftColor: color,
                     }}>
-                    {j.scheduled_time && (
+                    {j.scheduled_time && j.isStart && !j.isMultiDay && (
                       <div style={{fontSize:9,color:color,fontWeight:700,letterSpacing:'.04em'}}>{j.scheduled_time.slice(0,5)}</div>
                     )}
+                    {j.isMultiDay && (
+                      <div style={{fontSize:8,color:color,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase'}}>
+                        {j.isStart ? '↦ DAY 1' : (j.isEnd ? '⤓ END' : '⋯ ONGOING')}
+                      </div>
+                    )}
                     <div style={{fontSize:12,fontWeight:600,lineHeight:1.2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{j.title}</div>
-                    {customerName && j.customer_id && (
+                    {customerName && j.customer_id && !isMiddle && (
                       <div style={{fontSize:10,color:'#a8b8d8',marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{customerName(j.customer_id)}</div>
                     )}
                   </button>

@@ -215,11 +215,13 @@ export default function Dashboard() {
     const today = new Date(); today.setHours(0,0,0,0);
     const in7   = new Date(today); in7.setDate(in7.getDate() + 7);
     const toIso = (d) => d.toISOString().slice(0,10);
+    // Pull jobs whose window overlaps the next 7 days so a multi-day
+    // job starting yesterday still shows on today's strip.
     let jq = supabase.from('jobs')
-      .select('id, title, status, customer_id, scheduled_date, scheduled_time, price, assigned_to_user_id')
+      .select('id, title, status, customer_id, scheduled_date, scheduled_end_date, scheduled_time, price, assigned_to_user_id')
       .eq('org_id', oid)
-      .gte('scheduled_date', toIso(today))
-      .lt('scheduled_date',  toIso(in7));
+      .lt('scheduled_date', toIso(in7))
+      .or(`scheduled_end_date.gte.${toIso(today)},and(scheduled_end_date.is.null,scheduled_date.gte.${toIso(today)})`);
     if (isCrew(role)) jq = jq.eq('assigned_to_user_id', user.id);
     const [{ data: j }, { data: rec }, { data: c }] = await Promise.all([
       jq,

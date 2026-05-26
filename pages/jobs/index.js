@@ -12,6 +12,7 @@ import { validateUpload, ACCEPT_ATTR } from '../../lib/uploads';
 import { firePushEvent } from '../../lib/push/fire';
 import { lookupRouteMiles } from '../../lib/mileage';
 import MapView from '../../components/MapView';
+import SignaturePad from '../../components/SignaturePad';
 
 const STATUSES = [
   { key:'pending',     label:'Pending',     color:'#a855f7' },  // approved-but-not-scheduled, eg. just converted from a quote
@@ -24,7 +25,7 @@ const statusMeta = k => STATUSES.find(s => s.key === k) || STATUSES[0];
 
 const EMPTY = {
   customer_id:'', title:'', description:'',
-  status:'scheduled', scheduled_date: todayStr(), scheduled_time:'', price:'', notes:'',
+  status:'scheduled', scheduled_date: todayStr(), scheduled_end_date:'', scheduled_time:'', price:'', notes:'',
   assigned_to_user_id:'',
 };
 
@@ -62,6 +63,7 @@ export default function Jobs() {
   const [materials, setMaterials] = useState([]);
   const [newMaterial, setNewMaterial] = useState({ name:'', quantity:'1', unit_cost:'' });
   const [sendingOnMyWay, setSendingOnMyWay] = useState(false);
+  const [signaturePending, setSignaturePending] = useState(false); // shows the pad as a modal
 
   const loadAll = async () => {
     setLoading(true);
@@ -112,6 +114,7 @@ export default function Jobs() {
       description: j.description || '',
       status: j.status || 'scheduled',
       scheduled_date: j.scheduled_date || todayStr(),
+      scheduled_end_date: j.scheduled_end_date || '',
       scheduled_time: j.scheduled_time ? j.scheduled_time.slice(0,5) : '',
       price: j.price ?? '',
       notes: j.notes || '',
@@ -363,15 +366,34 @@ export default function Jobs() {
 
   const memberEmail = uid => members.find(m => m.user_id === uid)?.email || 'Unknown';
 
-  const save = async () => {
+  // Save is called twice in the completion flow: once when the user
+  // clicks the SAVE button (which may pop the signature pad), and
+  // once again after the customer signs (or skips). The signature
+  // object, when present, becomes part of the payload.
+  const save = async (signature = null) => {
     if (!form.title.trim() || !orgId) return;
+
+    // If the user is marking the job complete for the first time AND
+    // they haven't already provided a signature this save, intercept
+    // and pop the signature pad. They can skip if the customer isn't
+    // present — skipping passes signature=null and we save normally.
+    const wasCompleted = sheet !== 'new' && sheet?.status === 'completed';
+    const nowCompleted = form.status === 'completed';
+    const transitioningToComplete = nowCompleted && !wasCompleted;
+    if (transitioningToComplete && signature === null && !signaturePending && !sheet?.signature_url) {
+      setSignaturePending(true);
+      return;
+    }
+
     setSaving(true);
+    setSignaturePending(false);
     const prevAssignee = sheet !== 'new' ? sheet?.assigned_to_user_id : null;
     const newAssignee = form.assigned_to_user_id || null;
     const payload = {
       ...form,
       customer_id: form.customer_id || null,
       scheduled_date: form.scheduled_date || null,
+      scheduled_end_date: form.scheduled_end_date || null,
       scheduled_time: form.scheduled_time || null,
       price: form.price === '' ? 0 : Number(form.price),
       assigned_to_user_id: newAssignee,
@@ -387,8 +409,8 @@ export default function Jobs() {
     }
     // A trigger in migration 0012 auto-creates the invoice when a job hits
     // 'completed' status, so the client side just persists the change.
-    const wasCompleted = sheet !== 'new' && sheet?.status === 'completed';
-    const nowCompleted = payload.status === 'completed';
+    // (wasCompleted / nowCompleted already declared above for the
+    // signature-pad gate.)
     // Detect newly-scheduled jobs so we can email the customer. Fires
     // when either:
     //   - status transitions pending → scheduled (with a date), OR
@@ -410,6 +432,32 @@ export default function Jobs() {
       savedJobId = data?.id;
     } else {
       await supabase.from('jobs').update(payload).eq('id', sheet.id);
+    }
+
+    // If the customer signed on completion, upload the PNG to the
+    // job-signatures bucket and stamp signature_url + signed_by_name
+    // + signed_at on the row. Best-effort: a storage failure here
+    // doesn't block job completion or invoice creation. A skipped
+    // signature (`{ skipped:true }`) is here just to bypass the
+    // re-prompt gate — no upload.
+    if (signature && signature.dataUrl && savedJobId) {
+      try {
+        const blob = await (await fetch(signature.dataUrl)).blob();
+        const path = `${orgId}/${savedJobId}/signature-${Date.now()}.png`;
+        const { error: upErr } = await supabase.storage
+          .from('job-signatures')
+          .upload(path, blob, { contentType: 'image/png', upsert: false });
+        if (!upErr) {
+          const { data: pub } = supabase.storage.from('job-signatures').getPublicUrl(path);
+          await supabase.from('jobs').update({
+            signature_url:  pub?.publicUrl || null,
+            signed_by_name: signature.name,
+            signed_at:      new Date().toISOString(),
+          }).eq('id', savedJobId);
+        }
+      } catch {
+        // Silent — signature is bonus, not a blocker.
+      }
     }
 
     // Push the assignee when the job got assigned (new) or reassigned
@@ -711,20 +759,28 @@ export default function Jobs() {
               </div>
             </div>
 
-            <div style={{display:'flex',gap:8,margin:'10px 16px'}}>
-              <div style={{flex:1}}>
-                <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Date</div>
+            <div style={{display:'flex',gap:8,margin:'10px 16px',flexWrap:'wrap'}}>
+              <div style={{flex:'1 1 120px'}}>
+                <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Start date</div>
                 <input type="date" value={form.scheduled_date || ''}
                   onChange={e => setForm(p => ({...p, scheduled_date:e.target.value}))}
                   style={inputStyle}/>
               </div>
-              <div style={{flex:1}}>
+              <div style={{flex:'1 1 120px'}}>
+                <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>End date (multi-day)</div>
+                <input type="date" value={form.scheduled_end_date || ''}
+                  min={form.scheduled_date || undefined}
+                  onChange={e => setForm(p => ({...p, scheduled_end_date:e.target.value}))}
+                  style={inputStyle}
+                  placeholder="Optional"/>
+              </div>
+              <div style={{flex:'1 1 90px'}}>
                 <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Time</div>
                 <input type="time" value={form.scheduled_time || ''}
                   onChange={e => setForm(p => ({...p, scheduled_time:e.target.value}))}
                   style={inputStyle}/>
               </div>
-              <div style={{flex:1}}>
+              <div style={{flex:'1 1 90px'}}>
                 <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Price ($)</div>
                 <input type="number" inputMode="decimal" placeholder="0.00" value={form.price}
                   onChange={e => setForm(p => ({...p, price:e.target.value}))}
@@ -747,6 +803,23 @@ export default function Jobs() {
                 placeholder="Crew callouts, access, parts needed..."
                 style={{...inputStyle, resize:'vertical', minHeight:60, fontFamily:'inherit'}}/>
             </div>
+
+            {sheet !== 'new' && sheet.signature_url && (
+              <div style={{margin:'14px 16px',padding:'12px',background:'#0f1626',border:'1px solid #2edf8755',borderRadius:10}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                  <div style={{fontSize:11,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'#2edf87'}}>✓ Signed off</div>
+                  <div style={{fontSize:11,color:'#7a8db0'}}>
+                    {sheet.signed_at ? new Date(sheet.signed_at).toLocaleString() : ''}
+                  </div>
+                </div>
+                <div style={{background:'#fff',borderRadius:8,padding:6,marginBottom:6}}>
+                  <img src={sheet.signature_url} alt="Customer signature" style={{display:'block',width:'100%',maxHeight:120,objectFit:'contain'}}/>
+                </div>
+                {sheet.signed_by_name && (
+                  <div style={{fontSize:12,color:'#c8d4ee',textAlign:'center'}}>Signed by {sheet.signed_by_name}</div>
+                )}
+              </div>
+            )}
 
             {sheet !== 'new' && form.customer_id && (
               <div style={{margin:'14px 16px'}}>
@@ -1042,7 +1115,7 @@ export default function Jobs() {
             )}
 
             <div style={{padding:'8px 16px 0',display:'flex',gap:8}}>
-              <button onClick={save} disabled={saving || !form.title.trim()}
+              <button onClick={() => save()} disabled={saving || !form.title.trim()}
                 style={{flex:1,background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'13px 0',fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.06em',cursor:'pointer',opacity:saving?0.6:1}}>
                 {saving ? 'Saving...' : 'Save Job'}
               </button>
@@ -1051,6 +1124,22 @@ export default function Jobs() {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Signature pad — pops over the job sheet when completing for
+          the first time. Skip writes nothing, Done uploads the PNG. */}
+      {signaturePending && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(4px)'}}>
+          <div style={{background:'#1a2236',border:'1.5px solid #2e3f60',borderRadius:14,width:'94%',maxWidth:480}}>
+            <div style={{padding:'14px 16px 4px'}}>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'.08em',color:'#f0f4ff'}}>CUSTOMER SIGN-OFF</div>
+              <div style={{fontSize:11,letterSpacing:'.1em',color:'#7a8db0',fontWeight:600,textTransform:'uppercase',marginTop:2}}>{form.title}</div>
+            </div>
+            <SignaturePad
+              onSave={(sig) => save(sig)}
+              onCancel={() => save({ skipped: true, name: null, dataUrl: null })}/>
           </div>
         </div>
       )}

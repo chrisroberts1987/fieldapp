@@ -16,11 +16,12 @@ const STATUSES = [
 const statusMeta = k => STATUSES.find(s => s.key === k) || STATUSES[0];
 
 const SOURCES = [
-  { key:'call',     label:'Phone Call' },
-  { key:'website',  label:'Website' },
-  { key:'referral', label:'Referral' },
-  { key:'walk_in',  label:'Walk-in' },
-  { key:'other',    label:'Other' },
+  { key:'call',         label:'Phone Call' },
+  { key:'website',      label:'Website' },
+  { key:'self_booking', label:'Self-Booking' },
+  { key:'referral',     label:'Referral' },
+  { key:'walk_in',      label:'Walk-in' },
+  { key:'other',        label:'Other' },
 ];
 const sourceLabel = k => SOURCES.find(s => s.key === k)?.label || 'Other';
 
@@ -237,10 +238,20 @@ export default function Leads() {
                 {l.phone}{l.phone && l.email ? ' · ' : ''}{l.email}
               </div>
             )}
-            <div style={{display:'flex',justifyContent:'space-between',marginTop:4,fontSize:11,color:'#7a8db0',gap:8}}>
-              <span>{sourceLabel(l.source)}{l.follow_up_date ? ' · Follow up ' + fmtDate(l.follow_up_date) : ''}</span>
+            <div style={{display:'flex',justifyContent:'space-between',marginTop:4,fontSize:11,color:'#7a8db0',gap:8,flexWrap:'wrap'}}>
+              <span>
+                {l.source === 'self_booking' && <span style={{color:'#a855f7',fontWeight:700,letterSpacing:'.04em'}}>📅 BOOKING</span>}
+                {l.source !== 'self_booking' && sourceLabel(l.source)}
+                {l.follow_up_date ? ' · Follow up ' + fmtDate(l.follow_up_date) : ''}
+              </span>
               {l.estimated_value > 0 && <span style={{color:'#2edf87',fontWeight:600}}>~{fmt$(l.estimated_value)}</span>}
             </div>
+            {(l.service_name || l.requested_date) && (
+              <div style={{fontSize:11,color:'#a855f7',marginTop:3,fontWeight:600}}>
+                {l.service_name && <>Wants: {l.service_name}</>}
+                {l.requested_date && <> · {fmtDate(l.requested_date)}{l.requested_time ? ' @ ' + String(l.requested_time).slice(0,5) : ''}</>}
+              </div>
+            )}
             {l.notes && <div style={{fontSize:11,color:'#fbbf24',marginTop:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>Note: {l.notes}</div>}
             <div style={{display:'flex',gap:6,marginTop:8}}>
               <button onClick={e => { e.stopPropagation(); generateQuote(l); }}

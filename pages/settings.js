@@ -59,12 +59,23 @@ export default function Settings() {
   const quoteUrl = (form?.slug && typeof window !== 'undefined')
     ? `${window.location.origin}/quote/${form.slug}`
     : '';
+  const bookingUrl = (form?.slug && typeof window !== 'undefined')
+    ? `${window.location.origin}/book/${form.slug}`
+    : '';
   const [copied, setCopied] = useState(false);
+  const [copiedBooking, setCopiedBooking] = useState(false);
   const copyUrl = async () => {
     try {
       await navigator.clipboard.writeText(quoteUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
+    } catch {}
+  };
+  const copyBookingUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(bookingUrl);
+      setCopiedBooking(true);
+      setTimeout(() => setCopiedBooking(false), 1800);
     } catch {}
   };
 
@@ -189,6 +200,25 @@ export default function Settings() {
               placeholder="smith-lawn-care"/>
           </Field>
           <div style={{fontSize:11,color:'#fbbf24'}}>Changing this breaks any links you've already shared.</div>
+        </Section>
+
+        <Section title="Public Booking Link">
+          <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.55,marginBottom:10}}>
+            Send this link to customers who want to book a service themselves. They pick a service, date, and time. It lands as a self-booking lead with a notification.
+          </div>
+          <div style={{display:'flex',gap:6,marginBottom:8,alignItems:'stretch'}}>
+            <input readOnly value={bookingUrl} style={{...inputStyle, flex:1, fontFamily:'monospace', fontSize:12}}/>
+            <button onClick={copyBookingUrl} disabled={!bookingUrl}
+              style={{background:copiedBooking?'#2edf8722':'#4f9eff',border:copiedBooking?'1px solid #2edf87':'none',borderRadius:10,color:copiedBooking?'#2edf87':'#fff',padding:'0 14px',fontSize:12,fontWeight:700,letterSpacing:'.06em',cursor:'pointer',whiteSpace:'nowrap'}}>
+              {copiedBooking ? 'COPIED' : 'COPY'}
+            </button>
+          </div>
+          {bookingUrl && (
+            <a href={bookingUrl} target="_blank" rel="noopener noreferrer" style={{display:'inline-block',fontSize:12,color:'#4f9eff'}}>
+              Preview ↗
+            </a>
+          )}
+          <div style={{fontSize:11,color:'#7a8db0',marginTop:6}}>Build out your <a onClick={() => router.push('/services')} style={{color:'#4f9eff',cursor:'pointer'}}>Services</a> price book so customers see real options.</div>
         </Section>
 
         <Section title="Business">
