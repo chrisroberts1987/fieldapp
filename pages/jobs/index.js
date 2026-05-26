@@ -59,7 +59,7 @@ export default function Jobs() {
     setLoading(true);
     const [{ data: j }, { data: c }, { data: m }] = await Promise.all([
       supabase.from('jobs').select('*').eq('org_id', orgId).order('scheduled_date', { ascending:false, nullsFirst:false }),
-      supabase.from('customers').select('id,name,email,phone').eq('org_id', orgId).order('name'),
+      supabase.from('customers').select('id,name,email,phone,address').eq('org_id', orgId).order('name'),
       supabase.rpc('list_org_members', { p_org_id: orgId }),
     ]);
     setJobs(j || []);
@@ -469,6 +469,12 @@ export default function Jobs() {
                 <option value="">— none —</option>
                 {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+              {form.customer_id && (
+                <CustomerContactCard
+                  customer={customers.find(c => c.id === form.customer_id)}
+                  jobTitle={form.title}
+                />
+              )}
             </div>
 
             {isOffice(role) && (
@@ -680,6 +686,75 @@ export default function Jobs() {
       )}
     </div>
   );
+}
+
+// One-tap contact controls for the customer attached to a job.
+// Crew members only see the job sheet — this is their fastest path
+// to call, text, or get directions without leaving the job.
+//
+//   tel:   universal — every iOS and Android phone honors it
+//   sms:   ditto, prefilled with a short intro the crew can edit
+//   mailto: same for email
+//   maps:  opens Apple Maps on iOS / Google Maps on Android via the
+//          ?q=<address> URL pattern both apps respect.
+function CustomerContactCard({ customer, jobTitle }) {
+  if (!customer) return null;
+  const { name, phone, email, address } = customer;
+  const tel  = phone ? `tel:${phone.replace(/[^0-9+]/g, '')}` : null;
+  const intro = `Hi ${(name || '').split(' ')[0] || 'there'}, this is about ${jobTitle || 'your job'}. `;
+  const sms  = phone ? `sms:${phone.replace(/[^0-9+]/g, '')}?body=${encodeURIComponent(intro)}` : null;
+  const mail = email ? `mailto:${email}?subject=${encodeURIComponent(jobTitle || 'Your job')}` : null;
+  const maps = address ? `https://maps.google.com/?q=${encodeURIComponent(address)}` : null;
+
+  const anyContact = phone || email || address;
+  if (!anyContact) {
+    return (
+      <div style={{marginTop:8,padding:'10px 12px',background:'#1a2236',border:'1px dashed #2e3f60',borderRadius:8,fontSize:12,color:'#7a8db0',lineHeight:1.5}}>
+        No phone, email, or address on file for this customer. Add contact info in Customers.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{marginTop:8,padding:'10px 12px',background:'#1a2236',border:'1px solid #2e3f60',borderRadius:8}}>
+      <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:600,marginBottom:6}}>Reach the customer</div>
+      <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:address ? 8 : 0}}>
+        {tel && (
+          <a href={tel} style={contactBtn('#2edf87')}>📞 CALL</a>
+        )}
+        {sms && (
+          <a href={sms} style={contactBtn('#4f9eff')}>💬 TEXT</a>
+        )}
+        {mail && (
+          <a href={mail} style={contactBtn('#b197fc')}>✉️ EMAIL</a>
+        )}
+        {maps && (
+          <a href={maps} target="_blank" rel="noopener noreferrer" style={contactBtn('#fbbf24')}>📍 DIRECTIONS</a>
+        )}
+      </div>
+      {phone && <div style={{fontSize:12,color:'#c8d4ee'}}>📱 {phone}</div>}
+      {email && <div style={{fontSize:12,color:'#c8d4ee'}}>✉ {email}</div>}
+      {address && <div style={{fontSize:12,color:'#c8d4ee',whiteSpace:'pre-line',marginTop:2}}>🏠 {address}</div>}
+    </div>
+  );
+}
+
+function contactBtn(color) {
+  return {
+    flex: '1 1 auto',
+    background: color + '22',
+    border: '1px solid ' + color + '66',
+    borderRadius: 8,
+    color,
+    padding: '8px 10px',
+    fontSize: 12,
+    fontWeight: 700,
+    letterSpacing: '.05em',
+    textDecoration: 'none',
+    textAlign: 'center',
+    fontFamily: 'inherit',
+    whiteSpace: 'nowrap',
+  };
 }
 
 function ProfitLine({ label, value, color, bold, suffix }) {
