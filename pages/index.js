@@ -9,9 +9,8 @@ export default function Home() {
   const [billing, setBilling] = useState('monthly');
 
   useEffect(() => {
-    // If the user is running the installed PWA (display-mode: standalone),
-    // the marketing page is the wrong destination — send them straight
-    // to the app. Signed in → dashboard, otherwise → login.
+    // Installed PWA users don't want the marketing page; punt them
+    // straight into the app.
     const standalone = typeof window !== 'undefined'
       && (window.matchMedia?.('(display-mode: standalone)')?.matches
           || window.navigator?.standalone === true);
@@ -21,9 +20,9 @@ export default function Home() {
         router.push(session ? '/dashboard' : '/login');
         return;
       }
-      // Real signed-in users go straight to their dashboard. Demo
-      // viewers stay on the marketing page so closing the tab and
-      // coming back doesn't dump them straight back into the demo.
+      // Signed-in users go to their dashboard. Demo viewers stay on
+      // the marketing page so closing the tab doesn't trap them in
+      // the demo on next visit.
       if (session && session.user?.email !== 'demo@myforemanhq.com') {
         router.push('/dashboard');
       } else {
@@ -42,22 +41,20 @@ export default function Home() {
 
   return (
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',system-ui,sans-serif"}}>
-      <Hero router={router} supabase={supabase} />
-      <Compare router={router} />
-      <Workflow />
-      <Automation />
-      <Pricing billing={billing} setBilling={setBilling} router={router} />
-      <FooterSection />
+      <Hero router={router} supabase={supabase}/>
+      <Compare/>
+      <Workflow/>
+      <Features/>
+      <Pricing billing={billing} setBilling={setBilling} router={router}/>
+      <FooterSection/>
 
       <style jsx global>{`
         html, body { background: #111827; }
         a { color: inherit; }
 
         .hero-section {
-          position: relative;
-          overflow: hidden;
-          padding-top: 18px;
-          padding-bottom: 96px;
+          position: relative; overflow: hidden;
+          padding: 18px 0 72px;
         }
         .hero-grid-bg {
           position: absolute; inset: 0;
@@ -72,96 +69,72 @@ export default function Home() {
         .hero-glow {
           position: absolute; left: 50%; top: -240px;
           transform: translateX(-50%);
-          width: 760px; height: 760px;
-          border-radius: 50%;
+          width: 760px; height: 760px; border-radius: 50%;
           background: radial-gradient(circle, rgba(79,158,255,0.18), transparent 60%);
           pointer-events: none;
         }
         .hero-headline {
           font-family: 'Bebas Neue', Impact, sans-serif;
-          font-size: 62px;
-          letter-spacing: 0.04em;
-          line-height: 0.95;
-          margin: 0 0 18px;
-          color: #f0f4ff;
+          font-size: 62px; letter-spacing: 0.04em; line-height: 0.95;
+          margin: 0 0 16px; color: #f0f4ff;
         }
         .hero-headline .accent { color: #4f9eff; }
         .hero-subhead {
-          font-size: 17px;
-          line-height: 1.55;
-          color: #c8d4ee;
-          max-width: 620px;
-          margin: 0 auto 32px;
+          font-size: 16px; line-height: 1.55; color: #c8d4ee;
+          max-width: 580px; margin: 0 auto 28px;
         }
         @media (min-width: 720px) {
           .hero-headline { font-size: 104px; }
-          .hero-subhead { font-size: 20px; }
+          .hero-subhead { font-size: 19px; }
+          .hero-section { padding: 18px 0 88px; }
         }
         @media (min-width: 1024px) {
           .hero-headline { font-size: 128px; }
         }
 
-        .section {
-          padding: 80px 20px;
+        .section { padding: 64px 20px; }
+        .section.alt {
+          background: #0d1726;
+          border-top: 1px solid #1f2a40;
+          border-bottom: 1px solid #1f2a40;
         }
-        .section.alt { background: #0d1726; border-top: 1px solid #1f2a40; border-bottom: 1px solid #1f2a40; }
         .section-inner { max-width: 1080px; margin: 0 auto; }
         .section-headline {
           font-family: 'Bebas Neue', Impact, sans-serif;
-          font-size: 36px;
-          letter-spacing: 0.04em;
-          line-height: 1.05;
-          margin: 0 0 12px;
-          color: #f0f4ff;
+          font-size: 34px; letter-spacing: 0.04em; line-height: 1.05;
+          margin: 0 0 10px; color: #f0f4ff;
         }
         .section-lede {
-          font-size: 15px;
-          line-height: 1.55;
-          color: #c8d4ee;
-          max-width: 580px;
-          margin: 0 0 36px;
+          font-size: 15px; line-height: 1.55; color: #c8d4ee;
+          max-width: 560px; margin: 0 0 32px;
         }
         @media (min-width: 720px) {
-          .section { padding: 110px 24px; }
-          .section-headline { font-size: 56px; }
+          .section { padding: 92px 24px; }
+          .section-headline { font-size: 50px; }
           .section-lede { font-size: 17px; }
         }
 
-        .workflow-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 12px;
-        }
-        @media (min-width: 720px) { .workflow-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (min-width: 1024px) { .workflow-grid { grid-template-columns: repeat(5, 1fr); } }
+        .workflow-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        @media (min-width: 720px)  { .workflow-grid { grid-template-columns: repeat(5, 1fr); gap: 12px; } }
 
-        .pricing-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 16px;
-          margin-top: 28px;
-          align-items: stretch;
+        .feature-grid {
+          display: grid; grid-template-columns: 1fr; gap: 12px;
         }
-        @media (min-width: 880px) {
-          .pricing-grid { grid-template-columns: repeat(3, 1fr); gap: 18px; }
-        }
+        @media (min-width: 720px)  { .feature-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; } }
+        @media (min-width: 1024px) { .feature-grid { grid-template-columns: repeat(3, 1fr); } }
 
-        .footer-row {
-          display: flex;
-          flex-direction: column;
-          gap: 24px;
-          align-items: flex-start;
-        }
-        @media (min-width: 720px) {
-          .footer-row { flex-direction: row; align-items: center; justify-content: space-between; }
-        }
+        .pricing-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 22px; align-items: stretch; }
+        @media (min-width: 880px) { .pricing-grid { grid-template-columns: repeat(3, 1fr); gap: 18px; } }
+
+        .footer-row { display: flex; flex-direction: column; gap: 22px; align-items: flex-start; }
+        @media (min-width: 720px) { .footer-row { flex-direction: row; align-items: center; justify-content: space-between; } }
       `}</style>
     </div>
   );
 }
 
 /* =====================================================
-   HERO
+   HERO — two CTAs only. No anchor scroll button.
    ===================================================== */
 function Hero({ router, supabase }) {
   const [demoBusy, setDemoBusy] = useState(false);
@@ -173,25 +146,20 @@ function Hero({ router, supabase }) {
       password: 'demo1234',
     });
     if (error) { setDemoErr(error.message); setDemoBusy(false); return; }
-
-    // Wipe the onboarding-seen flags so every demo viewer gets the
-    // first-time tour, not just the first person of the day. The demo
-    // user has no real ongoing state worth preserving on these fields.
     const meta = { ...(data?.user?.user_metadata || {}) };
     delete meta.onboarding_completed_at;
     delete meta.onboarding_skipped_at;
     await supabase.auth.updateUser({ data: meta });
-
     router.push('/dashboard');
   };
 
   return (
     <section className="hero-section">
-      <div className="hero-grid-bg" />
-      <div className="hero-glow" />
+      <div className="hero-grid-bg"/>
+      <div className="hero-glow"/>
 
       <nav style={{position:'relative',zIndex:2,display:'flex',justifyContent:'space-between',alignItems:'center',maxWidth:1200,margin:'0 auto',padding:'0 20px',gap:12}}>
-        <Logo size="sm" />
+        <Logo size="sm"/>
         <div style={{display:'flex',gap:10,alignItems:'center'}}>
           <button onClick={() => router.push('/login')}
             style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'8px 14px',cursor:'pointer',fontSize:12,fontWeight:600,letterSpacing:'.06em'}}>
@@ -199,37 +167,33 @@ function Hero({ router, supabase }) {
           </button>
           <button onClick={() => router.push('/signup')}
             style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'8px 16px',cursor:'pointer',fontSize:12,fontWeight:700,letterSpacing:'.06em'}}>
-            START FREE TRIAL
+            START FREE
           </button>
         </div>
       </nav>
 
-      <div style={{position:'relative',zIndex:2,maxWidth:900,margin:'0 auto',padding:'72px 20px 0',textAlign:'center'}}>
-        <div style={{display:'inline-block',marginBottom:24,padding:'6px 14px',background:'rgba(79,158,255,0.10)',border:'1px solid rgba(79,158,255,0.3)',borderRadius:999,fontSize:11,letterSpacing:'.12em',fontWeight:700,color:'#4f9eff',textTransform:'uppercase'}}>
-          Real work deserves better tools.
+      <div style={{position:'relative',zIndex:2,maxWidth:880,margin:'0 auto',padding:'56px 20px 0',textAlign:'center'}}>
+        <div style={{display:'inline-block',marginBottom:20,padding:'6px 14px',background:'rgba(79,158,255,0.10)',border:'1px solid rgba(79,158,255,0.3)',borderRadius:999,fontSize:11,letterSpacing:'.12em',fontWeight:700,color:'#4f9eff',textTransform:'uppercase'}}>
+          Built for the trades
         </div>
         <h1 className="hero-headline">
           FROM LEAD<br/>TO <span className="accent">PAID.</span>
         </h1>
         <p className="hero-subhead">
-          MyForeman runs your field service business from first call to final payment, with AI insights that help you grow.
+          Run your field service business from the booking link to the signed receipt. One app. Mobile-first. Automation that does the chasing.
         </p>
-        <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}>
+        <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
           <button onClick={() => router.push('/signup')}
-            style={{background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'15px 28px',cursor:'pointer',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.08em'}}>
+            style={{background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'14px 26px',cursor:'pointer',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.08em'}}>
             START 14-DAY FREE TRIAL
           </button>
           <button onClick={launchDemo} disabled={demoBusy}
-            style={{background:'transparent',border:'1.5px solid #2edf87',borderRadius:10,color:'#2edf87',padding:'15px 28px',cursor:demoBusy?'wait':'pointer',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.08em',opacity:demoBusy?0.6:1}}>
-            {demoBusy ? 'OPENING DEMO…' : 'SEE LIVE DEMO →'}
+            style={{background:'transparent',border:'1.5px solid #2edf87',borderRadius:10,color:'#2edf87',padding:'14px 26px',cursor:demoBusy?'wait':'pointer',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.08em',opacity:demoBusy?0.6:1}}>
+            {demoBusy ? 'OPENING…' : 'LIVE DEMO →'}
           </button>
-          <a href="#workflow"
-            style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:10,color:'#c8d4ee',padding:'15px 28px',cursor:'pointer',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.08em',textDecoration:'none',display:'inline-flex',alignItems:'center'}}>
-            SEE HOW IT WORKS
-          </a>
         </div>
-        <div style={{marginTop:18,fontSize:12,color:'#7a8db0',letterSpacing:'.03em'}}>
-          Card required for the free trial. The live demo opens instantly. No signup, no card.
+        <div style={{marginTop:14,fontSize:12,color:'#7a8db0',letterSpacing:'.03em'}}>
+          Demo opens instantly. No card, no signup.
         </div>
         {demoErr && <div style={{marginTop:10,fontSize:12,color:'#f26060'}}>Couldn't open demo: {demoErr}</div>}
       </div>
@@ -238,38 +202,33 @@ function Hero({ router, supabase }) {
 }
 
 /* =====================================================
-   PAIN
+   COMPARE — trimmed to the rows that actually win deals.
+   No duplicate CTA at bottom.
    ===================================================== */
-function Compare({ router }) {
-  // Each row: [label, [col1, col2, col3], { ai?: highlight as AI row }]
-  // Values: 'yes' | 'no' | 'partial' | any plain string (rendered as text).
+function Compare() {
   const rows = [
-    { label:'Setup time',             values:['None',    '4–8 hrs',     '10 minutes'] },
-    { label:'Monthly cost',           values:['$0',      '$99–$300',    '$39–$159'] },
-    { label:'Mobile-first',           values:['no',      'partial',     'yes'] },
-    { label:'Lead → Paid workflow',   values:['no',      'yes',         'yes'] },
-    { label:'Card payments direct to you', values:['no', 'partial',     'yes'] },
-    { label:'Venmo / Zelle / Cash App on the invoice', values:['no', 'no', 'yes'] },
-    { label:'AI invoice import',      values:['no',      'no',          'yes'], ai:true },
-    { label:'AI business coach',      values:['no',      'no',          'yes'], ai:true },
-    { label:'Auto-invoice on done',   values:['no',      'partial',     'yes'] },
-    { label:'Daily invoice chase (7/14/30d)', values:['no', 'partial',  'yes'] },
-    { label:'Crew + approvals',       values:['Manual',  'yes',         'yes'] },
-    { label:'Mileage + tax',          values:['no',      'Add-on $$',   'yes'] },
-    { label:'Branded customer email', values:['no',      'yes',         'yes'] },
-    { label:'Installable mobile app', values:['no',      'partial',     'yes'] },
-    { label:'Live demo',              values:['N/A',     'Sales call',  'One tap'] },
+    { label:'Setup time',                                values:['None',   '4–8 hrs',     '10 min'] },
+    { label:'Lead → Paid pipeline',                      values:['no',     'yes',         'yes'] },
+    { label:'Mobile-first PWA',                          values:['no',     'partial',     'yes'] },
+    { label:'Customer self-booking page',                values:['no',     'partial',     'yes'] },
+    { label:'Card payments direct to you',               values:['no',     'partial',     'yes'] },
+    { label:'Auto-invoice + auto-chase (7/14/30d)',      values:['no',     'partial',     'yes'] },
+    { label:'On-the-way auto-tracks time + mileage',     values:['no',     'no',          'yes'] },
+    { label:'Customer signs off on the phone',           values:['no',     'partial',     'yes'] },
+    { label:'Recurring jobs + customer portal',          values:['no',     'partial',     'yes'] },
+    { label:'AI business coach',                         values:['no',     'no',          'yes'], ai:true },
+    { label:'Live demo',                                 values:['N/A',    'Sales call',  'One tap'] },
   ];
-  const cols       = ['Texts & sheets', 'Old-school field software', 'MyForeman'];
-  const colsShort  = ['Texts',         'Old-school',                'MyForeman'];
+  const cols      = ['Texts & sheets', 'Jobber / HCP', 'MyForeman'];
+  const colsShort = ['Texts',          'Old-school',   'MyForeman'];
 
   return (
     <section className="section alt">
       <div className="section-inner">
-        <h2 className="section-headline" style={{textAlign:'center',maxWidth:820,margin:'0 auto 12px'}}>
-          The Way It Should Have Always Been
+        <h2 className="section-headline" style={{textAlign:'center',maxWidth:780,margin:'0 auto 10px'}}>
+          The way it should have always been.
         </h2>
-        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 40px',maxWidth:680}}>
+        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 32px',maxWidth:620}}>
           Your work is professional. Your tools should be too.
         </p>
 
@@ -295,30 +254,15 @@ function Compare({ router }) {
             </div>
           ))}
         </div>
-
-        <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap',marginTop:42}}>
-          <button onClick={() => router.push('/signup')}
-            style={{background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'15px 28px',cursor:'pointer',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.08em'}}>
-            START 14-DAY FREE TRIAL
-          </button>
-          <a href="#workflow"
-            style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:10,color:'#c8d4ee',padding:'15px 28px',cursor:'pointer',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.08em',textDecoration:'none',display:'inline-flex',alignItems:'center'}}>
-            SEE HOW IT WORKS
-          </a>
-        </div>
       </div>
 
       <style jsx>{`
         .compare-table {
-          background: #111827;
-          border: 1px solid #2e3f60; border-radius: 14px;
-          overflow: hidden; max-width: 920px; margin: 0 auto;
+          background: #111827; border: 1px solid #2e3f60; border-radius: 14px;
+          overflow: hidden; max-width: 880px; margin: 0 auto;
           box-shadow: 0 20px 60px rgba(0,0,0,0.25);
         }
-        .compare-row {
-          display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr;
-          align-items: stretch;
-        }
+        .compare-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; align-items: stretch; }
         .compare-header { border-bottom: 1px solid #2e3f60; background: #0d1726; }
         .compare-header .compare-col {
           font-family: 'Bebas Neue', Impact, sans-serif;
@@ -334,15 +278,8 @@ function Compare({ router }) {
         }
         .compare-row + .compare-row { border-top: 1px solid #1f2a40; }
         .compare-row:nth-child(odd) { background: rgba(255,255,255,0.012); }
-        .compare-feature {
-          color: #c8d4ee; font-weight: 500;
-          display: flex; align-items: center;
-        }
-        .compare-col {
-          text-align: center;
-          color: #c8d4ee;
-          display: flex; align-items: center; justify-content: center;
-        }
+        .compare-feature { color: #c8d4ee; font-weight: 500; display: flex; align-items: center; }
+        .compare-col { text-align: center; color: #c8d4ee; display: flex; align-items: center; justify-content: center; }
         .compare-us {
           background: rgba(79,158,255,0.06);
           border-left: 1px solid rgba(79,158,255,0.35);
@@ -356,26 +293,20 @@ function Compare({ router }) {
           border: 1px solid rgba(251,191,36,0.4); border-radius: 999px;
           padding: 1px 7px; font-size: 9px; font-weight: 700; letter-spacing: .08em; margin-left: 6px;
         }
-
-        /* Show only the short header label on narrow screens, full label on desktop */
         .compare-col-short { display: inline; }
         .compare-col-full  { display: none; }
         @media (min-width: 768px) {
           .compare-col-short { display: none; }
           .compare-col-full  { display: inline; }
         }
-
-        /* Mobile — tight padding, smaller font, same table layout */
         .compare-header .compare-col { font-size: 11px; padding: 12px 6px; }
         .compare-feature              { padding: 10px 10px; font-size: 12px; line-height: 1.25; }
         .compare-col                  { padding: 10px 6px; font-size: 12px; }
-
-        /* Desktop — roomier */
         @media (min-width: 768px) {
           .compare-row { grid-template-columns: 1.6fr 1fr 1fr 1fr; }
-          .compare-header .compare-col { font-size: 13px; letter-spacing: .08em; padding: 18px 14px; }
-          .compare-feature              { padding: 14px 18px; font-size: 14px; }
-          .compare-col                  { padding: 14px; font-size: 14px; }
+          .compare-header .compare-col { font-size: 13px; letter-spacing: .08em; padding: 16px 14px; }
+          .compare-feature              { padding: 13px 18px; font-size: 14px; }
+          .compare-col                  { padding: 13px; font-size: 14px; }
         }
       `}</style>
     </section>
@@ -383,62 +314,51 @@ function Compare({ router }) {
 }
 
 function CompareCell({ value, isUs }) {
-  if (value === 'yes') {
-    return (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={isUs ? '#2edf87' : '#7a8db0'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{display:'inline-block',verticalAlign:'middle'}}>
-        <polyline points="20 6 9 17 4 12"/>
-      </svg>
-    );
-  }
-  if (value === 'no') {
-    return (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f26060" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{display:'inline-block',verticalAlign:'middle',opacity:0.75}}>
-        <line x1="18" y1="6" x2="6" y2="18"/>
-        <line x1="6" y1="6" x2="18" y2="18"/>
-      </svg>
-    );
-  }
-  if (value === 'partial') {
-    return <span style={{color:'#fbbf24',fontSize:'inherit',fontWeight:600,letterSpacing:'.02em'}}>Partial</span>;
-  }
+  if (value === 'yes') return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={isUs ? '#2edf87' : '#7a8db0'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{display:'inline-block',verticalAlign:'middle'}}>
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  );
+  if (value === 'no') return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f26060" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{display:'inline-block',verticalAlign:'middle',opacity:0.75}}>
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  );
+  if (value === 'partial') return <span style={{color:'#fbbf24',fontWeight:600}}>Partial</span>;
   return <span style={{color:isUs?'#f0f4ff':'#c8d4ee',fontWeight:isUs?700:500,lineHeight:1.25}}>{value}</span>;
 }
 
 /* =====================================================
-   WORKFLOW
+   WORKFLOW — five steps, tight copy.
    ===================================================== */
 function Workflow() {
   const steps = [
-    { label:'Lead',     color:'#54d4f8', icon:<PhoneIcon/>,  desc:'Capture every quote request from your shareable link, phone, or referrals.' },
-    { label:'Estimate', color:'#b197fc', icon:<ScrollIcon/>, desc:'Send a clean quote that closes. Convert it to a job when accepted.' },
-    { label:'Job',      color:'#4f9eff', icon:<WrenchIcon/>, desc:'Schedule the work. Track crew, status, dates, and pricing.' },
-    { label:'Invoice',  color:'#fbbf24', icon:<DocIcon/>,    desc:'Branded invoices the customer can pay from their phone.' },
-    { label:'Paid',     color:'#2edf87', icon:<CheckIcon/>,  desc:'Reconciled, recorded, and rolled into your monthly revenue.' },
+    { label:'Book',     color:'#54d4f8', icon:<PhoneIcon/>,  desc:'Customers self-book from your shareable link. No more voicemail tag.' },
+    { label:'Quote',    color:'#b197fc', icon:<ScrollIcon/>, desc:'Send a line-item quote with one-tap approval. Auto-converts to a job.' },
+    { label:'Work',     color:'#4f9eff', icon:<WrenchIcon/>, desc:'On-the-way texts the customer, starts the clock, tracks the mileage.' },
+    { label:'Invoice',  color:'#fbbf24', icon:<DocIcon/>,    desc:'Auto-billed at completion with a Pay Now link. Reminders go out for you.' },
+    { label:'Paid',     color:'#2edf87', icon:<CheckIcon/>,  desc:'Money lands in your Stripe. Review request fires. Books update.' },
   ];
   return (
-    <section id="workflow" className="section">
+    <section className="section">
       <div className="section-inner">
         <h2 className="section-headline" style={{textAlign:'center'}}>One app. The whole job.</h2>
-        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 44px'}}>
-          Every step of running a field service business, end to end. Nothing falls through the cracks.
+        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 32px'}}>
+          Every step of the lead-to-paid funnel, end to end. Nothing falls through the cracks.
         </p>
         <div className="workflow-grid">
           {steps.map((s, i) => (
-            <div key={s.label} style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,padding:'22px 18px',display:'flex',flexDirection:'column',gap:12,position:'relative'}}>
+            <div key={s.label} style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,padding:'20px 16px',display:'flex',flexDirection:'column',gap:10,position:'relative'}}>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <div style={{width:42,height:42,borderRadius:9,background:s.color+'22',border:'1px solid '+s.color+'66',display:'flex',alignItems:'center',justifyContent:'center',color:s.color}}>
+                <div style={{width:40,height:40,borderRadius:9,background:s.color+'22',border:'1px solid '+s.color+'66',display:'flex',alignItems:'center',justifyContent:'center',color:s.color}}>
                   {s.icon}
                 </div>
-                <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:16,color:'#7a8db0',letterSpacing:'.08em'}}>
-                  0{i+1}
-                </div>
+                <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:14,color:'#7a8db0',letterSpacing:'.08em'}}>0{i+1}</div>
               </div>
-              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:24,letterSpacing:'.06em',color:s.color}}>
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.06em',color:s.color}}>
                 {s.label.toUpperCase()}
               </div>
-              <div style={{fontSize:13,lineHeight:1.55,color:'#c8d4ee'}}>
-                {s.desc}
-              </div>
+              <div style={{fontSize:13,lineHeight:1.5,color:'#c8d4ee'}}>{s.desc}</div>
             </div>
           ))}
         </div>
@@ -448,130 +368,101 @@ function Workflow() {
 }
 
 /* =====================================================
-   AUTOMATION / AI
+   FEATURES — six cards that lead with the new stuff.
+   Drops the noisy 9-card grid that turned mobile into a scroll.
    ===================================================== */
-function Automation() {
+function Features() {
   const cards = [
     {
-      icon: <CardIcon/>,
-      title: 'Card payments direct to you',
-      body: "Customers pay invoices by card in one tap. Funds land in your own Stripe account, not ours. We don't take a cut. You handle refunds and payouts. Real merchant-of-record, your business name on the statement.",
+      icon: <LinkIcon/>,
+      title: 'Customer self-booking',
+      body: 'Share a link. Customers pick a service, pick a time, and land in your leads queue with a notification. Zero voicemail tag, zero back-and-forth.',
     },
     {
-      icon: <WalletIcon/>,
-      title: 'Venmo, Zelle, Cash App, PayPal',
-      body: 'Add your handles in Settings and they show up on every invoice with tap-to-pay deeplinks. The customer pays however they want. You tap Mark Paid once the money lands and the feedback request fires.',
+      icon: <TruckIcon/>,
+      title: '“On my way” auto-tracks',
+      body: 'One tap texts the customer their crew name + ETA, starts the time clock, and starts the GPS trip. End the day, mileage logs itself with real driving distance.',
     },
     {
-      ai: true,
-      icon: <AiSparkleIcon/>,
-      title: 'AI invoice import',
-      body: 'Snap a photo of any invoice. Vendor bills, receipts, contractor PDFs all work. AI pulls the customer, total, dates, and line items in seconds. No more typing.',
+      icon: <SignIcon/>,
+      title: 'Customer signs off',
+      body: "Finger on the screen at completion. Signature lands on the invoice + emailed receipt + customer portal. Disputes don't happen when the receipt has their name on it.",
     },
     {
       ai: true,
       icon: <CoachIcon/>,
-      title: 'Monthly AI business coach',
-      body: 'Every month MyForeman analyzes your revenue, jobs, and customers and delivers 4 to 5 specific recommendations. Pricing, slow months, retention. Actionable, not generic.',
+      title: 'AI insights every month',
+      body: 'MyForeman reads your revenue, jobs, customers, and expenses and ships you 4-5 specific moves. Pricing fixes, slow-month plays, retention hooks. Actionable, not generic.',
     },
     {
       icon: <BoltIcon/>,
-      title: 'Auto-invoice on completion',
-      body: 'Mark a job done. The invoice fires automatically with the right amount, customer, and notes. Zero clicks between the work and the bill.',
+      title: 'Auto-invoice → chase → review',
+      body: 'Job marked complete. Invoice fires. Customer gets a Pay Now link. Past 7/14/30 days? Reminders fire. Paid? Review request fires. You stop chasing checks.',
     },
     {
-      icon: <BellIcon/>,
-      title: 'Daily invoice chase',
-      body: "When an invoice goes past due, we automatically email (and text) the customer at 7, 14, and 30 days. Each reminder includes a one-tap Pay Now button. You stop chasing checks. The dollars come in faster.",
-    },
-    {
-      icon: <StarIcon/>,
-      title: 'Auto-feedback after payment',
-      body: 'The moment an invoice gets paid, the customer receives a personalized feedback link. Reviews roll in on autopilot.',
-    },
-    {
-      icon: <TruckIcon/>,
-      title: 'Mileage + tax tracking',
-      body: 'Log trips, watch the IRS deduction calculate live. Quarterly tax estimates that account for income, expenses, and mileage. Accountant-ready CSV when you need it.',
-    },
-    {
-      icon: <MailIcon/>,
-      title: 'Branded customer emails',
-      body: 'Every quote, invoice, and feedback request goes out under your business name. Replies route to your inbox. MyForeman stays invisible to your customers.',
+      icon: <CardIcon/>,
+      title: 'Cards + Venmo + Zelle + Cash App',
+      body: 'Customers pay any way they want. Cards run through your own Stripe (we take no cut). Cash app handles tap-to-pay from the invoice. We just close the loop.',
     },
   ];
 
   return (
-    <section className="section">
+    <section className="section alt">
       <div className="section-inner">
-        <h2 className="section-headline" style={{textAlign:'center',maxWidth:760,margin:'0 auto 12px'}}>
+        <h2 className="section-headline" style={{textAlign:'center',maxWidth:740,margin:'0 auto 10px'}}>
           Built to run itself.
         </h2>
-        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 44px',maxWidth:640}}>
-          AI and automation that quietly handle the busywork so you can spend your day on the job, not the laptop.
+        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 32px',maxWidth:620}}>
+          Automation that quietly handles the busywork so you can spend the day on the job, not the laptop.
         </p>
 
-        <div className="auto-grid">
+        <div className="feature-grid">
           {cards.map((c, i) => (
-            <div key={i} className={'auto-card ' + (c.ai ? 'auto-card-ai' : '')}>
-              {c.ai && <span className="auto-ai-tag">AI</span>}
-              <div className={'auto-icon ' + (c.ai ? 'auto-icon-ai' : '')}>{c.icon}</div>
-              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:24,letterSpacing:'.04em',color:'#f0f4ff',marginBottom:8,marginTop:4}}>
+            <div key={i} className={'feature-card ' + (c.ai ? 'feature-card-ai' : '')}>
+              {c.ai && <span className="feature-ai-tag">AI</span>}
+              <div className={'feature-icon ' + (c.ai ? 'feature-icon-ai' : '')}>{c.icon}</div>
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.04em',color:'#f0f4ff',marginTop:4,marginBottom:6}}>
                 {c.title.toUpperCase()}
               </div>
-              <div style={{fontSize:14,lineHeight:1.55,color:'#c8d4ee'}}>
-                {c.body}
-              </div>
+              <div style={{fontSize:13.5,lineHeight:1.55,color:'#c8d4ee'}}>{c.body}</div>
             </div>
           ))}
         </div>
-
       </div>
 
       <style jsx>{`
-        .auto-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 14px;
-        }
-        .auto-card {
+        .feature-card {
           background: #1e2a42;
           border: 1px solid #2e3f60;
           border-radius: 14px;
-          padding: 24px 22px;
+          padding: 22px 20px;
           position: relative;
           transition: border-color .2s, transform .2s;
         }
-        .auto-card:hover { border-color: #4f9eff; transform: translateY(-2px); }
-        .auto-card-ai {
+        .feature-card:hover { border-color: #4f9eff; transform: translateY(-2px); }
+        .feature-card-ai {
           background: linear-gradient(160deg, rgba(251,191,36,0.06) 0%, #1e2a42 55%);
           border-color: rgba(251,191,36,0.35);
         }
-        .auto-card-ai:hover { border-color: rgba(251,191,36,0.7); }
-        .auto-ai-tag {
-          position: absolute; top: 16px; right: 16px;
+        .feature-card-ai:hover { border-color: rgba(251,191,36,0.7); }
+        .feature-ai-tag {
+          position: absolute; top: 14px; right: 14px;
           background: rgba(251,191,36,0.15); color: #fbbf24;
           border: 1px solid rgba(251,191,36,0.45);
           border-radius: 999px; padding: 2px 9px;
           font-size: 10px; font-weight: 700; letter-spacing: .1em;
         }
-        .auto-icon {
-          width: 44px; height: 44px; border-radius: 10px;
+        .feature-icon {
+          width: 42px; height: 42px; border-radius: 10px;
           background: rgba(79,158,255,0.12);
           border: 1px solid rgba(79,158,255,0.35);
           color: #4f9eff;
           display: flex; align-items: center; justify-content: center;
         }
-        .auto-icon-ai {
+        .feature-icon-ai {
           background: rgba(251,191,36,0.12);
           border-color: rgba(251,191,36,0.45);
           color: #fbbf24;
-        }
-        @media (min-width: 720px) {
-          .auto-grid { grid-template-columns: repeat(2, 1fr); gap: 18px; }
-        }
-        @media (min-width: 1024px) {
-          .auto-grid { grid-template-columns: repeat(3, 1fr); }
         }
       `}</style>
     </section>
@@ -579,7 +470,7 @@ function Automation() {
 }
 
 /* =====================================================
-   PRICING
+   PRICING — three plans. Annual is 11x monthly (1 mo free).
    ===================================================== */
 function Pricing({ billing, setBilling, router }) {
   const plans = [
@@ -588,11 +479,11 @@ function Pricing({ billing, setBilling, router }) {
     { name:'Business', monthly:159, users:'Up to 25 users',  subtitle:'For multi-crew shops' },
   ];
   return (
-    <section className="section alt">
+    <section className="section">
       <div className="section-inner">
-        <h2 className="section-headline" style={{textAlign:'center'}}>Simple pricing. No feature gates.</h2>
-        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 24px'}}>
-          Every plan includes everything. Pay for your crew size.
+        <h2 className="section-headline" style={{textAlign:'center'}}>Simple pricing. Every feature.</h2>
+        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 22px'}}>
+          One plan per crew size. No feature gates. No add-on tier for the stuff you actually need.
         </p>
 
         <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>
@@ -608,26 +499,16 @@ function Pricing({ billing, setBilling, router }) {
           </div>
         </div>
         <div style={{textAlign:'center',height:16,fontSize:11,fontWeight:700,letterSpacing:'.12em',color:'#2edf87'}}>
-          {billing === 'annual' ? '1 MONTH FREE' : ' '}
+          {billing === 'annual' ? '1 MONTH FREE' : ' '}
         </div>
 
         <div className="pricing-grid">
-          {plans.map(p => <PricingCard key={p.name} plan={p} billing={billing} router={router} />)}
+          {plans.map(p => <PricingCard key={p.name} plan={p} billing={billing} router={router}/>)}
         </div>
 
-        <p style={{textAlign:'center',fontSize:13,color:'#7a8db0',marginTop:28}}>
-          14-day free trial. Full product. No feature limits.
+        <p style={{textAlign:'center',fontSize:13,color:'#7a8db0',marginTop:22}}>
+          14-day free trial. Full product. Import your existing customers + jobs from Jobber, HCP, or QuickBooks in minutes.
         </p>
-
-        <div style={{maxWidth:680,margin:'36px auto 0',padding:'18px 20px',background:'#1e2a42',border:'1px solid #4f9eff44',borderRadius:14,textAlign:'center'}}>
-          <div style={{fontSize:11,color:'#4f9eff',letterSpacing:'.14em',fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Switching from another platform?</div>
-          <div style={{fontSize:16,color:'#f0f4ff',fontWeight:600,lineHeight:1.45,marginBottom:6}}>
-            Coming from another platform? Import your customers, jobs, and history in minutes.
-          </div>
-          <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55}}>
-            No starting over. No lost data. Drop in a CSV or Excel from Jobber, Housecall Pro, QuickBooks, or anywhere else.
-          </div>
-        </div>
       </div>
     </section>
   );
@@ -644,11 +525,11 @@ function PricingCard({ plan, billing, router }) {
       background: popular ? '#1e2a42' : '#111827',
       border: popular ? '2px solid #4f9eff' : '1.5px solid #2e3f60',
       borderRadius: 16,
-      padding: '28px 22px 24px',
+      padding: '26px 22px 22px',
       position: 'relative',
       display: 'flex',
       flexDirection: 'column',
-      gap: 16,
+      gap: 14,
       transform: popular ? 'translateY(-4px)' : 'none',
       boxShadow: popular ? '0 12px 32px rgba(79,158,255,0.15)' : 'none',
     }}>
@@ -658,38 +539,34 @@ function PricingCard({ plan, billing, router }) {
         </div>
       )}
       <div>
-        <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:28,letterSpacing:'.06em',color:'#f0f4ff'}}>
+        <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:26,letterSpacing:'.06em',color:'#f0f4ff'}}>
           {plan.name.toUpperCase()}
         </div>
-        <div style={{fontSize:12,color:'#7a8db0',marginTop:2}}>
-          {plan.subtitle}
-        </div>
+        <div style={{fontSize:12,color:'#7a8db0',marginTop:2}}>{plan.subtitle}</div>
       </div>
       <div>
         <div style={{display:'flex',alignItems:'baseline',gap:6}}>
-          <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:56,color:'#f0f4ff',letterSpacing:'.02em',lineHeight:1}}>
+          <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:52,color:'#f0f4ff',letterSpacing:'.02em',lineHeight:1}}>
             ${displayPrice}
           </span>
-          <span style={{fontSize:14,color:'#7a8db0'}}>/month</span>
+          <span style={{fontSize:13,color:'#7a8db0'}}>/month</span>
         </div>
         <div style={{fontSize:11,color: isAnnual ? '#2edf87' : '#7a8db0',marginTop:6,fontWeight:isAnnual?700:400,letterSpacing:isAnnual?'.04em':0}}>
           {isAnnual ? `$${annualTotal} billed annually` : 'Billed monthly'}
         </div>
       </div>
-      <div style={{fontSize:14,color:'#c8d4ee',fontWeight:600}}>
-        {plan.users}
-      </div>
+      <div style={{fontSize:14,color:'#c8d4ee',fontWeight:600}}>{plan.users}</div>
       <button onClick={() => router.push('/signup')}
-        style={{background: popular?'#4f9eff':'transparent',color: popular?'#fff':'#c8d4ee',border: popular?'none':'1px solid #2e3f60',borderRadius:10,padding:'14px 0',cursor:'pointer',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:16,letterSpacing:'.08em',fontWeight:700}}>
+        style={{background: popular?'#4f9eff':'transparent',color: popular?'#fff':'#c8d4ee',border: popular?'none':'1px solid #2e3f60',borderRadius:10,padding:'13px 0',cursor:'pointer',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:15,letterSpacing:'.08em',fontWeight:700}}>
         START FREE TRIAL
       </button>
-      <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:4,paddingTop:16,borderTop:'1px solid #2e3f60'}}>
+      <div style={{display:'flex',flexDirection:'column',gap:7,marginTop:4,paddingTop:14,borderTop:'1px solid #2e3f60'}}>
         {[
-          'Lead-to-paid pipeline',
-          'Branded invoices',
-          'Public quote form',
-          'AI insights',
-          'Unlimited customers, jobs, invoices',
+          'Self-booking link',
+          'Lead → quote → job → invoice',
+          'Card + Venmo + Zelle + Cash App',
+          'AI insights + monthly coach',
+          'Unlimited everything',
         ].map(f => (
           <div key={f} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:'#c8d4ee'}}>
             <span style={{color:'#2edf87',flexShrink:0,fontWeight:700}}>✓</span> {f}
@@ -705,10 +582,10 @@ function PricingCard({ plan, billing, router }) {
    ===================================================== */
 function FooterSection() {
   return (
-    <footer style={{padding:'48px 20px 36px',borderTop:'1px solid #1f2a40'}}>
+    <footer style={{padding:'40px 20px 32px',borderTop:'1px solid #1f2a40'}}>
       <div className="footer-row" style={{maxWidth:1080,margin:'0 auto'}}>
         <div>
-          <Logo size="sm" />
+          <Logo size="sm"/>
           <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.16em',marginTop:8,fontWeight:600,textTransform:'uppercase'}}>
             From lead to paid
           </div>
@@ -716,11 +593,9 @@ function FooterSection() {
         <div style={{display:'flex',gap:24,fontSize:13,color:'#7a8db0',flexWrap:'wrap',justifyContent:'center'}}>
           <a href="/contact" style={{color:'#7a8db0',textDecoration:'none'}}>Contact</a>
           <a href="/privacy" style={{color:'#7a8db0',textDecoration:'none'}}>Privacy</a>
-          <a href="/terms" style={{color:'#7a8db0',textDecoration:'none'}}>Terms</a>
+          <a href="/terms"   style={{color:'#7a8db0',textDecoration:'none'}}>Terms</a>
         </div>
         <div style={{fontSize:11,color:'#7a8db0',textAlign:'center'}}>
-          <a href="mailto:support@myforemanhq.com" style={{color:'#7a8db0',textDecoration:'none'}}>support@myforemanhq.com</a>
-          <span style={{margin:'0 8px',color:'#3a4866'}}>·</span>
           <a href="mailto:hello@myforemanhq.com" style={{color:'#7a8db0',textDecoration:'none'}}>hello@myforemanhq.com</a>
           <div style={{marginTop:6}}>© {new Date().getFullYear()} MyForeman</div>
         </div>
@@ -760,12 +635,6 @@ function CheckIcon() { return (
     <path d="M5 12l4 4 10-10"/>
   </svg>
 );}
-function AiSparkleIcon() { return (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 2l1.6 4.6L18 8l-4.4 1.4L12 14l-1.6-4.6L6 8l4.4-1.4L12 2z"/>
-    <path d="M19 14l.8 2.3L22 17l-2.2.7L19 20l-.8-2.3L16 17l2.2-.7L19 14z"/>
-  </svg>
-);}
 function CoachIcon() { return (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="9"/>
@@ -778,22 +647,11 @@ function BoltIcon() { return (
     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
   </svg>
 );}
-function StarIcon() { return (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9 12 2"/>
-  </svg>
-);}
 function TruckIcon() { return (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M1 16V4h13v12M14 8h5l3 4v4h-8"/>
     <circle cx="6.5" cy="18" r="2"/>
     <circle cx="17.5" cy="18" r="2"/>
-  </svg>
-);}
-function MailIcon() { return (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="4" width="20" height="16" rx="2"/>
-    <polyline points="2 7 12 13 22 7"/>
   </svg>
 );}
 function CardIcon() { return (
@@ -803,15 +661,15 @@ function CardIcon() { return (
     <line x1="6" y1="15" x2="10" y2="15"/>
   </svg>
 );}
-function WalletIcon() { return (
+function LinkIcon() { return (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 7a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>
-    <path d="M20 11h-4a2 2 0 1 0 0 4h4"/>
+    <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1 1"/>
+    <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1-1"/>
   </svg>
 );}
-function BellIcon() { return (
+function SignIcon() { return (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
-    <path d="M10 21a2 2 0 0 0 4 0"/>
+    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/>
+    <path d="M14.06 6.19l3.75 3.75"/>
   </svg>
 );}
