@@ -11,6 +11,7 @@ import { sendSMS } from '../../lib/sms/client';
 import { validateUpload, ACCEPT_ATTR } from '../../lib/uploads';
 import { firePushEvent } from '../../lib/push/fire';
 import { lookupRouteMiles } from '../../lib/mileage';
+import MapView from '../../components/MapView';
 
 const STATUSES = [
   { key:'pending',     label:'Pending',     color:'#a855f7' },  // approved-but-not-scheduled, eg. just converted from a quote
@@ -481,10 +482,10 @@ export default function Jobs() {
           }).eq('id', te.id);
 
           // Mileage row from this entry's start ↔ now coordinates.
-          // Prefers Mapbox driving distance when MAPBOX_TOKEN is set;
-          // falls back to straight-line haversine if the lookup
-          // fails. Skipped if either endpoint is missing or the
-          // distance is GPS-jitter small.
+          // Uses OSRM (OpenStreetMap routing) driving distance; falls
+          // back to straight-line haversine if the lookup fails.
+          // Skipped if either endpoint is missing or the distance is
+          // GPS-jitter small.
           if (te.in_lat != null && te.in_lng != null && lat != null && lng != null) {
             const route = await lookupRouteMiles(te.in_lat, te.in_lng, lat, lng);
             if (route.miles >= 0.1) {
@@ -498,9 +499,9 @@ export default function Jobs() {
                 end_lat:   lat,       end_lng:   lng,
                 purpose:  'business',
                 method:   'gps',
-                notes:    route.source === 'mapbox'
-                  ? 'Auto-logged on job completion (Mapbox driving distance)'
-                  : 'Auto-logged on job completion (straight-line; Mapbox unavailable)',
+                notes:    route.source === 'osrm'
+                  ? 'Auto-logged on job completion (OSRM driving distance)'
+                  : 'Auto-logged on job completion (straight-line; OSRM unavailable)',
                 approval_status: 'pending',
               });
             }
@@ -801,6 +802,25 @@ export default function Jobs() {
                     );
                   })}
                 </div>
+                {(() => {
+                  // Build pins from each entry's GPS endpoints. Each
+                  // closed entry contributes a start (green) + end
+                  // (red); an open one contributes just its start.
+                  const pins = [];
+                  for (const t of timeEntries) {
+                    if (t.in_lat != null && t.in_lng != null) {
+                      pins.push({ lat:+t.in_lat, lng:+t.in_lng, label:`Clock in ${new Date(t.clock_in_at).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })}`, color:'#2edf87' });
+                    }
+                    if (t.out_lat != null && t.out_lng != null) {
+                      pins.push({ lat:+t.out_lat, lng:+t.out_lng, label:`Clock out ${new Date(t.clock_out_at).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })}`, color:'#f26060' });
+                    }
+                  }
+                  return pins.length > 0 ? (
+                    <div style={{marginTop:10}}>
+                      <MapView points={pins} height={180}/>
+                    </div>
+                  ) : null;
+                })()}
               </div>
             )}
 

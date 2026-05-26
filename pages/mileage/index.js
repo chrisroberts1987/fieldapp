@@ -6,6 +6,7 @@ import { useRefetchOnFocus } from '../../lib/useFocus';
 import { isCrew } from '../../lib/role';
 import { fmt$, fmtDate, todayStr, IRS_RATE } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import MapView from '../../components/MapView';
 import SubNav from '../../components/SubNav';
 
 const PURPOSES = [
@@ -318,6 +319,18 @@ export default function Mileage() {
                 {jobs.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
               </select>
             </div>
+
+            {(form.start_lat != null || form.end_lat != null) && (
+              <div style={{margin:'10px 16px'}}>
+                <div style={fieldLabel}>Trip on map</div>
+                <MapView
+                  height={200}
+                  points={[
+                    form.start_lat != null && form.start_lng != null && { lat: Number(form.start_lat), lng: Number(form.start_lng), label: 'Start', color: '#2edf87' },
+                    form.end_lat   != null && form.end_lng   != null && { lat: Number(form.end_lat),   lng: Number(form.end_lng),   label: 'End',   color: '#f26060' },
+                  ].filter(Boolean)}/>
+              </div>
+            )}
 
             <div style={{margin:'10px 16px'}}>
               <div style={fieldLabel}>Notes</div>

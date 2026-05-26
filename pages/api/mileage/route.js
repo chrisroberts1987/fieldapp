@@ -1,13 +1,18 @@
-// Driving-distance lookup. Wraps the Mapbox Directions API so the
-// access token never reaches the browser. Called from the job
-// completion flow to log accurate miles instead of straight-line
-// haversine.
+// Driving-distance lookup using the OSRM public demo server
+// (router.project-osrm.org) — OpenStreetMap-backed, no API key,
+// no env var. Called from the job completion flow to log driving
+// distance instead of straight-line haversine.
 //
 // Body:  { start: [lng, lat], end: [lng, lat] }
-// 200:   { miles, durationMinutes, source: 'mapbox' }
-// 200:   { miles, source: 'haversine', reason } when the lookup fails
-//        and we fall back to straight-line. Caller always gets a usable
+// 200:   { miles, durationMinutes, source: 'osrm' }
+// 200:   { miles, source: 'haversine', reason } when OSRM fails and
+//        we fall back to straight-line. Caller always gets a usable
 //        number — never breaks job completion.
+//
+// Note: OSRM's public demo is rate-limited and unmetered, intended
+// for "modest" use. At scale (a few thousand routes/day across all
+// orgs), self-host OSRM on a small VPS — same API contract, no
+// code changes here.
 
 import { createClient } from '@supabase/supabase-js';
 import { preflight, bearerToken } from '../../../lib/apiSecurity';
@@ -16,7 +21,7 @@ export const config = { api: { bodyParser: { sizeLimit: '4kb' } } };
 
 const SUPABASE_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const MAPBOX_TOKEN  = process.env.MAPBOX_TOKEN;
+const OSRM_BASE     = process.env.OSRM_BASE || 'https://router.project-osrm.org';
 
 function haversineMiles(lat1, lng1, lat2, lng2) {
   const R = 3959;
@@ -37,7 +42,7 @@ export default async function handler(req, res) {
   if (!token) return res.status(401).json({ error: 'Missing auth token.' });
 
   // Auth check — keep the endpoint org-scoped so anonymous traffic
-  // can't burn through the Mapbox quota.
+  // can't burn through the public OSRM demo's rate limit on our IP.
   const sb = createClient(SUPABASE_URL, SUPABASE_ANON, {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth:   { persistSession: false, autoRefreshToken: false },
@@ -58,37 +63,27 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Coordinates out of range.' });
   }
 
-  // Fallback path: no token configured. Return haversine so the
-  // caller can still log mileage — same shape so they don't have to
-  // branch on which mode is active.
-  if (!MAPBOX_TOKEN) {
-    const miles = haversineMiles(startLat, startLng, endLat, endLng);
-    return res.status(200).json({
-      miles: Number(miles.toFixed(2)),
-      source: 'haversine',
-      reason: 'MAPBOX_TOKEN not configured',
-    });
-  }
-
   try {
     const coords = `${startLng},${startLat};${endLng},${endLat}`;
-    const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coords}` +
-      `?access_token=${encodeURIComponent(MAPBOX_TOKEN)}` +
-      `&overview=false&geometries=geojson&alternatives=false&steps=false`;
-    const resp = await fetch(url, { method: 'GET' });
+    const url = `${OSRM_BASE}/route/v1/driving/${coords}?overview=false&alternatives=false&steps=false`;
+    const resp = await fetch(url, {
+      method: 'GET',
+      // Identify ourselves to the public OSRM server — the operators
+      // ask for an identifying User-Agent so they can reach out if
+      // they ever need to rate-limit per app.
+      headers: { 'User-Agent': 'MyForeman/1.0 (https://myforemanhq.com)' },
+    });
     if (!resp.ok) {
-      // Mapbox 422 = no route found (e.g., coords in ocean / on
-      // separate landmasses). Treat as fallback rather than error.
       const miles = haversineMiles(startLat, startLng, endLat, endLng);
       return res.status(200).json({
         miles: Number(miles.toFixed(2)),
         source: 'haversine',
-        reason: `Mapbox returned ${resp.status}`,
+        reason: `OSRM returned ${resp.status}`,
       });
     }
     const json = await resp.json();
     const route = json?.routes?.[0];
-    if (!route || typeof route.distance !== 'number') {
+    if (!route || typeof route.distance !== 'number' || json?.code !== 'Ok') {
       const miles = haversineMiles(startLat, startLng, endLat, endLng);
       return res.status(200).json({
         miles: Number(miles.toFixed(2)),
@@ -101,14 +96,14 @@ export default async function handler(req, res) {
     return res.status(200).json({
       miles: Number(miles.toFixed(2)),
       durationMinutes,
-      source: 'mapbox',
+      source: 'osrm',
     });
   } catch (e) {
     const miles = haversineMiles(startLat, startLng, endLat, endLng);
     return res.status(200).json({
       miles: Number(miles.toFixed(2)),
       source: 'haversine',
-      reason: 'Mapbox fetch failed: ' + (e?.message || 'unknown'),
+      reason: 'OSRM fetch failed: ' + (e?.message || 'unknown'),
     });
   }
 }
