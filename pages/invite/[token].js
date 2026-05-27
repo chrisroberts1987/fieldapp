@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { fmt$, fmtDate } from '../../lib/helpers';
 import { roleLabel, roleColor } from '../../lib/role';
+import { FullPageLoading } from '../../components/PageStates';
 
 export default function PublicInvite() {
   const router = useRouter();
@@ -51,7 +52,7 @@ export default function PublicInvite() {
   };
 
   if (!loaded || !authChecked) {
-    return <div style={loadingStyle}>Loading...</div>;
+    return <FullPageLoading/>;
   }
   if (!invite) {
     return (

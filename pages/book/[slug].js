@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
+import { FullPageLoading } from '../../components/PageStates';
 
 export default function BookingPage() {
   const router = useRouter();
@@ -55,7 +56,7 @@ export default function BookingPage() {
     setDone(true);
   };
 
-  if (!loaded) return <div style={loadingStyle}>Loading...</div>;
+  if (!loaded) return <FullPageLoading/>;
   if (!data) return (
     <div style={pageBg}>
       <div style={{textAlign:'center',padding:'80px 20px',color:'#7a8db0'}}>

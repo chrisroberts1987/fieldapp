@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
+import { FullPageLoading } from '../../components/PageStates';
 
 export default function PublicFeedback() {
   const router = useRouter();
@@ -42,7 +43,7 @@ export default function PublicFeedback() {
     }
   };
 
-  if (!loaded) return <div style={loadingStyle}>Loading...</div>;
+  if (!loaded) return <FullPageLoading/>;
   if (!data) {
     return (
       <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',system-ui,sans-serif",display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
