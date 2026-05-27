@@ -45,6 +45,7 @@ export default function Home() {
       <Compare/>
       <Workflow/>
       <Features/>
+      <AIShowcase router={router}/>
       <Pricing billing={billing} setBilling={setBilling} router={router}/>
       <FooterSection/>
 
@@ -420,7 +421,7 @@ function Features() {
       ai: true,
       icon: <CoachIcon/>,
       title: 'AI business coach',
-      body: 'Every month MyForeman reads your revenue, jobs, customers, and expenses and ships 4-5 specific moves. Pricing fixes, slow-month plays, retention hooks. Actionable, not generic.',
+      body: 'Real recommendations with real numbers, not generic tips. See the showcase below.',
     },
   ];
 
@@ -481,6 +482,103 @@ function Features() {
           background: rgba(251,191,36,0.12);
           border-color: rgba(251,191,36,0.45);
           color: #fbbf24;
+        }
+      `}</style>
+    </section>
+  );
+}
+
+/* =====================================================
+   AI SHOWCASE — real example insights so "AI business coach"
+   isn't vaporware copy. Each card looks like a real chat bubble
+   from the in-app insights feed. Numbers are illustrative but
+   formatted exactly the way the live AI ships them.
+   ===================================================== */
+function AIShowcase({ router }) {
+  // 4 categories of insight, one example each. All numbers are
+  // mock-but-plausible for a small landscaping/HVAC/handyman shop.
+  const insights = [
+    {
+      tag: 'Pricing',
+      tagColor: '#2edf87',
+      title: 'You\'re underpriced on lawn care.',
+      body: 'Your average lawn-care job in your area runs $187. Competitors are charging $215+. A $199 price point won\'t lose customers and adds about $340/mo across your 25 active accounts.',
+      impact: '+$4,080/yr',
+    },
+    {
+      tag: 'Retention',
+      tagColor: '#4f9eff',
+      title: '8 customers ghosted you this year.',
+      body: '8 customers who used you in 2024 haven\'t booked again. 6 of them left 5-star reviews. Send the "haven\'t seen you in a while" nudge — historical conversion on that template is ~30%.',
+      impact: '~$1,200 win-back',
+    },
+    {
+      tag: 'Profitability',
+      tagColor: '#fbbf24',
+      title: 'Spring cleanups are losing you money.',
+      body: 'Your spring cleanups have an effective hourly rate of $42/hr after labor and materials. Your gutter cleanings hit $148/hr. Raise spring cleanup pricing or move those bodies to gutters in March.',
+      impact: '3.5x margin gap',
+    },
+    {
+      tag: 'Cash flow',
+      tagColor: '#f26060',
+      title: '$2,847 sitting in unpaid invoices.',
+      body: 'Six invoices (#1042–1047) are an average of 19 days old. Auto-reminders already went out at day 7. Worth a personal call on the two over $800 — those convert ~3x better than another email.',
+      impact: 'Collect this week',
+    },
+  ];
+  return (
+    <section className="section ai-showcase">
+      <div className="section-inner">
+        <div style={{textAlign:'center',marginBottom:8}}>
+          <span style={{display:'inline-block',padding:'6px 14px',background:'rgba(251,191,36,0.12)',border:'1px solid rgba(251,191,36,0.45)',borderRadius:999,fontSize:11,letterSpacing:'.12em',fontWeight:700,color:'#fbbf24',textTransform:'uppercase'}}>
+            ⚡ AI Coach · Live monthly
+          </span>
+        </div>
+        <h2 className="section-headline" style={{textAlign:'center',maxWidth:780,margin:'12px auto 10px'}}>
+          Real numbers. Real moves. Not "grow your business".
+        </h2>
+        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 32px',maxWidth:640}}>
+          Every month MyForeman reads your books and your customer history and ships 4-5 specific plays — with dollar figures attached.
+        </p>
+
+        <div className="insight-grid">
+          {insights.map((it, i) => (
+            <div key={i} className="insight-card">
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,gap:8}}>
+                <span style={{background:it.tagColor+'1f',color:it.tagColor,border:`1px solid ${it.tagColor}66`,borderRadius:999,padding:'3px 10px',fontSize:10,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',whiteSpace:'nowrap'}}>
+                  {it.tag}
+                </span>
+                <span style={{fontSize:11,color:it.tagColor,fontWeight:700,letterSpacing:'.04em'}}>{it.impact}</span>
+              </div>
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:20,letterSpacing:'.03em',color:'#f0f4ff',lineHeight:1.15,marginBottom:8}}>
+                {it.title}
+              </div>
+              <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55}}>{it.body}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{textAlign:'center',marginTop:28,fontSize:12,color:'#7a8db0'}}>
+          Sample output. Your actual recommendations come from your books, not these.
+        </div>
+      </div>
+
+      <style jsx>{`
+        .ai-showcase {
+          background:
+            radial-gradient(ellipse 60% 50% at 50% 0%, rgba(251,191,36,0.08), transparent 70%),
+            #0d1726;
+          border-top: 1px solid #1f2a40;
+          border-bottom: 1px solid #1f2a40;
+        }
+        .insight-grid { display: grid; grid-template-columns: 1fr; gap: 14px; max-width: 920px; margin: 0 auto; }
+        @media (min-width: 760px) { .insight-grid { grid-template-columns: 1fr 1fr; gap: 18px; } }
+        .insight-card {
+          background: linear-gradient(160deg, rgba(251,191,36,0.05) 0%, #1e2a42 60%);
+          border: 1px solid rgba(251,191,36,0.30);
+          border-radius: 14px; padding: 18px 18px;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.25);
         }
       `}</style>
     </section>
