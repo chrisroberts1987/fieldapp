@@ -260,67 +260,28 @@ export default function Crew() {
           </div>
         )}
 
-        <div style={{display:'grid',gridTemplateColumns:'1fr',gap:8}}>
-          {sortedMembers.map(m => {
-            const active = (jobsByUser[m.user_id] || []).length > 0;
-            const isMe = m.user_id === user.id;
-            const memberIsCrew = isCrew(m.role);
-            const sup = m.supervisor_id ? members.find(x => x.user_id === m.supervisor_id) : null;
-            return (
-              <div key={m.user_id}
-                onClick={isForeman(role) ? () => router.push('/crew/' + m.user_id) : undefined}
-                style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,padding:'12px 14px',cursor: isForeman(role) ? 'pointer' : 'default'}}>
-                <div style={{display:'flex',alignItems:'center',gap:10}}>
-                  <Avatar email={m.email}/>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:14,color:'#f0f4ff',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                      {m.email}{isMe && <span style={{color:'#7a8db0',marginLeft:6,fontSize:12}}>(you)</span>}
-                    </div>
-                    <div style={{display:'flex',gap:6,marginTop:3,alignItems:'center',flexWrap:'wrap'}}>
-                      <RolePill role={m.role}/>
-                      <span style={{fontSize:10,fontWeight:700,letterSpacing:'.06em',padding:'2px 6px',borderRadius:4,background: active ? '#2edf8722' : '#7a8db022',color: active ? '#2edf87' : '#7a8db0',border:`1px solid ${active ? '#2edf8766' : '#7a8db066'}`}}>
-                        {active ? 'ON A JOB' : 'AVAILABLE'}
-                      </span>
-                      {memberIsCrew && sup && (
-                        <span style={{fontSize:10,color:'#b197fc',letterSpacing:'.06em',fontWeight:600,textTransform:'uppercase'}}>
-                          reports to {sup.email?.split('@')[0]}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{textAlign:'right',fontSize:11,color:'#7a8db0'}}>
-                    {m.hourly_pay_rate != null
-                      ? <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,color:'#2edf87'}}>{fmt$(m.hourly_pay_rate)}/hr</div>
-                      : <span>—</span>}
-                  </div>
-                </div>
-
-                {/* Foreman-only: assign this crew member to a supervisor.
-                    Hidden for non-crew rows and hidden when there are no
-                    supervisors yet (suggest inviting one). */}
-                {isForeman(role) && memberIsCrew && (
-                  <div onClick={e => e.stopPropagation()}
-                    style={{marginTop:10,paddingTop:10,borderTop:'1px solid #2e3f60',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-                    <div style={{fontSize:10,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700,flexShrink:0}}>Reports to</div>
-                    {supervisors.length === 0 ? (
-                      <span style={{fontSize:12,color:'#7a8db0',fontStyle:'italic'}}>Invite a Supervisor to enable assignment.</span>
-                    ) : (
-                      <select
-                        value={m.supervisor_id || ''}
-                        onChange={e => assignSupervisor(m.user_id, e.target.value)}
-                        style={{flex:'1 1 200px',minWidth:0,background:'#0d1726',border:'1px solid #2e3f60',borderRadius:8,color:'#f0f4ff',fontSize:13,padding:'7px 10px',outline:'none',fontFamily:'inherit'}}>
-                        <option value="">— Reports directly to Foreman —</option>
-                        {supervisors.map(s => (
-                          <option key={s.user_id} value={s.user_id}>{s.display_name || s.email}</option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        {isForeman(role) ? (
+          <ForemanOrgTree
+            members={members}
+            supervisors={supervisors}
+            jobsByUser={jobsByUser}
+            user={user}
+            onView={(uid) => router.push('/crew/' + uid)}
+            onAssign={assignSupervisor}
+          />
+        ) : (
+          // Supervisor view: simple flat list of their direct reports.
+          <div style={{display:'grid',gridTemplateColumns:'1fr',gap:8}}>
+            {sortedMembers.map(m => (
+              <MemberCard
+                key={m.user_id}
+                m={m}
+                active={(jobsByUser[m.user_id] || []).length > 0}
+                isMe={m.user_id === user.id}
+                onClick={undefined}/>
+            ))}
+          </div>
+        )}
       </main>
 
       {sheet === 'invite' && (
@@ -464,6 +425,175 @@ function Avatar({ email }) {
   return (
     <div style={{width:32,height:32,borderRadius:16,background:'#2e3f60',color:'#f0f4ff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:14,flexShrink:0}}>
       {initial}
+    </div>
+  );
+}
+
+// =============================================================
+// ForemanOrgTree — groups the team into a clean visual hierarchy:
+//   FOREMAN  →  SUPERVISORS (with their direct reports nested)  →
+//   UNASSIGNED CREW (orange-flagged so the foreman notices).
+// The "Move ▾" chip on each crew row reveals a compact dropdown
+// for reassignment so the default state is calm.
+// =============================================================
+function ForemanOrgTree({ members, supervisors, jobsByUser, user, onView, onAssign }) {
+  const foremen   = members.filter(m => isForeman(m.role));
+  const supList   = members.filter(m => isSupervisor(m.role));
+  const supIds    = new Set(supList.map(s => s.user_id));
+  // Crew with an assigned supervisor that still exists. A crew row
+  // whose supervisor was removed (or invalid) falls into "unassigned"
+  // so the foreman is nudged to re-route it.
+  const crewFor   = (supId) => members.filter(m => isCrew(m.role) && m.supervisor_id === supId);
+  const unassigned = members.filter(m => isCrew(m.role) && (!m.supervisor_id || !supIds.has(m.supervisor_id)));
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:18}}>
+      {/* Foreman section */}
+      <TreeSection title="Foreman" hint="Sees everything in the business.">
+        {foremen.map(m => (
+          <MemberCard key={m.user_id}
+            m={m}
+            active={(jobsByUser[m.user_id] || []).length > 0}
+            isMe={m.user_id === user.id}
+            onClick={() => onView(m.user_id)}/>
+        ))}
+      </TreeSection>
+
+      {/* Supervisor + nested crew sections */}
+      {supList.length > 0 ? (
+        <TreeSection title="Supervisors + their crews" hint="Each supervisor sees the jobs in their queue and their direct reports.">
+          <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            {supList.map(s => {
+              const reports = crewFor(s.user_id);
+              return (
+                <div key={s.user_id} style={{background:'#1a2236',border:'1px solid #2e3f60',borderRadius:12,padding:'10px 10px'}}>
+                  <MemberCard
+                    m={s}
+                    active={(jobsByUser[s.user_id] || []).length > 0}
+                    isMe={s.user_id === user.id}
+                    onClick={() => onView(s.user_id)}
+                    bare/>
+                  {reports.length > 0 ? (
+                    <div style={{marginTop:8,paddingLeft:14,borderLeft:'2px solid #b197fc55',display:'flex',flexDirection:'column',gap:6}}>
+                      {reports.map(r => (
+                        <MemberCard
+                          key={r.user_id}
+                          m={r}
+                          active={(jobsByUser[r.user_id] || []).length > 0}
+                          isMe={r.user_id === user.id}
+                          onClick={() => onView(r.user_id)}
+                          supervisors={supervisors}
+                          onReassign={(supId) => onAssign(r.user_id, supId)}/>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{marginTop:8,paddingLeft:14,borderLeft:'2px solid #2e3f60',fontSize:12,color:'#7a8db0',fontStyle:'italic'}}>
+                      No crew reporting to {(s.display_name || s.email || '').split('@')[0]} yet.
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </TreeSection>
+      ) : (
+        <TreeSection title="Supervisors" hint="No supervisors yet. Invite one to delegate dispatching.">
+          <div style={{background:'#1e2a42',border:'1px dashed #2e3f60',borderRadius:10,padding:'16px 14px',textAlign:'center',fontSize:13,color:'#7a8db0'}}>
+            Once you invite a Supervisor, you'll be able to assign crew members to them here.
+          </div>
+        </TreeSection>
+      )}
+
+      {/* Unassigned crew (yellow accent so the foreman sees the gap) */}
+      {unassigned.length > 0 && (
+        <TreeSection title="Unassigned crew" hint="These crew members report directly to you. Move them under a supervisor to delegate." accent="#fbbf24">
+          <div style={{display:'flex',flexDirection:'column',gap:6}}>
+            {unassigned.map(r => (
+              <MemberCard
+                key={r.user_id}
+                m={r}
+                active={(jobsByUser[r.user_id] || []).length > 0}
+                isMe={r.user_id === user.id}
+                onClick={() => onView(r.user_id)}
+                supervisors={supervisors}
+                onReassign={(supId) => onAssign(r.user_id, supId)}/>
+            ))}
+          </div>
+        </TreeSection>
+      )}
+    </div>
+  );
+}
+
+function TreeSection({ title, hint, children, accent }) {
+  const color = accent || '#7a8db0';
+  return (
+    <div>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+        <div style={{width:6,height:18,background:color,borderRadius:2}}/>
+        <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:16,letterSpacing:'.08em',color:'#f0f4ff'}}>{title.toUpperCase()}</div>
+      </div>
+      {hint && <div style={{fontSize:12,color:'#7a8db0',marginBottom:8,lineHeight:1.45}}>{hint}</div>}
+      {children}
+    </div>
+  );
+}
+
+// MemberCard — used in three contexts:
+//   1. Top-level foreman / supervisor card  → onClick = drill-in
+//   2. Crew under a supervisor              → onReassign = compact "Move ▾" chip
+//   3. Unassigned crew                      → same as (2) with a warning accent
+// `bare` strips the outer border so the supervisor-with-reports
+// container can wrap the lead member without doubling borders.
+function MemberCard({ m, active, isMe, onClick, supervisors, onReassign, bare }) {
+  const [open, setOpen] = useState(false);
+  const wrapStyle = bare
+    ? { padding:'6px 4px', cursor: onClick ? 'pointer' : 'default' }
+    : { background:'#1e2a42', border:'1px solid #2e3f60', borderRadius:10, padding:'12px 14px', cursor: onClick ? 'pointer' : 'default' };
+  return (
+    <div onClick={onClick} style={wrapStyle}>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <Avatar email={m.email}/>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:14,color:'#f0f4ff',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+            {m.display_name || m.email}
+            {isMe && <span style={{color:'#7a8db0',marginLeft:6,fontSize:12}}>(you)</span>}
+          </div>
+          <div style={{display:'flex',gap:6,marginTop:3,alignItems:'center',flexWrap:'wrap'}}>
+            <RolePill role={m.role}/>
+            <span style={{fontSize:10,fontWeight:700,letterSpacing:'.06em',padding:'2px 6px',borderRadius:4,background: active ? '#2edf8722' : '#7a8db022',color: active ? '#2edf87' : '#7a8db0',border:`1px solid ${active ? '#2edf8766' : '#7a8db066'}`}}>
+              {active ? 'ON A JOB' : 'AVAILABLE'}
+            </span>
+          </div>
+        </div>
+        {onReassign && supervisors && supervisors.length > 0 && (
+          <button onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
+            style={{background:open?'#b197fc22':'transparent',border:'1px solid '+(open?'#b197fc':'#2e3f60'),borderRadius:8,color:open?'#b197fc':'#c8d4ee',padding:'4px 10px',fontSize:10,fontWeight:700,letterSpacing:'.06em',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'}}>
+            MOVE ▾
+          </button>
+        )}
+        <div style={{textAlign:'right',fontSize:11,color:'#7a8db0',minWidth:60}}>
+          {m.hourly_pay_rate != null
+            ? <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,color:'#2edf87'}}>{fmt$(m.hourly_pay_rate)}/hr</div>
+            : <span>—</span>}
+        </div>
+      </div>
+
+      {open && (
+        <div onClick={e => e.stopPropagation()}
+          style={{marginTop:10,paddingTop:10,borderTop:'1px solid #2e3f60',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+          <div style={{fontSize:10,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700,flexShrink:0}}>Reports to</div>
+          <select
+            value={m.supervisor_id || ''}
+            onChange={e => { onReassign(e.target.value); setOpen(false); }}
+            style={{flex:'1 1 200px',minWidth:0,background:'#0d1726',border:'1px solid #2e3f60',borderRadius:8,color:'#f0f4ff',fontSize:13,padding:'7px 10px',outline:'none',fontFamily:'inherit'}}>
+            <option value="">— Foreman (no supervisor) —</option>
+            {supervisors.map(s => (
+              <option key={s.user_id} value={s.user_id}>{s.display_name || s.email}</option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 }
