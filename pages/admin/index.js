@@ -50,7 +50,7 @@ export default function Admin() {
         WebkitOverflowScrolling:'touch',
         scrollbarWidth:'none',
       }}>
-        {['overview','businesses','usage','support'].map(k => (
+        {['overview','businesses','usage','ai','support'].map(k => (
           <button key={k} onClick={() => setTab(k)}
             style={{
               background:'transparent', border:'none',
@@ -70,6 +70,7 @@ export default function Admin() {
         {tab === 'overview'   && <OverviewSection onGoTo={setTab} />}
         {tab === 'businesses' && <BusinessesSection />}
         {tab === 'usage'      && <UsageSection />}
+        {tab === 'ai'         && <AiUsageSection />}
         {tab === 'support'    && <SupportSection />}
       </main>
     </div>
@@ -527,6 +528,113 @@ function UsageSection() {
         <Kpi label="AI Coach Runs"       value={data.coachRunsThisMonth} color="#fbbf24" sub="this month"/>
         <Kpi label="Total Seats"         value={data.totalSeats}         color="#b197fc" sub="members across all orgs"/>
         <Kpi label="Storage Used"        value={'—'}                     color="#7a8db0" sub="reporting pending"/>
+      </div>
+    </>
+  );
+}
+
+// =============================================================
+// AI cost monitoring
+// =============================================================
+function AiUsageSection() {
+  const [data, setData] = useState(null);
+  const [err, setErr]   = useState(null);
+  useEffect(() => {
+    (async () => {
+      const r = await adminFetch('/api/admin/ai-usage');
+      if (r.error) setErr(r.error); else setData(r);
+    })();
+  }, []);
+  if (err)   return <ErrorBlock msg={err}/>;
+  if (!data) return <Loading/>;
+
+  const bySource = data.by_source || {};
+  const sources  = ['customer_chat','internal_ai','coach','invoice_extract'];
+  const sourceLabel = {
+    customer_chat:    'Customer Chat',
+    internal_ai:      'In-app Assistant',
+    coach:            'Monthly AI Coach',
+    invoice_extract:  'Invoice Extract',
+  };
+
+  return (
+    <>
+      <SectionHeading title="AI Cost Monitoring" subtitle="This calendar month — estimated based on model rates at the time of each call."/>
+
+      {data.alerts && data.alerts.length > 0 && (
+        <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:14}}>
+          {data.alerts.map((a, i) => (
+            <div key={i} style={{
+              padding:'10px 14px',
+              background:'rgba(251,191,36,0.10)',
+              border:'1px solid rgba(251,191,36,0.45)',
+              borderRadius:10,
+              fontSize:13,color:'#fbbf24',
+              display:'flex',alignItems:'center',gap:10,
+            }}>
+              <span style={{fontWeight:700,letterSpacing:'.05em',textTransform:'uppercase',fontSize:10}}>Alert</span>
+              {a.type === 'platform_over_budget'
+                ? <span>Total platform AI spend is ${a.cost.toFixed(2)} — over the ${a.threshold} threshold for this month.</span>
+                : <span>{a.org_name} has spent ${a.cost.toFixed(2)} on AI this month — over the ${a.threshold} per-org threshold.</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={kpiGrid}>
+        <Kpi label="Total AI Cost" value={'$' + (Number(data.total_cost || 0)).toFixed(2)} color="#fbbf24" sub="this month"/>
+        <Kpi label="Live API calls" value={data.total_calls || 0} color="#4f9eff" sub="counted toward usage"/>
+        <Kpi label="Cache hits" value={data.cache_hits || 0} color="#2edf87" sub="free — not counted"/>
+        <Kpi label="Cache hit rate" value={`${data.cache_hit_rate || 0}%`} color="#54d4f8" sub="higher means cost controls working"/>
+      </div>
+
+      <Subhead>Spend by Source</Subhead>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10,marginBottom:18}}>
+        {sources.map(s => {
+          const row = bySource[s] || { calls: 0, cache_hits: 0, cost: 0 };
+          return (
+            <div key={s} style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'14px 14px'}}>
+              <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.10em',textTransform:'uppercase',fontWeight:700}}>{sourceLabel[s]}</div>
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:24,letterSpacing:'.02em',color:'#fbbf24',lineHeight:1.1,marginTop:4}}>
+                ${Number(row.cost || 0).toFixed(2)}
+              </div>
+              <div style={{fontSize:11,color:'#c8d4ee',marginTop:4}}>{row.calls || 0} call{(row.calls || 0) === 1 ? '' : 's'}</div>
+              <div style={{fontSize:11,color:'#2edf87',marginTop:1}}>{row.cache_hits || 0} cache hit{(row.cache_hits || 0) === 1 ? '' : 's'}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      <Subhead>Top 10 Contractors by AI Spend (this month)</Subhead>
+      <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:14}}>
+        {(data.top_orgs || []).length === 0 && <div style={empty}>No AI activity yet this month.</div>}
+        {(data.top_orgs || []).map(o => {
+          const overBudget = Number(o.cost || 0) > (data.thresholds?.per_org || 5);
+          return (
+            <div key={o.org_id} style={{
+              display:'flex',alignItems:'center',gap:8,
+              padding:'9px 12px',
+              background:'#1e2a42',
+              border:'1px solid ' + (overBudget ? 'rgba(251,191,36,0.45)' : '#2e3f60'),
+              borderRadius:10,
+            }}>
+              <span style={{flex:1,minWidth:0,fontSize:13,color:'#f0f4ff',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                {o.org_name || 'Unnamed'}
+              </span>
+              <span style={{fontSize:11,color:'#7a8db0'}}>{o.calls || 0} calls</span>
+              <span style={{fontSize:11,color:'#2edf87'}}>{o.cache_hits || 0} cached</span>
+              <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:overBudget ? '#fbbf24' : '#f0f4ff',minWidth:80,textAlign:'right'}}>
+                ${Number(o.cost || 0).toFixed(2)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{fontSize:11,color:'#7a8db0',marginTop:8,lineHeight:1.55}}>
+        Per-org alert threshold: ${data.thresholds?.per_org || 5} / mo.
+        Platform alert threshold: ${data.thresholds?.platform || 100} / mo.
+        Numbers are estimated from published model rates — actual Anthropic billing is the source of truth.
       </div>
     </>
   );

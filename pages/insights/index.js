@@ -50,6 +50,7 @@ export default function Insights() {
 
   const [coachRow,    setCoachRow]    = useState(null);
   const [coachStatus, setCoachStatus] = useState({ phase: 'idle' });
+  const [aiUsage, setAiUsage] = useState(null);
 
   const loadAll = async (oid) => {
     const oneYearAgo = new Date(); oneYearAgo.setMonth(oneYearAgo.getMonth() - 14);
@@ -105,8 +106,13 @@ export default function Insights() {
     });
   }, []);
 
+  const loadAiUsage = async (oid) => {
+    const { data } = await supabase.rpc('ai_usage_for_org', { p_org_id: oid });
+    setAiUsage(data || null);
+  };
+
   useEffect(() => {
-    if (orgId && isForeman(role)) { loadAll(orgId); ensureCoach(orgId); }
+    if (orgId && isForeman(role)) { loadAll(orgId); ensureCoach(orgId); loadAiUsage(orgId); }
     else if (orgId && !isForeman(role)) router.push('/dashboard');
     else if (user && !orgLoading && !orgId) router.push('/onboarding');
   }, [orgId, orgLoading, role]);
@@ -450,7 +456,89 @@ export default function Insights() {
             <CoachCard status={coachStatus} row={coachRow}/>
           </div>
         </Section>
+
+        <Section title="AI Usage">
+          <AiUsageCard usage={aiUsage}/>
+        </Section>
       </main>
+    </div>
+  );
+}
+
+function AiUsageCard({ usage }) {
+  // Show a placeholder if the RPC hasn't returned yet. Empty data is
+  // a valid state (no AI calls this month) and we render the full
+  // card with zeros so contractors who haven't used AI yet still see
+  // the policy laid out plainly.
+  const chat     = usage?.customer_chat || { calls: 0, cache_hits: 0 };
+  const internal = usage?.internal_ai   || { calls: 0, cache_hits: 0 };
+  const coachLast = usage?.coach_last_run;
+  const nextCoach = nextRunDateLabel();
+  const chatTotal     = (chat.calls || 0) + (chat.cache_hits || 0);
+  const internalTotal = (internal.calls || 0) + (internal.cache_hits || 0);
+
+  return (
+    <div style={cardStyle}>
+      <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55,marginBottom:14}}>
+        MyForeman uses AI to power your customer chat and monthly business coaching.
+        AI features are included in your plan with fair usage guidelines.
+        Cached responses are completely free and never count toward your usage totals.
+        Only live API requests count toward usage.
+        These guidelines are designed so normal business use is never affected.
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:10,marginBottom:14}}>
+        <UsageRow
+          label="Customer chat"
+          totalLabel={`${chatTotal} conversation${chatTotal === 1 ? '' : 's'}`}
+          calls={chat.calls || 0}
+          cacheHits={chat.cache_hits || 0}
+          accent="#4f9eff"
+        />
+        <UsageRow
+          label="Internal AI assistant"
+          totalLabel={`${internalTotal} question${internalTotal === 1 ? '' : 's'}`}
+          calls={internal.calls || 0}
+          cacheHits={internal.cache_hits || 0}
+          accent="#a78bfa"
+        />
+      </div>
+
+      <div style={{borderTop:'1px solid #2e3f60',paddingTop:12,display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
+        <div>
+          <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700}}>Next AI Coach run</div>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:'#f0f4ff',letterSpacing:'.04em',marginTop:4}}>
+            {nextCoach}
+          </div>
+          <div style={{fontSize:11,color:'#7a8db0',marginTop:4}}>
+            {coachLast ? `Last analysis: ${new Date(coachLast).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric', timeZone:'UTC' })}` : 'No analysis run yet.'}
+          </div>
+        </div>
+        <div>
+          <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700}}>Limits</div>
+          <ul style={{listStyle:'none',padding:0,margin:'6px 0 0',fontSize:12,color:'#c8d4ee',lineHeight:1.7}}>
+            <li>Customer chat: 10 messages per conversation</li>
+            <li>Internal AI responses: cached for 24 hours</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UsageRow({ label, totalLabel, calls, cacheHits, accent }) {
+  return (
+    <div style={{background:'#0d1726',border:'1px solid #2e3f60',borderRadius:10,padding:'12px 14px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:6,gap:6}}>
+        <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700}}>{label}</div>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:accent,letterSpacing:'.04em'}}>{totalLabel}</div>
+      </div>
+      <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.55}}>
+        <strong style={{color:'#f0f4ff'}}>{calls}</strong> live API call{calls === 1 ? '' : 's'} (counts toward usage)
+      </div>
+      <div style={{fontSize:12,color:'#7a8db0',lineHeight:1.55,marginTop:2}}>
+        <strong style={{color:'#2edf87'}}>{cacheHits}</strong> served from cache — free, not counted
+      </div>
     </div>
   );
 }

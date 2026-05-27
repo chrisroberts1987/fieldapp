@@ -3,14 +3,17 @@
 // rate-limited per IP to keep our Anthropic spend in check and
 // prevent abuse.
 //
-// The conversation is stateless from the server's perspective: the
-// client posts the entire history each turn. The model is told to
-// gather { service, requested_date, requested_time, name, contact,
-// address, notes } and, when it has enough, emit a structured tool
-// call to submit_booking which actually creates the lead.
+// Cost controls (Cost-Controls migration 0036):
+//   - Hard cap of 10 messages per conversation. The 11th turn 429s.
+//   - 150 max output tokens per call.
+//   - Common prompts (same org, same conversation prefix) cached for
+//     7 days. Cached replies are served free and logged with
+//     cached=true so the rollups in the admin dashboard reflect what
+//     was actually billed vs what came from cache.
 
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
+import { getCachedReply, putCachedReply, logUsage, promptHash } from '../../../lib/aiCost';
 
 export const config = { api: { bodyParser: { sizeLimit: '64kb' } } };
 
@@ -22,6 +25,11 @@ const sb = createClient(SUPABASE_URL, SERVICE_KEY, {
 });
 
 const client = new Anthropic();
+
+const MODEL              = 'claude-haiku-4-5-20251001';
+const MAX_OUTPUT_TOKENS  = 150;
+const MAX_MESSAGES       = 10;          // hard cap per conversation
+const CACHE_TTL_SECONDS  = 7 * 86_400;  // 7 days
 
 // Per-IP rate limit kept light (anonymous endpoint).
 const ipHits = new Map();
@@ -69,7 +77,7 @@ ${svcList}
 Your job is to gather the details to book the visit, in a natural conversation. You need: their name, a phone OR email, what they want done, and (ideally) a preferred date and time. Service address is helpful but optional.
 
 Guidelines:
-- Be warm and brief. Two short sentences per turn is plenty.
+- Be warm and brief. ONE short sentence per turn.
 - Ask ONE question at a time. Don't barrage them.
 - If they describe a problem ("my drain is clogged"), match it to one of the services if possible.
 - If they suggest a date in natural language ("next Tuesday", "Friday"), resolve to YYYY-MM-DD using today's date.
@@ -91,14 +99,24 @@ export default async function handler(req, res) {
   if (!slug || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'slug + messages required.' });
   }
-  if (messages.length > 40) {
-    return res.status(400).json({ error: 'Conversation too long. Refresh to start over.' });
+
+  // 10-message hard cap. We count user turns only — the assistant's
+  // greeting + replies don't count against the limit. Past 10, the
+  // client should already be showing the "session ended" UI but we
+  // 429 here as a hard backstop.
+  const userTurnCount = messages.filter(m => m && m.role === 'user').length;
+  if (userTurnCount > MAX_MESSAGES) {
+    return res.status(429).json({
+      error: 'CONVERSATION_LIMIT',
+      message: `This chat session is limited to ${MAX_MESSAGES} messages. To continue the conversation please call or visit our booking page.`,
+    });
   }
 
   // Load the org + service catalog so the prompt is grounded.
   const { data: page } = await sb.rpc('get_booking_page', { p_org_slug: slug });
   if (!page) return res.status(404).json({ error: 'Business not found.' });
 
+  const orgId = page.org?.id || null;
   const today = new Date().toISOString().slice(0, 10);
 
   // Cap user messages so an attacker can't waste tokens.
@@ -106,11 +124,27 @@ export default async function handler(req, res) {
     .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
     .map(m => ({ role: m.role, content: m.content.slice(0, 4000) }));
 
+  // ---- Cache lookup ----------------------------------------------
+  // Hash the entire conversation prefix. Common opening exchanges
+  // ("hi I need a leaky faucet fixed") repeat across visitors and
+  // those replies are safe to share within the same org.
+  const cacheKey = promptHash(JSON.stringify(cleanMessages));
+  const cached = await getCachedReply(sb, { source: 'customer_chat', orgId, hash: cacheKey });
+  if (cached) {
+    await logUsage(sb, { source: 'customer_chat', orgId, model: MODEL, cached: true });
+    return res.status(200).json({
+      reply: cached,
+      booking: null,
+      cached: true,
+      messagesRemaining: MAX_MESSAGES - userTurnCount,
+    });
+  }
+
   let resp;
   try {
     resp = await client.messages.create({
-      model: 'claude-haiku-4-5',
-      max_tokens: 800,
+      model: MODEL,
+      max_tokens: MAX_OUTPUT_TOKENS,
       system: systemPrompt(page.org, page.services, today),
       tools: TOOLS,
       messages: cleanMessages,
@@ -124,9 +158,11 @@ export default async function handler(req, res) {
   // tool result so the client can show a confirmation.
   let replyText = '';
   let bookingResult = null;
+  let toolWasCalled = false;
   for (const block of resp.content || []) {
     if (block.type === 'text') replyText += block.text;
     if (block.type === 'tool_use' && block.name === 'submit_booking') {
+      toolWasCalled = true;
       const args = block.input || {};
       const { data, error } = await sb.rpc('submit_self_booking', {
         p_org_slug:      slug,
@@ -143,8 +179,37 @@ export default async function handler(req, res) {
     }
   }
 
+  const finalReply = replyText.trim() || (bookingResult?.ok
+    ? `Booked. ${page.org.name} will reach out to confirm.`
+    : 'Sorry, can you say that again?');
+
+  // ---- Log + cache -----------------------------------------------
+  const usage = resp.usage || {};
+  await logUsage(sb, {
+    source: 'customer_chat',
+    orgId,
+    model: MODEL,
+    tokensIn:  usage.input_tokens  || 0,
+    tokensOut: usage.output_tokens || 0,
+  });
+  // Don't cache turns that triggered a tool call — those are unique
+  // to the customer's specific details.
+  if (!toolWasCalled) {
+    await putCachedReply(sb, {
+      source: 'customer_chat',
+      orgId,
+      hash: cacheKey,
+      reply: finalReply,
+      tokensIn:  usage.input_tokens  || 0,
+      tokensOut: usage.output_tokens || 0,
+      ttlSeconds: CACHE_TTL_SECONDS,
+    });
+  }
+
   return res.status(200).json({
-    reply: replyText.trim() || (bookingResult?.ok ? `Booked. ${page.org.name} will reach out to confirm.` : 'Sorry, can you say that again?'),
+    reply: finalReply,
     booking: bookingResult,
+    cached: false,
+    messagesRemaining: MAX_MESSAGES - userTurnCount,
   });
 }

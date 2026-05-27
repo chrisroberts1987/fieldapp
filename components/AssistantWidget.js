@@ -121,9 +121,22 @@ export default function AssistantWidget({ user, orgId }) {
           overflow:'hidden',
           boxShadow:'0 18px 60px rgba(0,0,0,0.45)',
         }}>
-          <div style={{padding:'12px 14px',borderBottom:'1px solid #2e3f60',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:16,letterSpacing:'.08em',color:'#f0f4ff'}}>
-              ✨ ASSISTANT
+          <div style={{padding:'12px 14px',borderBottom:'1px solid #2e3f60',display:'flex',justifyContent:'space-between',alignItems:'center',gap:6}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:16,letterSpacing:'.08em',color:'#f0f4ff'}}>
+                ✨ ASSISTANT
+              </div>
+              <span
+                title="AI responses are cached for 24 hours for common questions. Cached replies are free and never count toward your usage. Limit: 60 requests / minute."
+                style={{
+                  display:'inline-flex',alignItems:'center',justifyContent:'center',
+                  width:18,height:18,borderRadius:9,
+                  background:'rgba(79,158,255,0.12)',border:'1px solid #4f9eff66',
+                  color:'#4f9eff',fontSize:10,fontWeight:700,cursor:'help',
+                  lineHeight:1,
+                }}>
+                i
+              </span>
             </div>
             <div style={{fontSize:10,color:'#7a8db0',letterSpacing:'.08em',fontWeight:700,textTransform:'uppercase'}}>AI</div>
           </div>

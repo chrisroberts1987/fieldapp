@@ -4,23 +4,31 @@
 // runs under the user's session via a scoped Supabase client, so
 // RLS still gates writes.
 //
-// Tools (intentionally a small set — adding more is cheap once
-// the pattern is in):
-//   - log_expense
-//   - log_mileage
-//   - read_stats   (revenue / unpaid / job counts)
-//   - read_jobs_today
+// Cost controls (migration 0036):
+//   - Model: claude-haiku-4-5-20251001
+//   - max_tokens: 400
+//   - Rate limit: 60 actual API calls per user per minute (cached
+//     hits don't count).
+//   - 24-hour cache on the most-recent user message hash.
 
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
 import { preflight, bearerToken } from '../../../lib/apiSecurity';
+import { getCachedReply, putCachedReply, logUsage, rateLimitExceeded, promptHash } from '../../../lib/aiCost';
 
 export const config = { api: { bodyParser: { sizeLimit: '64kb' } } };
 
 const SUPABASE_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const client = new Anthropic();
+
+const MODEL              = 'claude-haiku-4-5-20251001';
+const MAX_OUTPUT_TOKENS  = 400;
+const RATE_LIMIT_MAX     = 60;          // calls
+const RATE_LIMIT_WINDOW  = 60;          // seconds
+const CACHE_TTL_SECONDS  = 24 * 3600;   // 24 hours
 
 const TOOLS = [
   {
@@ -75,6 +83,12 @@ Voice:
 
 Today's date will be in the user's first message context.`;
 
+// Service-role client just for cache + log + rate-limit reads.
+// User mutations still go through the user-scoped sb below.
+const sbService = SERVICE_KEY
+  ? createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
+  : null;
+
 export default async function handler(req, res) {
   if (preflight(req, res) === null) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only.' });
@@ -96,6 +110,21 @@ export default async function handler(req, res) {
   }
   if (messages.length > 30) return res.status(400).json({ error: 'Conversation too long. Refresh to start over.' });
 
+  // ---- Rate limit (60 actual calls / minute / user) --------------
+  if (sbService) {
+    const blocked = await rateLimitExceeded(sbService, {
+      userId: user.id,
+      source: 'internal_ai',
+      max: RATE_LIMIT_MAX,
+      windowSeconds: RATE_LIMIT_WINDOW,
+    });
+    if (blocked) {
+      return res.status(429).json({
+        error: `You've hit the AI rate limit (${RATE_LIMIT_MAX} requests per minute). Wait a moment and try again.`,
+      });
+    }
+  }
+
   const todayIso = new Date().toISOString().slice(0, 10);
   // Inject today's date into the system context so the model can
   // resolve "yesterday" without us inventing a prompt-engineering
@@ -106,18 +135,39 @@ export default async function handler(req, res) {
     .filter(m => m && (m.role === 'user' || m.role === 'assistant'))
     .map(m => ({ role: m.role, content: Array.isArray(m.content) ? m.content : String(m.content || '').slice(0, 4000) }));
 
+  // ---- Cache lookup (24h, keyed on last user message) ------------
+  // Tools mutate data, so we only short-circuit when the user's most
+  // recent message is a *question* — i.e. no prior assistant
+  // tool_use block fed back, and the message is a single string we
+  // can hash. Once any tool fires we bypass caching entirely.
+  const last = cleaned[cleaned.length - 1];
+  const isPlainQuestion = cleaned.length === 1
+    && last?.role === 'user'
+    && typeof last.content === 'string';
+  let cacheKey = null;
+  if (isPlainQuestion && sbService) {
+    cacheKey = promptHash(last.content);
+    const cached = await getCachedReply(sbService, { source: 'internal_ai', userId: user.id, hash: cacheKey });
+    if (cached) {
+      await logUsage(sbService, { source: 'internal_ai', orgId, userId: user.id, model: MODEL, cached: true });
+      return res.status(200).json({ reply: cached, cached: true });
+    }
+  }
+
   // Agentic loop. Claude may return text, or a tool_use block. If
   // a tool_use, run it server-side and feed the tool_result back
   // until the model has nothing more to call. Cap at 4 iterations
   // so a hallucination loop can't run away.
   let convo = [...cleaned];
   let final = '';
+  let totalIn = 0, totalOut = 0;
+  let toolWasUsed = false;
   for (let i = 0; i < 4; i++) {
     let resp;
     try {
       resp = await client.messages.create({
-        model: 'claude-haiku-4-5',
-        max_tokens: 800,
+        model: MODEL,
+        max_tokens: MAX_OUTPUT_TOKENS,
         system: sys,
         tools: TOOLS,
         messages: convo,
@@ -126,12 +176,16 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: 'AI error: ' + (e?.message || 'unknown') });
     }
 
+    totalIn  += resp.usage?.input_tokens  || 0;
+    totalOut += resp.usage?.output_tokens || 0;
+
     const blocks = resp.content || [];
     const toolUses = blocks.filter(b => b.type === 'tool_use');
     const textParts = blocks.filter(b => b.type === 'text').map(b => b.text).join('');
     if (textParts) final = textParts;
 
     if (toolUses.length === 0) break;
+    toolWasUsed = true;
 
     // Append assistant turn + tool results, then loop.
     convo = [...convo,
@@ -150,7 +204,32 @@ export default async function handler(req, res) {
     ];
   }
 
-  return res.status(200).json({ reply: final || 'Done.' });
+  // ---- Log + cache -----------------------------------------------
+  if (sbService) {
+    await logUsage(sbService, {
+      source: 'internal_ai',
+      orgId,
+      userId: user.id,
+      model: MODEL,
+      tokensIn:  totalIn,
+      tokensOut: totalOut,
+    });
+    // Cache only stateless Q&A — tool-using turns mutate data and
+    // shouldn't be served from cache.
+    if (cacheKey && !toolWasUsed && final) {
+      await putCachedReply(sbService, {
+        source: 'internal_ai',
+        userId: user.id,
+        hash: cacheKey,
+        reply: final,
+        tokensIn:  totalIn,
+        tokensOut: totalOut,
+        ttlSeconds: CACHE_TTL_SECONDS,
+      });
+    }
+  }
+
+  return res.status(200).json({ reply: final || 'Done.', cached: false });
 }
 
 async function runTool(sb, user, orgId, name, args) {

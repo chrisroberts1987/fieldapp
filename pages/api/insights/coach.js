@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
 import { preflight, bearerToken } from '../../../lib/apiSecurity';
+import { logUsage } from '../../../lib/aiCost';
 
 export const config = {
   api: {
@@ -10,8 +11,21 @@ export const config = {
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// Cost-control policy: keep Sonnet (not Opus) for the monthly coach.
+// Run is once-a-month per org, so the per-call cost ceiling is small;
+// what matters is reasoning quality on the recommendation set, and
+// Sonnet 4 is the sweet spot.
+const COACH_MODEL = 'claude-sonnet-4-20250514';
 
 const client = new Anthropic();
+
+// Service-role client for the usage log (table has no RLS but the
+// service key keeps writes server-only).
+const sbService = SERVICE_KEY
+  ? createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
+  : null;
 
 const SYSTEM_PROMPT = `You are a small-business coach for a field-service contractor — landscaping, HVAC, plumbing, electrical, handyman, cleaning, or similar trades. The owner of the business has shared their last 90+ days of operating data. They want pragmatic, specific recommendations they can act on this month.
 
@@ -270,11 +284,11 @@ export default async function handler(req, res) {
   });
 
   let parsed;
+  let response;
   try {
-    const response = await client.messages.create({
-      model: 'claude-opus-4-7',
+    response = await client.messages.create({
+      model: COACH_MODEL,
       max_tokens: 2048,
-      thinking: { type: 'adaptive' },
       system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
       messages: [{
         role: 'user',
@@ -297,9 +311,22 @@ export default async function handler(req, res) {
     period_month: periodIso,
     recommendations: parsed.recommendations,
     data_snapshot: snapshot,
-    model: 'claude-opus-4-7',
+    model: COACH_MODEL,
   }).select().single();
   if (insertErr) return res.status(500).json({ error: insertErr.message });
+
+  // Best-effort usage log so the admin dashboard rolls coach spend
+  // alongside chat + assistant spend. Never block the response on it.
+  if (sbService) {
+    logUsage(sbService, {
+      source: 'coach',
+      orgId,
+      userId: user.id,
+      model: COACH_MODEL,
+      tokensIn:  response?.usage?.input_tokens  || 0,
+      tokensOut: response?.usage?.output_tokens || 0,
+    }).catch(() => {});
+  }
 
   res.status(200).json({ row: inserted, generated: true });
 }

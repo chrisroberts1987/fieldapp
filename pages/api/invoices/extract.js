@@ -1,6 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
 import { preflight, bearerToken } from '../../../lib/apiSecurity';
+import { logUsage } from '../../../lib/aiCost';
+
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // Server-enforced ceiling. Each base64-encoded file in the body is roughly
 // 1.37x its on-disk size, so 14mb on the wire ≈ 10mb on disk per file.
@@ -85,6 +88,23 @@ export default async function handler(req, res) {
   const { data: { user }, error: userErr } = await sb.auth.getUser();
   if (userErr || !user) return res.status(401).json({ error: 'Not signed in.' });
 
+  // Service-role client for the usage log only — extraction itself
+  // still runs through the user-scoped sb above.
+  const sbService = SERVICE_KEY
+    ? createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
+    : null;
+
+  // Resolve the user's primary org for the usage rollup. Cheap.
+  let logOrgId = null;
+  try {
+    const { data: mem } = await sb.from('org_members')
+      .select('org_id')
+      .eq('user_id', user.id)
+      .order('joined_at', { ascending: true })
+      .limit(1).maybeSingle();
+    logOrgId = mem?.org_id || null;
+  } catch {}
+
   const { files } = req.body || {};
   if (!Array.isArray(files) || files.length === 0) {
     return res.status(400).json({ error: 'files (array of {name,type,data}) required' });
@@ -165,6 +185,17 @@ export default async function handler(req, res) {
       }
 
       results.push({ filename, success: true, data: parsed });
+
+      if (sbService) {
+        logUsage(sbService, {
+          source: 'invoice_extract',
+          orgId: logOrgId,
+          userId: user.id,
+          model: 'claude-opus-4-7',
+          tokensIn:  response.usage?.input_tokens  || 0,
+          tokensOut: response.usage?.output_tokens || 0,
+        }).catch(() => {});
+      }
     } catch (err) {
       let msg = err?.message || 'Extraction failed.';
       if (err instanceof Anthropic.RateLimitError)      msg = 'Rate-limited by the model. Try fewer files at once.';

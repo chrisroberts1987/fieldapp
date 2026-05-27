@@ -190,6 +190,14 @@ export default function BookingPage() {
 // server keeps no state. When the AI's tool call lands a booking,
 // the API returns booking:{ok:true,...} and we flip to the "done"
 // view on the parent.
+// Customer chat sessions are capped at 10 user-turns by the API.
+// We mirror the limit here so we can:
+//   - show a heads-up at turn 8 (give the customer 2 messages of
+//     warning before the door closes)
+//   - lock the input at turn 10 (don't let them type a message that
+//     the server will just reject)
+const CHAT_MAX_MESSAGES = 10;
+
 function BookingChat({ slug, org, onDone }) {
   const [msgs, setMsgs] = useState([
     { role:'assistant', content: `Hi! I'm here to help you book a service with ${org.name}. What do you need done today?` },
@@ -197,10 +205,15 @@ function BookingChat({ slug, org, onDone }) {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [bookedAt, setBookedAt] = useState(null);
+  const [limitHit, setLimitHit] = useState(false);
+
+  const userTurns  = msgs.filter(m => m.role === 'user').length;
+  const limitClose = userTurns >= CHAT_MAX_MESSAGES - 2 && !bookedAt && !limitHit;
 
   const send = async () => {
     const text = input.trim();
-    if (!text || sending || bookedAt) return;
+    if (!text || sending || bookedAt || limitHit) return;
+    if (userTurns >= CHAT_MAX_MESSAGES) { setLimitHit(true); return; }
     const next = [...msgs, { role:'user', content:text }];
     setMsgs(next);
     setInput('');
@@ -213,14 +226,22 @@ function BookingChat({ slug, org, onDone }) {
       });
       const body = await resp.json();
       if (!resp.ok) {
-        // Customers should never see internal API errors. Whatever
-        // went wrong on our side (rate limit, AI down, billing,
-        // server issue), they get one friendly line steering them
-        // to the form so we still capture the lead.
-        setMsgs(prev => [...prev, {
-          role:'assistant',
-          content: `Sorry, the AI receptionist is taking a quick break. Tap "📝 USE THE FORM" up top and ${org.name} will still get your request.`,
-        }]);
+        // Server hit the conversation cap. Show the exact copy spec'd
+        // by the cost-control policy so the message is consistent
+        // wherever it surfaces.
+        if (body?.error === 'CONVERSATION_LIMIT') {
+          setMsgs(prev => [...prev, { role:'assistant', content: body.message }]);
+          setLimitHit(true);
+        } else {
+          // Customers should never see internal API errors. Whatever
+          // went wrong on our side (rate limit, AI down, billing,
+          // server issue), they get one friendly line steering them
+          // to the form so we still capture the lead.
+          setMsgs(prev => [...prev, {
+            role:'assistant',
+            content: `Sorry, the AI receptionist is taking a quick break. Tap "📝 USE THE FORM" up top and ${org.name} will still get your request.`,
+          }]);
+        }
       } else {
         if (body.reply) {
           setMsgs(prev => [...prev, { role:'assistant', content: body.reply }]);
@@ -276,15 +297,27 @@ function BookingChat({ slug, org, onDone }) {
           </div>
         )}
       </div>
+      {(limitClose || limitHit) && (
+        <div style={{
+          marginTop:10, padding:'9px 12px',
+          background: limitHit ? 'rgba(242,96,96,0.08)' : 'rgba(251,191,36,0.08)',
+          border: '1px solid ' + (limitHit ? 'rgba(242,96,96,0.35)' : 'rgba(251,191,36,0.35)'),
+          borderRadius: 10,
+          fontSize: 12, lineHeight: 1.5,
+          color: limitHit ? '#f26060' : '#fbbf24',
+        }}>
+          This chat session is limited to {CHAT_MAX_MESSAGES} messages. To continue the conversation please call or visit our booking page.
+        </div>
+      )}
       <div style={{display:'flex',gap:6,marginTop:10}}>
         <input value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={onKey}
-          disabled={sending || !!bookedAt}
-          placeholder={bookedAt ? 'Booking sent!' : 'Type your message...'}
+          disabled={sending || !!bookedAt || limitHit}
+          placeholder={limitHit ? 'Session ended — use the form.' : (bookedAt ? 'Booking sent!' : 'Type your message...')}
           style={{flex:1,background:'#111827',border:'1.5px solid #2e3f60',borderRadius:10,color:'#f0f4ff',fontSize:14,padding:'10px 12px',outline:'none',fontFamily:'inherit'}}/>
-        <button onClick={send} disabled={sending || !input.trim() || !!bookedAt}
-          style={{background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'0 18px',fontWeight:700,fontSize:14,letterSpacing:'.04em',cursor:'pointer',opacity:(sending||!input.trim()||bookedAt)?0.5:1}}>
+        <button onClick={send} disabled={sending || !input.trim() || !!bookedAt || limitHit}
+          style={{background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'0 18px',fontWeight:700,fontSize:14,letterSpacing:'.04em',cursor:'pointer',opacity:(sending||!input.trim()||bookedAt||limitHit)?0.5:1}}>
           SEND
         </button>
       </div>
