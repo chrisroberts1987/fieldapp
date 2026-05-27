@@ -43,7 +43,13 @@ export default function AssistantWidget({ user, orgId }) {
       });
       const j = await resp.json();
       if (!resp.ok) {
-        setMsgs(prev => [...prev, { role: 'assistant', content: j?.error || 'Something went wrong.' }]);
+        // Most server-side errors here are billing / rate-limit on
+        // the AI. Show a generic-but-honest line; the raw error is
+        // already useful in the server logs.
+        const friendly = j?.error && /credit|rate limit|api key/i.test(j.error)
+          ? 'AI is taking a quick break — the admin needs to top up credits or check the API key.'
+          : (j?.error || 'Something went wrong.');
+        setMsgs(prev => [...prev, { role: 'assistant', content: friendly }]);
       } else {
         setMsgs(prev => [...prev, { role: 'assistant', content: j.reply || 'Done.' }]);
       }

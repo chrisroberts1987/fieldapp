@@ -212,7 +212,14 @@ function BookingChat({ slug, org, onDone }) {
       });
       const body = await resp.json();
       if (!resp.ok) {
-        setMsgs(prev => [...prev, { role:'assistant', content: body?.error || 'Something went wrong. Try again?' }]);
+        // Customers should never see internal API errors. Whatever
+        // went wrong on our side (rate limit, AI down, billing,
+        // server issue), they get one friendly line steering them
+        // to the form so we still capture the lead.
+        setMsgs(prev => [...prev, {
+          role:'assistant',
+          content: `Sorry, the AI receptionist is taking a quick break. Tap "📝 USE THE FORM" up top and ${org.name} will still get your request.`,
+        }]);
       } else {
         if (body.reply) {
           setMsgs(prev => [...prev, { role:'assistant', content: body.reply }]);
@@ -223,7 +230,10 @@ function BookingChat({ slug, org, onDone }) {
         }
       }
     } catch {
-      setMsgs(prev => [...prev, { role:'assistant', content: 'Network hiccup. Try again?' }]);
+      setMsgs(prev => [...prev, {
+        role:'assistant',
+        content: `Connection hiccup. Tap "📝 USE THE FORM" up top to make sure your request gets through.`,
+      }]);
     }
     setSending(false);
   };
