@@ -7,7 +7,6 @@ import { isCrew, isOffice } from '../../lib/role';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import { sendEmail, sendInvoiceEmail } from '../../lib/email/client';
-import { sendSMS } from '../../lib/sms/client';
 import { validateUpload, ACCEPT_ATTR } from '../../lib/uploads';
 import { firePushEvent } from '../../lib/push/fire';
 import { lookupRouteMiles } from '../../lib/mileage';
@@ -381,20 +380,14 @@ export default function Jobs() {
     // they remember to clock in.
     const { lat, lng } = await tryGetCoords();
 
-    // Track each channel's outcome separately so the toast can be
-    // honest. Texting is the channel a customer is most likely to
-    // actually notice in the moment — if SMS got skipped because
-    // Twilio isn't wired up, the contractor should know that's a
-    // missed touchpoint, not a silent success.
-    let emailOk = false, smsOk = false, smsSkipped = false;
+    // Customer notification goes by email only. We don't text
+    // customers on the contractor's behalf — that's a trust + legal
+    // exposure problem (a bot or template committing the contractor
+    // to a time / price). Email is enough to land the heads-up.
+    let emailOk = false;
     if (cust.email) {
       const r = await sendEmail({ type: 'on_my_way', to: cust.email, data });
       emailOk = !!r?.ok;
-    }
-    if (cust.phone) {
-      const r = await sendSMS({ type: 'on_my_way', to: cust.phone, data }).catch(() => null);
-      smsOk      = !!r?.ok && !r?.skipped;
-      smsSkipped = !!r?.skipped;
     }
 
     // Auto-clock-in for THIS visit. For multi-day jobs, we want one
@@ -438,27 +431,13 @@ export default function Jobs() {
     await supabase.from('jobs').update({ on_my_way_at: new Date().toISOString() }).eq('id', sheet.id);
     setSheet(prev => prev && prev !== 'new' ? { ...prev, on_my_way_at: new Date().toISOString() } : prev);
     setSendingOnMyWay(false);
-    // Tell the truth about each channel. SMS is what customers
-    // actually look at in the moment — call it out clearly when it
-    // didn't fire so the contractor knows the customer may not see
-    // the heads-up before arrival.
-    const parts = [];
-    if (smsOk)   parts.push(`Text sent to ${cust.phone}`);
-    if (emailOk) parts.push(`Email sent to ${cust.email}`);
-    let msg;
-    if (parts.length > 0) {
-      msg = `${parts.join(' · ')}. Clock started.`;
-      if (smsSkipped) {
-        msg += `\n\nText didn't send — Twilio isn't configured yet. Text is what customers actually notice on the way. Ask the platform admin to add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER in Vercel.`;
-      } else if (cust.phone && !smsOk && !smsSkipped) {
-        msg += `\n\nText failed. Check the phone number format.`;
-      } else if (!cust.phone) {
-        msg += `\n\nNo phone on file. Add one so future "on my way" notifications can text.`;
-      }
+    if (emailOk) {
+      alert(`Email sent to ${cust.email}. Clock started.`);
+    } else if (cust.email) {
+      alert(`Email didn't send. Try again or check the customer's email.`);
     } else {
-      msg = 'Could not notify the customer. Check email/phone on file.';
+      alert(`No email on file for ${cust.name}. Clock started but the customer wasn't notified.`);
     }
-    alert(msg);
   };
 
   const removeJobLabor = async (id) => {
@@ -599,20 +578,6 @@ export default function Jobs() {
           : { ok: false, text: `Customer email didn't send: ${r?.error || 'unknown error'}` };
       } else if (cust) {
         scheduleNotice = { ok: false, text: `No email on file for ${cust.name}. Add one in Customers to auto-notify them next time.` };
-      }
-      if (cust?.phone) {
-        // Best-effort SMS — server endpoint returns skipped:true if
-        // Twilio isn't set up yet, so this is a no-op until the
-        // platform owner configures TWILIO_* env vars.
-        sendSMS({
-          type: 'job_scheduled',
-          to: cust.phone,
-          data: {
-            customerName: cust.name,
-            jobTitle: payload.title,
-            scheduledDate: human,
-          },
-        });
       }
     }
 

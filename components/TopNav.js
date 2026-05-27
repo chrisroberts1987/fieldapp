@@ -25,7 +25,6 @@ const ALL_TABS = [
   { label:'Crew',      route:'/crew',      showFor:'all',     // also serves /approvals via inner sub-nav
                                             alsoMatches:['/approvals'] },
   { label:'Reviews',   route:'/reviews',   showFor:'foreman' },
-  { label:'Messages',  route:'/messages',  showFor:'foreman' },
   { label:'Insights',  route:'/insights',  showFor:'foreman' },
 ];
 
@@ -328,7 +327,6 @@ function MobileBottomNav({ role, active, router, onSignOut }) {
     { route:'/expenses',  label:'Expenses',  icon:<WalletIcon/>,   showFor:'all',     alsoMatches:['/mileage'] },
     { route:'/tax',       label:'Tax',       icon:<PieIcon/>,      showFor:'foreman' },
     { route:'/reviews',   label:'Reviews',   icon:<StarTabIcon/>,  showFor:'foreman' },
-    { route:'/messages',  label:'Messages',  icon:<MailIcon/>,     showFor:'foreman' },
     { route:'/insights',  label:'Insights',  icon:<ChartIcon/>,    showFor:'foreman' },
     { route:'/billing',   label:'Billing',   icon:<CardIcon/>,     showFor:'foreman' },
     { route:'/settings',  label:'Settings',  icon:<GearIcon/>,     showFor:'all' },
