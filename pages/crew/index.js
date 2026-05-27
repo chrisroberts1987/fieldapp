@@ -182,10 +182,26 @@ export default function Crew() {
   }
 
   // FOREMAN + SUPERVISOR VIEW
-  const sortedMembers = [...members].sort((a, b) => {
+  //
+  // Supervisors see only their direct reports + themselves. Foreman
+  // sees the full org sorted by tier (foreman → supervisor → crew).
+  const visibleMembers = isSupervisor(role)
+    ? members.filter(m => m.user_id === user.id || m.supervisor_id === user.id)
+    : members;
+  const sortedMembers = [...visibleMembers].sort((a, b) => {
     const orderOf = r => isForeman(r) ? 0 : isSupervisor(r) ? 1 : 2;
     return orderOf(a.role) - orderOf(b.role);
   });
+  const supervisors = members.filter(m => isSupervisor(m.role));
+
+  const assignSupervisor = async (memberUserId, supervisorUserId) => {
+    const { error } = await supabase.rpc('set_member_supervisor', {
+      p_member_user_id: memberUserId,
+      p_supervisor_user_id: supervisorUserId || null,
+    });
+    if (error) { setError(error.message); return; }
+    await loadAll();
+  };
 
   return (
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif",paddingBottom:80}}>
@@ -248,6 +264,8 @@ export default function Crew() {
           {sortedMembers.map(m => {
             const active = (jobsByUser[m.user_id] || []).length > 0;
             const isMe = m.user_id === user.id;
+            const memberIsCrew = isCrew(m.role);
+            const sup = m.supervisor_id ? members.find(x => x.user_id === m.supervisor_id) : null;
             return (
               <div key={m.user_id}
                 onClick={isForeman(role) ? () => router.push('/crew/' + m.user_id) : undefined}
@@ -263,6 +281,11 @@ export default function Crew() {
                       <span style={{fontSize:10,fontWeight:700,letterSpacing:'.06em',padding:'2px 6px',borderRadius:4,background: active ? '#2edf8722' : '#7a8db022',color: active ? '#2edf87' : '#7a8db0',border:`1px solid ${active ? '#2edf8766' : '#7a8db066'}`}}>
                         {active ? 'ON A JOB' : 'AVAILABLE'}
                       </span>
+                      {memberIsCrew && sup && (
+                        <span style={{fontSize:10,color:'#b197fc',letterSpacing:'.06em',fontWeight:600,textTransform:'uppercase'}}>
+                          reports to {sup.email?.split('@')[0]}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div style={{textAlign:'right',fontSize:11,color:'#7a8db0'}}>
@@ -271,6 +294,29 @@ export default function Crew() {
                       : <span>—</span>}
                   </div>
                 </div>
+
+                {/* Foreman-only: assign this crew member to a supervisor.
+                    Hidden for non-crew rows and hidden when there are no
+                    supervisors yet (suggest inviting one). */}
+                {isForeman(role) && memberIsCrew && (
+                  <div onClick={e => e.stopPropagation()}
+                    style={{marginTop:10,paddingTop:10,borderTop:'1px solid #2e3f60',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                    <div style={{fontSize:10,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700,flexShrink:0}}>Reports to</div>
+                    {supervisors.length === 0 ? (
+                      <span style={{fontSize:12,color:'#7a8db0',fontStyle:'italic'}}>Invite a Supervisor to enable assignment.</span>
+                    ) : (
+                      <select
+                        value={m.supervisor_id || ''}
+                        onChange={e => assignSupervisor(m.user_id, e.target.value)}
+                        style={{flex:'1 1 200px',minWidth:0,background:'#0d1726',border:'1px solid #2e3f60',borderRadius:8,color:'#f0f4ff',fontSize:13,padding:'7px 10px',outline:'none',fontFamily:'inherit'}}>
+                        <option value="">— Reports directly to Foreman —</option>
+                        {supervisors.map(s => (
+                          <option key={s.user_id} value={s.user_id}>{s.display_name || s.email}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

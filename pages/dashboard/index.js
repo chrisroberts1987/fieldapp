@@ -110,14 +110,57 @@ export default function Dashboard() {
   const loadCrewData = async (oid) => {
     const today = todayStr();
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0,10);
-    const [myJobs, todayJobs, poolJobs, pendingExp, pendingMi, myMileage, members] = await Promise.all([
-      supabase.from('jobs').select('id, title, status, scheduled_date, customer_id, price').eq('org_id', oid).eq('assigned_to_user_id', user.id).in('status', ['scheduled','in_progress']).order('scheduled_date', { ascending:true, nullsFirst:false }),
-      supabase.from('jobs').select('id, title, customer_id, status').eq('org_id', oid).eq('assigned_to_user_id', user.id).eq('scheduled_date', today),
-      supabase.from('jobs').select('id', { count:'exact', head:true }).eq('org_id', oid).is('assigned_to_user_id', null).in('status', ['scheduled','in_progress']),
+
+    // The "scope" of each query depends on role. RLS does most of the
+    // heavy lifting (a supervisor's jobs query returns only their
+    // queue, a crew member's only their assignments), but for
+    // active-jobs / today's-jobs we still want to NOT add an
+    // assigned_to_user_id filter on the supervisor — they aren't
+    // assigned to jobs themselves; their queue is everything routed
+    // to them.
+    const isSup = isSupervisor(role);
+
+    let activeJobsQ = supabase.from('jobs')
+      .select('id, title, status, scheduled_date, customer_id, price, assigned_to_user_id, supervisor_id')
+      .eq('org_id', oid)
+      .in('status', ['scheduled','in_progress'])
+      .order('scheduled_date', { ascending:true, nullsFirst:false });
+    let todayJobsQ = supabase.from('jobs')
+      .select('id, title, customer_id, status, assigned_to_user_id, supervisor_id')
+      .eq('org_id', oid)
+      .eq('scheduled_date', today);
+    let poolJobsQ = supabase.from('jobs')
+      .select('id', { count:'exact', head:true })
+      .eq('org_id', oid)
+      .is('assigned_to_user_id', null)
+      .in('status', ['scheduled','in_progress']);
+
+    if (!isSup) {
+      // Crew: my assignments only.
+      activeJobsQ = activeJobsQ.eq('assigned_to_user_id', user.id);
+      todayJobsQ  = todayJobsQ.eq('assigned_to_user_id', user.id);
+      // Pool count = unassigned jobs in my supervisor's queue. RLS
+      // already enforces this (crew can only see pool within their
+      // supervisor), so a simple count works.
+    }
+
+    // Supervisor: crew size = direct reports (supervisor_id = me).
+    // RLS doesn't block them from counting all org_members, so we
+    // filter explicitly. Foreman uses loadStats instead.
+    const crewSizeQ = isSup
+      ? supabase.from('org_members').select('user_id', { count:'exact', head:true }).eq('org_id', oid).eq('supervisor_id', user.id)
+      : Promise.resolve({ count: 0 });
+
+    const [myJobs, todayJobs, poolJobs, pendingExp, pendingMi, myMileage, crewSize] = await Promise.all([
+      activeJobsQ,
+      todayJobsQ,
+      poolJobsQ,
+      // Pending counts naturally scope to the supervisor's crew via
+      // RLS (migration 0038); for crew they'll just see their own.
       supabase.from('expenses').select('id', { count:'exact', head:true }).eq('org_id', oid).eq('approval_status', 'pending'),
       supabase.from('mileage_logs').select('id', { count:'exact', head:true }).eq('org_id', oid).eq('approval_status', 'pending'),
       supabase.from('mileage_logs').select('miles').eq('org_id', oid).eq('user_id', user.id).gte('log_date', monthStart),
-      supabase.from('org_members').select('user_id', { count:'exact', head:true }).eq('org_id', oid),
+      crewSizeQ,
     ]);
     setCrewData({
       myJobs: myJobs.data || [],
@@ -126,7 +169,7 @@ export default function Dashboard() {
       pendingExpenses: pendingExp.count || 0,
       pendingMileage: pendingMi.count || 0,
       myMilesMonth: (myMileage.data || []).reduce((s, m) => s + Number(m.miles || 0), 0),
-      crewSize: members.count || 0,
+      crewSize: crewSize.count || 0,
     });
   };
 

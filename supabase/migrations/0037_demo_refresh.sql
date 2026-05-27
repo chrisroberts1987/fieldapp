@@ -179,6 +179,31 @@ begin
   -- 0013 already seeds an insight_recommendations row for the
   -- current month. Leave it alone — the Insights "Next AI Coach run"
   -- card reads it directly.
+
+  -- ---------- 8. SUPERVISOR HIERARCHY ----------------------------
+  -- Wire David Cooper and Marcus Lee to report to Sarah Martinez
+  -- (the dispatcher) so the supervisor view has something to show.
+  -- Wrapped in a column existence guard so this runs cleanly on
+  -- demo refreshes even if migration 0038 hasn't applied yet.
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'org_members' and column_name = 'supervisor_id'
+  ) then
+    update public.org_members set supervisor_id = (
+      select user_id from public.org_members
+      where org_id = p_org_id and role = 'dispatcher' limit 1
+    )
+    where org_id = p_org_id and role = 'crew';
+
+    -- Set supervisor_id on jobs assigned to crew members so the
+    -- supervisor's queue lights up immediately.
+    update public.jobs j set supervisor_id = om.supervisor_id
+      from public.org_members om
+      where j.org_id = p_org_id
+        and j.assigned_to_user_id = om.user_id
+        and om.org_id = p_org_id
+        and om.supervisor_id is not null;
+  end if;
 end;
 $$;
 

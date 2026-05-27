@@ -3,38 +3,52 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useRefetchOnFocus } from '../lib/useFocus';
 import { useOrg } from '../lib/org';
-import { isForeman, isOffice } from '../lib/role';
+import { isForeman, isSupervisor, isCrew } from '../lib/role';
 import { trialDaysLeft, isBlocked } from '../lib/billing';
 import Logo from './Logo';
 
-// Funnel-ordered: Dashboard → Leads → Quotes → Customers → Jobs → Invoices →
-// then operational sections. Mileage is reachable from inside Expenses; the
-// Approvals queue is reachable from inside Crew.
+// Tab visibility is the second layer of defense behind RLS (migration
+// 0038). Source of truth — what each tier sees:
+//
+//   FOREMAN:    Dashboard, Customers, Leads, Quotes, Services, Schedule,
+//               Jobs, Invoices, Expenses, Tax, Crew, Reviews, Insights.
+//   SUPERVISOR: Dashboard, Jobs, Crew (their direct reports), Expenses
+//               (their crew's submissions). No financial tabs.
+//   CREW:       Dashboard, Jobs (their assignments), Expenses (own),
+//               Mileage (own). No Crew tab — their profile lives in
+//               Settings.
+//
+// "showFor" lists the roles a tab is visible to. The ordering in
+// ALL_TABS controls render order regardless of which roles see it.
 const ALL_TABS = [
-  { label:'Dashboard', route:'/dashboard', showFor:'all' },
-  { label:'Customers', route:'/customers', showFor:'office' },
-  { label:'Leads',     route:'/leads',     showFor:'office' },
-  { label:'Quotes',    route:'/quotes',    showFor:'foreman' },
-  { label:'Services',  route:'/services',  showFor:'foreman' },
-  { label:'Schedule',  route:'/schedule',  showFor:'all' },
-  { label:'Jobs',      route:'/jobs',      showFor:'all' },
-  { label:'Invoices',  route:'/invoices',  showFor:'foreman' },
-  { label:'Expenses',  route:'/expenses',  showFor:'all',     // also serves /mileage via inner sub-nav
+  { label:'Dashboard', route:'/dashboard', showFor:['foreman','supervisor','crew'] },
+  { label:'Customers', route:'/customers', showFor:['foreman'] },
+  { label:'Leads',     route:'/leads',     showFor:['foreman'] },
+  { label:'Quotes',    route:'/quotes',    showFor:['foreman'] },
+  { label:'Services',  route:'/services',  showFor:['foreman'] },
+  { label:'Schedule',  route:'/schedule',  showFor:['foreman'] },
+  { label:'Jobs',      route:'/jobs',      showFor:['foreman','supervisor','crew'] },
+  { label:'Invoices',  route:'/invoices',  showFor:['foreman'] },
+  { label:'Expenses',  route:'/expenses',  showFor:['foreman','supervisor','crew'],
                                             alsoMatches:['/mileage'] },
-  { label:'Tax',       route:'/tax',       showFor:'foreman' },
-  { label:'Crew',      route:'/crew',      showFor:'all',     // also serves /approvals via inner sub-nav
+  { label:'Tax',       route:'/tax',       showFor:['foreman'] },
+  { label:'Crew',      route:'/crew',      showFor:['foreman','supervisor'],
                                             alsoMatches:['/approvals'] },
-  { label:'Reviews',   route:'/reviews',   showFor:'foreman' },
-  { label:'Insights',  route:'/insights',  showFor:'foreman' },
+  { label:'Reviews',   route:'/reviews',   showFor:['foreman'] },
+  { label:'Insights',  route:'/insights',  showFor:['foreman'] },
 ];
 
+function tierOf(role) {
+  if (isForeman(role))    return 'foreman';
+  if (isSupervisor(role)) return 'supervisor';
+  if (isCrew(role))       return 'crew';
+  return null;
+}
+
 function visibleTabs(role) {
-  return ALL_TABS.filter(t => {
-    if (t.showFor === 'all') return true;
-    if (t.showFor === 'office') return isOffice(role);
-    if (t.showFor === 'foreman') return isForeman(role);
-    return false;
-  });
+  const t = tierOf(role);
+  if (!t) return [];
+  return ALL_TABS.filter(tab => tab.showFor.includes(t));
 }
 
 function isActive(tab, active) {
@@ -314,32 +328,30 @@ export default function TopNav({ active }) {
 function MobileBottomNav({ role, active, router, onSignOut }) {
   const [moreOpen, setMoreOpen] = useState(false);
 
+  // Mobile bottom-nav uses the same tier-based gating as the top
+  // strip. showFor is the array of tiers that see each item.
   const allPrimary = [
-    { route:'/dashboard', label:'Dashboard', icon:<DashIcon/>,    showFor:'all' },
-    { route:'/leads',     label:'Leads',     icon:<PhoneIcon/>,   showFor:'office' },
-    { route:'/quotes',    label:'Quotes',    icon:<ScrollIcon/>,  showFor:'foreman' },
-    { route:'/jobs',      label:'Jobs',      icon:<WrenchIcon/>,  showFor:'all' },
-    { route:'/invoices',  label:'Invoices',  icon:<ReceiptIcon/>, showFor:'foreman' },
+    { route:'/dashboard', label:'Dashboard', icon:<DashIcon/>,    showFor:['foreman','supervisor','crew'] },
+    { route:'/leads',     label:'Leads',     icon:<PhoneIcon/>,   showFor:['foreman'] },
+    { route:'/quotes',    label:'Quotes',    icon:<ScrollIcon/>,  showFor:['foreman'] },
+    { route:'/jobs',      label:'Jobs',      icon:<WrenchIcon/>,  showFor:['foreman','supervisor','crew'] },
+    { route:'/invoices',  label:'Invoices',  icon:<ReceiptIcon/>, showFor:['foreman'] },
   ];
   const allMore = [
-    { route:'/customers', label:'Customers', icon:<PeopleIcon/>,   showFor:'office' },
-    { route:'/schedule',  label:'Schedule',  icon:<CalendarIcon/>, showFor:'all' },
-    { route:'/services',  label:'Services',  icon:<PriceTagIcon/>, showFor:'foreman' },
-    { route:'/crew',      label:'Crew',      icon:<CrewIcon/>,     showFor:'all',     alsoMatches:['/approvals'] },
-    { route:'/expenses',  label:'Expenses',  icon:<WalletIcon/>,   showFor:'all',     alsoMatches:['/mileage'] },
-    { route:'/tax',       label:'Tax',       icon:<PieIcon/>,      showFor:'foreman' },
-    { route:'/reviews',   label:'Reviews',   icon:<StarTabIcon/>,  showFor:'foreman' },
-    { route:'/insights',  label:'Insights',  icon:<ChartIcon/>,    showFor:'foreman' },
-    { route:'/billing',   label:'Billing',   icon:<CardIcon/>,     showFor:'foreman' },
-    { route:'/settings',  label:'Settings',  icon:<GearIcon/>,     showFor:'all' },
-    { route:'/contact',   label:'Contact',   icon:<MailIcon/>,     showFor:'all' },
+    { route:'/customers', label:'Customers', icon:<PeopleIcon/>,   showFor:['foreman'] },
+    { route:'/schedule',  label:'Schedule',  icon:<CalendarIcon/>, showFor:['foreman'] },
+    { route:'/services',  label:'Services',  icon:<PriceTagIcon/>, showFor:['foreman'] },
+    { route:'/crew',      label:'Crew',      icon:<CrewIcon/>,     showFor:['foreman','supervisor'], alsoMatches:['/approvals'] },
+    { route:'/expenses',  label:'Expenses',  icon:<WalletIcon/>,   showFor:['foreman','supervisor','crew'], alsoMatches:['/mileage'] },
+    { route:'/tax',       label:'Tax',       icon:<PieIcon/>,      showFor:['foreman'] },
+    { route:'/reviews',   label:'Reviews',   icon:<StarTabIcon/>,  showFor:['foreman'] },
+    { route:'/insights',  label:'Insights',  icon:<ChartIcon/>,    showFor:['foreman'] },
+    { route:'/billing',   label:'Billing',   icon:<CardIcon/>,     showFor:['foreman'] },
+    { route:'/settings',  label:'Settings',  icon:<GearIcon/>,     showFor:['foreman','supervisor','crew'] },
+    { route:'/contact',   label:'Contact',   icon:<MailIcon/>,     showFor:['foreman','supervisor','crew'] },
   ];
-  const visible = items => items.filter(t => {
-    if (t.showFor === 'all') return true;
-    if (t.showFor === 'office') return isOffice(role);
-    if (t.showFor === 'foreman') return isForeman(role);
-    return false;
-  });
+  const t = tierOf(role);
+  const visible = items => items.filter(it => t && it.showFor.includes(t));
   const primary = visible(allPrimary);
   const more    = visible(allMore);
 

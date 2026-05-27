@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
 import { useRefetchOnFocus } from '../../lib/useFocus';
-import { isCrew, isOffice } from '../../lib/role';
+import { isCrew, isOffice, isForeman, isSupervisor } from '../../lib/role';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import { sendEmail, sendInvoiceEmail } from '../../lib/email/client';
@@ -472,6 +472,21 @@ export default function Jobs() {
     setSignaturePending(false);
     const prevAssignee = sheet !== 'new' ? sheet?.assigned_to_user_id : null;
     const newAssignee = form.assigned_to_user_id || null;
+    // supervisor_id: if a crew member is assigned, route the job to
+    // that crew member's supervisor (if they have one). If the
+    // foreman assigns directly to a supervisor instead, route to
+    // that supervisor. Keeps RLS happy and gives the supervisor's
+    // dashboard the job to dispatch from. Foreman-assigned jobs
+    // with no assignee at all keep supervisor_id from the existing
+    // row (or null on create).
+    let nextSupervisorId = sheet !== 'new' ? (sheet?.supervisor_id || null) : null;
+    if (newAssignee && newAssignee !== prevAssignee) {
+      const assignee = members.find(m => m.user_id === newAssignee);
+      if (assignee) {
+        if (assignee.role === 'dispatcher') nextSupervisorId = assignee.user_id;
+        else if (assignee.supervisor_id)    nextSupervisorId = assignee.supervisor_id;
+      }
+    }
     const payload = {
       ...form,
       customer_id: form.customer_id || null,
@@ -480,6 +495,7 @@ export default function Jobs() {
       scheduled_time: form.scheduled_time || null,
       price: form.price === '' ? 0 : Number(form.price),
       assigned_to_user_id: newAssignee,
+      supervisor_id: nextSupervisorId,
       assigned_at: (newAssignee && newAssignee !== prevAssignee) ? new Date().toISOString() : (sheet !== 'new' ? sheet?.assigned_at : null),
     };
     // Auto-promote pending → scheduled when a date is now set. The
@@ -837,8 +853,22 @@ export default function Jobs() {
                   onChange={e => setForm(p => ({...p, assigned_to_user_id:e.target.value}))}
                   style={inputStyle}>
                   <option value="">— Crew pool (unassigned) —</option>
-                  {members.map(m => <option key={m.user_id} value={m.user_id}>{m.email}</option>)}
+                  {(() => {
+                    // Supervisor: dispatch only to their direct reports.
+                    // Foreman: assign to anyone on the team.
+                    const assignable = isForeman(role)
+                      ? members
+                      : members.filter(m => m.supervisor_id === user.id || m.user_id === user.id);
+                    return assignable.map(m =>
+                      <option key={m.user_id} value={m.user_id}>{m.display_name || m.email}</option>
+                    );
+                  })()}
                 </select>
+                {isSupervisor(role) && members.filter(m => m.supervisor_id === user.id).length === 0 && (
+                  <div style={{marginTop:6,fontSize:11,color:'#fbbf24',lineHeight:1.4}}>
+                    No crew assigned to you yet. Ask your Foreman to wire your team up under the Crew tab.
+                  </div>
+                )}
               </div>
             )}
 
