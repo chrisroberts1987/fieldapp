@@ -5,6 +5,7 @@ import { useOrg } from '../../lib/org';
 import { useRefetchOnFocus } from '../../lib/useFocus';
 import { fmt$, fmtDate } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import { toast } from '../../components/Toast';
 
 export default function CustomerDetail() {
   const router = useRouter();
@@ -208,7 +209,7 @@ export default function CustomerDetail() {
     : null;
   const copyPortalLink = () => {
     if (!portalUrl) return;
-    navigator.clipboard.writeText(portalUrl).then(() => alert('Portal link copied to clipboard.'));
+    navigator.clipboard.writeText(portalUrl).then(() => toast.success('Portal link copied to clipboard.'));
   };
 
   if (loading || !customer) {
@@ -378,8 +379,8 @@ export default function CustomerDetail() {
                       },
                       body: JSON.stringify({ to: customer.email, url: portalUrl, customerName: customer.name }),
                     });
-                    alert(`Portal link sent to ${customer.email}.`);
-                  } catch { alert('Send failed.'); }
+                    toast.success(`Portal link sent to ${customer.email}.`);
+                  } catch { toast.error('Send failed.'); }
                   setSendingPortalLink(false);
                 }} style={{...smallBtn, background:'#2edf87', color:'#111827', borderColor:'#2edf87'}}>
                   {sendingPortalLink ? '…' : 'EMAIL TO CUSTOMER'}

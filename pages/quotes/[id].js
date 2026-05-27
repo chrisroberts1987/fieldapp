@@ -6,6 +6,7 @@ import { useRefetchOnFocus } from '../../lib/useFocus';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import { sendEmail } from '../../lib/email/client';
+import { toast } from '../../components/Toast';
 
 export default function QuoteDetail() {
   const router = useRouter();
@@ -135,7 +136,7 @@ export default function QuoteDetail() {
           validUntil:   quote.valid_until ? fmtDate(quote.valid_until) : null,
         },
       });
-      if (!r.ok) alert('Quote marked sent, but the email didn\'t go out: ' + r.error);
+      if (!r.ok) toast.error('Quote marked sent, but the email didn\'t go out: ' + r.error);
     }
     await load();
   };

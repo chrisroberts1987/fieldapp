@@ -6,6 +6,7 @@ import { useRefetchOnFocus } from '../../lib/useFocus';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import { FullPageLoading } from '../../components/PageStates';
+import { toast } from '../../components/Toast';
 
 const STATUSES = [
   { key:'new',        label:'New',        color:'#4f9eff' },
@@ -121,7 +122,7 @@ export default function Leads() {
       description: lead.notes,
       amount: lead.estimated_value || 0,
     }).select('id').single();
-    if (error) { alert('Could not create quote: ' + error.message); return; }
+    if (error) { toast.error('Could not create quote: ' + error.message); return; }
     router.push(`/quotes/${data.id}`);
   };
 
@@ -140,7 +141,7 @@ export default function Leads() {
       address: lead.address,
       notes: lead.notes,
     }).select('id').single();
-    if (error) { alert('Could not convert: ' + error.message); return; }
+    if (error) { toast.error('Could not convert: ' + error.message); return; }
     await supabase.from('leads').update({
       status: 'won',
       converted_customer_id: c.id,

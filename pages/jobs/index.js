@@ -13,6 +13,7 @@ import { lookupRouteMiles } from '../../lib/mileage';
 import MapView from '../../components/MapView';
 import SignaturePad from '../../components/SignaturePad';
 import { FullPageLoading } from '../../components/PageStates';
+import { toast } from '../../components/Toast';
 
 const STATUSES = [
   { key:'pending',     label:'Pending',     color:'#a855f7' },  // approved-but-not-scheduled, eg. just converted from a quote
@@ -146,7 +147,7 @@ export default function Jobs() {
     ev.target.value = '';
     if (!file || !sheet || sheet === 'new' || !orgId) return;
     const err = validateUpload(file, { images: true });
-    if (err) { alert(err); return; }
+    if (err) { toast.error(err); return; }
     setUploadingPhoto(true);
     const extByMime = { 'image/jpeg':'jpg', 'image/png':'png', 'image/heic':'heic', 'image/heif':'heif' };
     const ext = extByMime[file.type] || 'jpg';
@@ -154,7 +155,7 @@ export default function Jobs() {
     const { error: upErr } = await supabase.storage
       .from('job-photos')
       .upload(path, file, { upsert: false, contentType: file.type });
-    if (upErr) { alert('Photo upload failed: ' + upErr.message); setUploadingPhoto(false); return; }
+    if (upErr) { toast.error('Photo upload failed: ' + upErr.message); setUploadingPhoto(false); return; }
     const { data: pub } = supabase.storage.from('job-photos').getPublicUrl(path);
     const { data: row } = await supabase.from('job_photos').insert({
       org_id: orgId,
@@ -214,7 +215,7 @@ export default function Jobs() {
     const member = members.find(m => m.user_id === quickLabor.user_id);
     const rate = member?.hourly_pay_rate;
     if (rate == null) {
-      alert(`${member?.email || 'This member'} has no hourly rate set — open Crew → their card to set it before logging labor.`);
+      toast.success(`${member?.email || 'This member'} has no hourly rate set — open Crew → their card to set it before logging labor.`);
       return;
     }
     setAddingLabor(true);
@@ -357,7 +358,7 @@ export default function Jobs() {
     const cust = customers.find(c => c.id === form.customer_id);
     if (!cust) return;
     if (!cust.email && !cust.phone) {
-      alert('Customer has no phone or email on file.');
+      toast.error('Customer has no phone or email on file.');
       return;
     }
     setSendingOnMyWay(true);
@@ -433,11 +434,11 @@ export default function Jobs() {
     setSheet(prev => prev && prev !== 'new' ? { ...prev, on_my_way_at: new Date().toISOString() } : prev);
     setSendingOnMyWay(false);
     if (emailOk) {
-      alert(`Email sent to ${cust.email}. Clock started.`);
+      toast.success(`Email sent to ${cust.email}. Clock started.`);
     } else if (cust.email) {
-      alert(`Email didn't send. Try again or check the customer's email.`);
+      toast.error(`Email didn't send. Try again or check the customer's email.`);
     } else {
-      alert(`No email on file for ${cust.name}. Clock started but the customer wasn't notified.`);
+      toast.error(`No email on file for ${cust.name}. Clock started but the customer wasn't notified.`);
     }
   };
 
@@ -699,7 +700,7 @@ export default function Jobs() {
     if (scheduleNotice) {
       // Quick contractor-facing feedback so they know the customer
       // was (or wasn't) notified.
-      alert(scheduleNotice.text);
+      toast.error(scheduleNotice.text);
     }
   };
 

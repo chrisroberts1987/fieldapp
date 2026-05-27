@@ -10,6 +10,7 @@ import { firePushEvent } from '../../lib/push/fire';
 import MarkPaidModal from '../../components/MarkPaidModal';
 import { logAudit } from '../../lib/audit';
 import { FullPageLoading } from '../../components/PageStates';
+import { toast } from '../../components/Toast';
 
 const FILTERS = [
   { key:'all',    label:'All' },
@@ -205,7 +206,7 @@ export default function Invoices() {
     const url = `${window.location.origin}/inv/${inv.public_token}`;
     try {
       await navigator.clipboard.writeText(url);
-      alert('Pay link copied:\n' + url);
+      toast.error('Pay link copied:\n' + url);
     } catch {
       window.prompt('Copy this pay link to send to your customer:', url);
     }
@@ -217,7 +218,7 @@ export default function Invoices() {
   const quickSend = async (inv) => {
     const cust = customers.find(c => c.id === inv.customer_id);
     if (!cust?.email) {
-      alert('This customer has no email on file. Add one in Customers, or use PAY LINK to copy the URL and send it yourself.');
+      toast.error('This customer has no email on file. Add one in Customers, or use PAY LINK to copy the URL and send it yourself.');
       return;
     }
     if (inv.last_emailed_at) {
@@ -233,19 +234,19 @@ export default function Invoices() {
         ? { ...x, last_emailed_at: new Date().toISOString() }
         : x));
     } else {
-      alert(r.error || 'Send failed. Try again in a moment.');
+      toast.error(r.error || 'Send failed. Try again in a moment.');
     }
   };
 
   const copyFeedbackLink = async (inv) => {
     const { data } = await supabase.from('feedback').select('token').eq('invoice_id', inv.id).maybeSingle();
-    if (!data?.token) { alert('No feedback link generated yet. Try saving the invoice again.'); return; }
+    if (!data?.token) { toast.success('No feedback link generated yet. Try saving the invoice again.'); return; }
     const url = `${window.location.origin}/feedback/${data.token}`;
     try {
       await navigator.clipboard.writeText(url);
-      alert('Feedback link copied:\n' + url);
+      toast.error('Feedback link copied:\n' + url);
     } catch {
-      alert('Feedback link:\n' + url);
+      toast.error('Feedback link:\n' + url);
     }
   };
 
@@ -410,7 +411,7 @@ export default function Invoices() {
             setPayModal(null);
             clearSelection();
             await loadAll();
-            if (failed > 0) alert(`Marked ${marked} paid · ${failed} failed.`);
+            if (failed > 0) toast.error(`Marked ${marked} paid · ${failed} failed.`);
           }}
         />
       )}

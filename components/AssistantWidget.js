@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { toast } from './Toast';
 
 export default function AssistantWidget({ user, orgId }) {
   const [open, setOpen] = useState(false);
@@ -64,7 +65,7 @@ export default function AssistantWidget({ user, orgId }) {
   const startListening = () => {
     const Recog = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
     if (!Recog) {
-      alert('Voice input not supported on this browser. Type instead.');
+      toast.info('Voice input not supported on this browser. Type instead.');
       return;
     }
     const r = new Recog();

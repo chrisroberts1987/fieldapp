@@ -5,6 +5,7 @@ import { useOrg } from '../../lib/org';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import { sendInvoiceEmail } from '../../lib/email/client';
+import { toast } from '../../components/Toast';
 
 export default function InvoiceDetail() {
   const router = useRouter();
@@ -269,7 +270,7 @@ function SendInvoiceButton({ invoiceId, customerEmail, lastEmailedAt, onSent }) 
       onSent && onSent();
     } else {
       setFlash('error');
-      alert(r.error || 'Send failed.');
+      toast.error(r.error || 'Send failed.');
     }
   };
 

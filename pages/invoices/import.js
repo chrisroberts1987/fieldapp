@@ -5,6 +5,7 @@ import { useOrg } from '../../lib/org';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import { ALLOWED_UPLOAD_MIMES, ALLOWED_UPLOAD_LABEL, MAX_UPLOAD_BYTES, ACCEPT_ATTR } from '../../lib/uploads';
+import { toast } from '../../components/Toast';
 
 const ACCEPTED = ACCEPT_ATTR;
 const MAX_BATCH = 10;
@@ -35,7 +36,7 @@ export default function ImportInvoices() {
     if (files.length === 0) return;
 
     if (rows.length + files.length > MAX_BATCH) {
-      alert(`Max ${MAX_BATCH} files at a time. You have ${rows.length} queued.`);
+      toast.success(`Max ${MAX_BATCH} files at a time. You have ${rows.length} queued.`);
       return;
     }
 

@@ -8,6 +8,7 @@ import { fmt$, fmtDate, todayStr, IRS_RATE } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import MapView from '../../components/MapView';
 import SubNav from '../../components/SubNav';
+import { toast } from '../../components/Toast';
 
 const PURPOSES = [
   { key:'business', label:'Business' },
@@ -125,7 +126,7 @@ export default function Mileage() {
   const save = async () => {
     if (!form || !orgId) return;
     const miles = Number(form.miles);
-    if (isNaN(miles) || miles <= 0) { alert('Enter miles greater than 0.'); return; }
+    if (isNaN(miles) || miles <= 0) { toast.success('Enter miles greater than 0.'); return; }
     setSaving(true);
     const payload = {
       log_date: form.log_date || todayStr(),

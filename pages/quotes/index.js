@@ -5,6 +5,7 @@ import { useOrg } from '../../lib/org';
 import { useRefetchOnFocus } from '../../lib/useFocus';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import { toast } from '../../components/Toast';
 
 const STATUSES = [
   { key:'draft',     label:'Draft',     color:'#7a8db0' },
@@ -54,7 +55,7 @@ export default function Quotes() {
       title: 'New Quote',
       amount: 0,
     }).select('id').single();
-    if (error) return alert(error.message);
+    if (error) return toast.error(error.message);
     router.push(`/quotes/${data.id}`);
   };
 

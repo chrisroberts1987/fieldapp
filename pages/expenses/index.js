@@ -8,6 +8,7 @@ import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import SubNav from '../../components/SubNav';
 import { validateUpload, ACCEPT_ATTR } from '../../lib/uploads';
+import { toast } from '../../components/Toast';
 
 // deductible: percentage of the expense that's tax-deductible (IRS rules).
 // Most business expenses are 100%; meals are 50% per IRC §274(n).
@@ -97,7 +98,7 @@ export default function Expenses() {
     const file = ev.target.files?.[0];
     if (!file) return;
     const err = validateUpload(file, { images: true });
-    if (err) { alert(err); return; }
+    if (err) { toast.error(err); return; }
     setReceiptFile(file);
     setReceiptPreview(URL.createObjectURL(file));
   };
@@ -121,7 +122,7 @@ export default function Expenses() {
       const { error: upErr } = await supabase.storage
         .from('expense-receipts')
         .upload(path, receiptFile, { upsert: false, contentType: receiptFile.type });
-      if (upErr) { alert('Receipt upload failed: ' + upErr.message); setSaving(false); return; }
+      if (upErr) { toast.error('Receipt upload failed: ' + upErr.message); setSaving(false); return; }
       const { data: pub } = supabase.storage.from('expense-receipts').getPublicUrl(path);
       receipt_url = pub?.publicUrl || null;
     }

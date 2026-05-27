@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { fmt$, fmtDate } from '../../lib/helpers';
 import Logo from '../../components/Logo';
+import { toast } from '../../components/Toast';
 
 // Platform-owner admin dashboard. Client-side this is a thin shell:
 // every data call goes through /api/admin/* which re-verifies the
@@ -360,7 +361,7 @@ function BusinessDetailModal({ business, onClose, onChanged }) {
         method: 'POST', body: JSON.stringify({ action: 'unsuspend' }),
       });
       setBusy(false);
-      if (r.error) { alert(r.error); return; }
+      if (r.error) { toast.error(r.error); return; }
     } else {
       const reason = prompt('Reason for suspension? (visible only in admin audit)');
       if (reason === null) return;
@@ -369,7 +370,7 @@ function BusinessDetailModal({ business, onClose, onChanged }) {
         method: 'POST', body: JSON.stringify({ action: 'suspend', reason }),
       });
       setBusy(false);
-      if (r.error) { alert(r.error); return; }
+      if (r.error) { toast.error(r.error); return; }
     }
     await reload();
     onChanged?.();
@@ -383,7 +384,7 @@ function BusinessDetailModal({ business, onClose, onChanged }) {
       method: 'POST', body: JSON.stringify({ confirm: typed }),
     });
     setBusy(false);
-    if (r.error) { alert(r.error); return; }
+    if (r.error) { toast.error(r.error); return; }
     onChanged?.();
     onClose();
   };
@@ -396,10 +397,10 @@ function BusinessDetailModal({ business, onClose, onChanged }) {
     setBusy(true);
     const r = await adminFetch(`/api/admin/business/${business.id}/impersonate`, { method: 'POST' });
     setBusy(false);
-    if (r.error) { alert(r.error); return; }
+    if (r.error) { toast.error(r.error); return; }
     try {
       await navigator.clipboard.writeText(r.url);
-      alert(`Sign-in link copied to clipboard.\n\nOwner: ${r.owner_email}\nExpires in ${r.expires_in_hours}h, single-use.\n\nPaste it in an incognito window.`);
+      toast.success(`Sign-in link copied to clipboard.\n\nOwner: ${r.owner_email}\nExpires in ${r.expires_in_hours}h, single-use.\n\nPaste it in an incognito window.`);
     } catch {
       window.prompt(`Owner: ${r.owner_email}\nExpires in ${r.expires_in_hours}h.\n\nCopy this link and paste in incognito:`, r.url);
     }
