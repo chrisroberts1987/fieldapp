@@ -60,6 +60,15 @@ function normalizePhone(p) {
   return (p || '').replace(/[^\d+]/g, '');
 }
 
+// Shorthand for the empty TwiML response Twilio expects. We were
+// using res.type() previously — that's an Express helper, not on
+// Next's NextApiResponse, so it threw TypeError and Vercel returned
+// a 500 page. setHeader is the cross-framework safe choice.
+function sendTwiml(res) {
+  res.setHeader('Content-Type', 'text/xml');
+  return res.status(200).send('<Response/>');
+}
+
 const SYSTEM = `You are a friendly auto-responder for a field service business (HVAC, landscaping, plumbing, handyman, etc). A customer just texted the business — you're helping while the owner is busy.
 
 Voice:
@@ -83,7 +92,7 @@ export default async function handler(req, res) {
       has_twilio_sid:   !!process.env.TWILIO_ACCOUNT_SID,
       has_twilio_token: !!process.env.TWILIO_AUTH_TOKEN,
       has_twilio_from:  !!process.env.TWILIO_FROM_NUMBER,
-      commit: 'debug-crash-v2',
+      commit: 'fix-type-call',
     });
   }
 
@@ -98,20 +107,21 @@ export default async function handler(req, res) {
     // TEMP debugging: surface the error message in the response
     // body so we can read it via curl. Twilio still gets 200 so
     // it won't retry. Remove once the underlying bug is found.
-    return res.status(200).type('text/plain').send('crash: ' + (e?.message || String(e)).slice(0, 500));
+    res.setHeader('Content-Type', 'text/plain');
+    return res.status(200).send('crash: ' + (e?.message || String(e)).slice(0, 500));
   }
 }
 
 async function handleInbound(req, res) {
-  if (req.method !== 'POST') return res.status(200).type('text/xml').send('<Response/>');
+  if (req.method !== 'POST') return sendTwiml(res);
 
   // If Twilio isn't configured at all, we shouldn't have an
   // inbound webhook hitting us. Refuse politely (200 + empty TwiML
   // so Twilio doesn't retry on a misconfigured deploy).
-  if (!smsReady()) return res.status(200).type('text/xml').send('<Response/>');
+  if (!smsReady()) return sendTwiml(res);
 
   const sb = getSupabase();
-  if (!sb) return res.status(200).type('text/xml').send('<Response/>');
+  if (!sb) return sendTwiml(res);
 
   // req.body is the parsed form object thanks to default bodyParser.
   // Coerce undefined → null and stringify everything so signature
@@ -133,14 +143,14 @@ async function handleInbound(req, res) {
     if (!authToken || !verifyTwilioSig(authToken, sig, fullUrl, params)) {
       // Always 200 here too — Twilio gives up faster on a clean
       // 200 than on a 403. Bad signature just gets ignored.
-      return res.status(200).type('text/xml').send('<Response/>');
+      return sendTwiml(res);
     }
   }
 
   const fromPhone = normalizePhone(params.From);
   const toPhone   = normalizePhone(params.To);
   const body      = (params.Body || '').trim();
-  if (!fromPhone || !body) return res.status(200).type('text/xml').send('<Response/>');
+  if (!fromPhone || !body) return sendTwiml(res);
 
   // Match the customer by phone. The same phone could in theory
   // exist in two orgs (one person hires two contractors); we take
@@ -162,7 +172,7 @@ async function handleInbound(req, res) {
     // Best-effort: just pick the first org so the message is captured.
     const { data: anyOrg } = await sb.from('organizations').select('id').limit(1).maybeSingle();
     orgId = anyOrg?.id;
-    if (!orgId) return res.status(200).type('text/xml').send('<Response/>');
+    if (!orgId) return sendTwiml(res);
   }
 
   // Load the org for name + business email + reply-from number.
@@ -264,5 +274,5 @@ async function handleInbound(req, res) {
 
   // Respond with an empty TwiML so Twilio doesn't also send its
   // own auto-reply.
-  return res.status(200).type('text/xml').send('<Response/>');
+  return sendTwiml(res);
 }
