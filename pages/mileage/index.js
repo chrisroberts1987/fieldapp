@@ -268,7 +268,7 @@ export default function Mileage() {
                       {t.job_id && <span style={{fontSize:12,color:'#7a8db0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>· {jobTitle(t.job_id)}</span>}
                     </div>
                     <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,color:'#4f9eff',whiteSpace:'nowrap'}}>{Number(t.miles).toFixed(1)} mi</span>
-                    {isMine && <button onClick={e => { e.stopPropagation(); del(t.id); }} style={{background:'none',border:'none',color:'#f26060',cursor:'pointer',fontSize:11,fontWeight:700,padding:'2px 4px'}}>✕</button>}
+                    {isMine && <button onClick={e => { e.stopPropagation(); del(t.id); }} style={{background:'transparent',border:'none',color:'#f26060',cursor:'pointer',fontSize:14,fontWeight:700,padding:'8px 10px',minWidth:36,minHeight:36,borderRadius:6}}>✕</button>}
                   </div>
                   {t.notes && <div style={{fontSize:11,color:'#7a8db0',marginTop:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.notes}</div>}
                 </div>

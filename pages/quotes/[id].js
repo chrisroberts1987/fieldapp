@@ -169,7 +169,7 @@ export default function QuoteDetail() {
 
       <main style={{maxWidth:760,margin:'0 auto',padding:'24px 20px 0'}}>
         <div style={{marginBottom:18,display:'flex',alignItems:'center',gap:10}}>
-          <button onClick={() => router.push('/quotes')} style={{background:'none',border:'none',color:'#7a8db0',cursor:'pointer',fontSize:20,padding:'0 4px'}}>←</button>
+          <button onClick={() => router.push('/quotes')} style={{background:'transparent',border:'none',color:'#7a8db0',cursor:'pointer',fontSize:20,padding:'8px 10px',minWidth:36,minHeight:36,borderRadius:6}}>←</button>
           <div style={{flex:1}}>
             <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase'}}>Quote</div>
             <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:28,letterSpacing:'.04em',color:'#f0f4ff'}}>

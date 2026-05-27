@@ -9,6 +9,7 @@ import { sendEmail, sendInvoiceEmail } from '../../lib/email/client';
 import { firePushEvent } from '../../lib/push/fire';
 import MarkPaidModal from '../../components/MarkPaidModal';
 import { logAudit } from '../../lib/audit';
+import { FullPageLoading } from '../../components/PageStates';
 
 const FILTERS = [
   { key:'all',    label:'All' },
@@ -252,7 +253,7 @@ export default function Invoices() {
   const unpaidTotal = invoices.filter(i => i.status === 'unpaid').reduce((s,i) => s + Number(i.amount||0), 0);
 
   if (loading) return (
-    <div style={{minHeight:'100vh',background:'#111827',display:'flex',alignItems:'center',justifyContent:'center',color:'#f0f4ff',fontFamily:'sans-serif'}}>Loading...</div>
+    <FullPageLoading/>
   );
 
   return (
@@ -319,7 +320,7 @@ export default function Invoices() {
                 {inv.job_id ? jobTitle(inv.job_id) : 'Invoice'}
               </div>
               <span style={{background:pillColor+'22',color:pillColor,border:'1px solid '+pillColor+'66',borderRadius:999,padding:'2px 8px',fontSize:10,fontWeight:700,letterSpacing:'.05em',whiteSpace:'nowrap'}}>{paid?'PAID':'UNPAID'}</span>
-              <button onClick={e => { e.stopPropagation(); del(inv.id); }} style={{background:'none',border:'none',color:'#f26060',cursor:'pointer',fontSize:12,fontWeight:700,padding:'2px 4px'}}>✕</button>
+              <button onClick={e => { e.stopPropagation(); del(inv.id); }} style={{background:'transparent',border:'none',color:'#f26060',cursor:'pointer',fontSize:14,fontWeight:700,padding:'8px 10px',minWidth:36,minHeight:36,borderRadius:6}}>✕</button>
             </div>
             <div style={{fontSize:12,color:'#c8d4ee'}}>{customerName(inv.customer_id)}</div>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:4,fontSize:11,color:'#7a8db0'}}>

@@ -12,6 +12,7 @@ import { firePushEvent } from '../../lib/push/fire';
 import { lookupRouteMiles } from '../../lib/mileage';
 import MapView from '../../components/MapView';
 import SignaturePad from '../../components/SignaturePad';
+import { FullPageLoading } from '../../components/PageStates';
 
 const STATUSES = [
   { key:'pending',     label:'Pending',     color:'#a855f7' },  // approved-but-not-scheduled, eg. just converted from a quote
@@ -728,7 +729,7 @@ export default function Jobs() {
   };
 
   if (loading) return (
-    <div style={{minHeight:'100vh',background:'#111827',display:'flex',alignItems:'center',justifyContent:'center',color:'#f0f4ff',fontFamily:'sans-serif'}}>Loading...</div>
+    <FullPageLoading/>
   );
 
   return (
@@ -774,7 +775,7 @@ export default function Jobs() {
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:3,gap:8}}>
               <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.04em',color:'#f0f4ff',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{j.title}</div>
               <span style={{background:s.color+'22',color:s.color,border:'1px solid '+s.color+'66',borderRadius:999,padding:'2px 8px',fontSize:10,fontWeight:700,letterSpacing:'.05em',whiteSpace:'nowrap'}}>{s.label}</span>
-              {isOffice(role) && <button onClick={e => { e.stopPropagation(); del(j.id); }} style={{background:'none',border:'none',color:'#f26060',cursor:'pointer',fontSize:12,fontWeight:700,padding:'2px 4px'}}>✕</button>}
+              {isOffice(role) && <button onClick={e => { e.stopPropagation(); del(j.id); }} style={{background:'transparent',border:'none',color:'#f26060',cursor:'pointer',fontSize:14,fontWeight:700,padding:'8px 10px',minWidth:36,minHeight:36,borderRadius:6}}>✕</button>}
             </div>
             <div style={{fontSize:12,color:'#c8d4ee'}}>{customerName(j.customer_id)}</div>
             <div style={{display:'flex',justifyContent:'space-between',marginTop:4,fontSize:11,color:'#7a8db0',gap:8,flexWrap:'wrap'}}>
@@ -1122,7 +1123,7 @@ export default function Jobs() {
                         <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{memberEmail(l.user_id)}</span>
                         <span style={{fontSize:11,color:'#7a8db0',whiteSpace:'nowrap'}}>{Number(l.hours).toFixed(1)}h × {fmt$(l.hourly_rate)}</span>
                         <span style={{color:'#fbbf24',fontWeight:600,whiteSpace:'nowrap'}}>{fmt$(l.cost||0)}</span>
-                        <button onClick={() => removeJobLabor(l.id)} style={{background:'none',border:'none',color:'#f26060',cursor:'pointer',fontSize:10,padding:'0 4px'}}>✕</button>
+                        <button onClick={() => removeJobLabor(l.id)} style={{background:'transparent',border:'none',color:'#f26060',cursor:'pointer',fontSize:13,padding:'6px 8px',minWidth:32,minHeight:32,borderRadius:6}}>✕</button>
                       </div>
                     ))}
                   </div>
@@ -1165,7 +1166,7 @@ export default function Jobs() {
                         <span style={{color:'#7a8db0',textTransform:'uppercase',fontWeight:700,fontSize:10,letterSpacing:'.05em',minWidth:60}}>{e.category}</span>
                         <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.vendor || e.description || '—'}</span>
                         <span style={{color:'#f26060',fontWeight:600,whiteSpace:'nowrap'}}>{fmt$(e.amount||0)}</span>
-                        <button onClick={() => removeJobExpense(e.id)} style={{background:'none',border:'none',color:'#f26060',cursor:'pointer',fontSize:10,padding:'0 4px'}}>✕</button>
+                        <button onClick={() => removeJobExpense(e.id)} style={{background:'transparent',border:'none',color:'#f26060',cursor:'pointer',fontSize:13,padding:'6px 8px',minWidth:32,minHeight:32,borderRadius:6}}>✕</button>
                       </div>
                     ))}
                   </div>

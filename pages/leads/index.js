@@ -5,6 +5,7 @@ import { useOrg } from '../../lib/org';
 import { useRefetchOnFocus } from '../../lib/useFocus';
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import { FullPageLoading } from '../../components/PageStates';
 
 const STATUSES = [
   { key:'new',        label:'New',        color:'#4f9eff' },
@@ -150,7 +151,7 @@ export default function Leads() {
   const visible = leads.filter(l => filter === 'all' || l.status === filter);
 
   if (loading) return (
-    <div style={{minHeight:'100vh',background:'#111827',display:'flex',alignItems:'center',justifyContent:'center',color:'#f0f4ff',fontFamily:'sans-serif'}}>Loading...</div>
+    <FullPageLoading/>
   );
 
   return (
@@ -243,7 +244,7 @@ export default function Leads() {
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:3,gap:8}}>
               <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.04em',color:'#f0f4ff',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.name}</div>
               <span style={{background:s.color+'22',color:s.color,border:'1px solid '+s.color+'66',borderRadius:999,padding:'2px 8px',fontSize:10,fontWeight:700,letterSpacing:'.05em',whiteSpace:'nowrap'}}>{s.label.toUpperCase()}</span>
-              <button onClick={e => { e.stopPropagation(); del(l.id); }} style={{background:'none',border:'none',color:'#f26060',cursor:'pointer',fontSize:12,fontWeight:700,padding:'2px 4px'}}>✕</button>
+              <button onClick={e => { e.stopPropagation(); del(l.id); }} style={{background:'transparent',border:'none',color:'#f26060',cursor:'pointer',fontSize:14,fontWeight:700,padding:'8px 10px',minWidth:36,minHeight:36,borderRadius:6}}>✕</button>
             </div>
             {(l.phone || l.email) && (
               <div style={{fontSize:12,color:'#c8d4ee'}}>

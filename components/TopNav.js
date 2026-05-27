@@ -230,7 +230,8 @@ export default function TopNav({ active }) {
 
         <div style={{position:'relative',flexShrink:0,marginLeft:'auto'}}>
           <button onClick={() => setNotifOpen(v => !v)}
-            style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'6px 10px',cursor:'pointer',position:'relative'}}>
+            aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+            style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'8px 12px',cursor:'pointer',position:'relative',minHeight:40,minWidth:40,display:'inline-flex',alignItems:'center',justifyContent:'center'}}>
             <BellIcon/>
             {unreadCount > 0 && (
               <span style={{position:'absolute',top:-6,right:-6,background:'#f26060',color:'#fff',fontSize:10,fontWeight:700,padding:'1px 5px',borderRadius:999,minWidth:16,textAlign:'center'}}>
@@ -270,7 +271,8 @@ export default function TopNav({ active }) {
 
         <div style={{position:'relative',flexShrink:0}}>
           <button onClick={() => setMenuOpen(v => !v)}
-            style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'7px 11px',cursor:'pointer',fontSize:12,fontWeight:600,letterSpacing:'.05em'}}>
+            aria-label="Account menu"
+            style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'8px 12px',cursor:'pointer',fontSize:14,fontWeight:600,letterSpacing:'.05em',minHeight:40,minWidth:40}}>
             ⋯
           </button>
           {menuOpen && (
@@ -379,7 +381,8 @@ function MobileBottomNav({ role, active, router, onSignOut }) {
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 8px 10px'}}>
               <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.08em',color:'#f0f4ff'}}>MORE</div>
               <button onClick={() => setMoreOpen(false)}
-                style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',width:30,height:30,cursor:'pointer',fontSize:14,lineHeight:1,fontFamily:'inherit'}}>
+                aria-label="Close menu"
+                style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',width:44,height:44,cursor:'pointer',fontSize:16,lineHeight:1,fontFamily:'inherit'}}>
                 ✕
               </button>
             </div>

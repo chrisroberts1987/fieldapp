@@ -116,7 +116,7 @@ export default function Quotes() {
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:3}}>
                   <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.04em',color:'#f0f4ff',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{q.title}</div>
                   <span style={{background:s.color+'22',color:s.color,border:'1px solid '+s.color+'66',borderRadius:999,padding:'2px 8px',fontSize:10,fontWeight:700,letterSpacing:'.05em'}}>{s.label.toUpperCase()}</span>
-                  <button onClick={e => { e.stopPropagation(); del(q.id); }} style={{background:'none',border:'none',color:'#f26060',cursor:'pointer',fontSize:12,fontWeight:700,padding:'2px 4px'}}>✕</button>
+                  <button onClick={e => { e.stopPropagation(); del(q.id); }} style={{background:'transparent',border:'none',color:'#f26060',cursor:'pointer',fontSize:14,fontWeight:700,padding:'8px 10px',minWidth:36,minHeight:36,borderRadius:6}}>✕</button>
                 </div>
                 <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#c8d4ee'}}>
                   <span>{q.customer_name}</span>

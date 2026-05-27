@@ -11,6 +11,7 @@ import { useRefetchOnFocus } from '../../lib/useFocus';
 import { isOffice, isCrew } from '../../lib/role';
 import { fmt$ } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import { FullPageLoading } from '../../components/PageStates';
 
 const STATUS_COLOR = {
   pending:     '#a855f7',
@@ -148,7 +149,7 @@ export default function Schedule() {
     : anchor.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric', year:'numeric' });
 
   if (loading) return (
-    <div style={{minHeight:'100vh',background:'#111827',display:'flex',alignItems:'center',justifyContent:'center',color:'#f0f4ff',fontFamily:'sans-serif'}}>Loading...</div>
+    <FullPageLoading/>
   );
 
   return (

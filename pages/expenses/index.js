@@ -229,7 +229,7 @@ export default function Expenses() {
                       <span style={{fontSize:14,color:'#f0f4ff',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.vendor || e.description || '(no vendor)'}</span>
                     </div>
                     <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:20,color:'#f26060',whiteSpace:'nowrap'}}>{fmt$(e.amount || 0)}</span>
-                    <button onClick={ev => { ev.stopPropagation(); del(e.id); }} style={{background:'none',border:'none',color:'#f26060',cursor:'pointer',fontSize:12,fontWeight:700,padding:'2px 4px'}}>✕</button>
+                    <button onClick={ev => { ev.stopPropagation(); del(e.id); }} style={{background:'transparent',border:'none',color:'#f26060',cursor:'pointer',fontSize:14,fontWeight:700,padding:'8px 10px',minWidth:36,minHeight:36,borderRadius:6}}>✕</button>
                   </div>
                   <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#7a8db0',gap:8,flexWrap:'wrap'}}>
                     <span>{fmtDate(e.expense_date)}{e.job_id ? ` · Job: ${jobTitle(e.job_id)}` : ' · Overhead'}</span>

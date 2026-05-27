@@ -5,6 +5,7 @@ import TourOverlay from '../components/TourOverlay';
 import OfflineBanner from '../components/OfflineBanner';
 import InstallPrompt from '../components/InstallPrompt';
 import AssistantWidget from '../components/AssistantWidget';
+import { ToastHost } from '../components/Toast';
 import { supabase } from '../lib/supabase';
 import { useOrg } from '../lib/org';
 
@@ -66,6 +67,7 @@ export default function MyApp({ Component, pageProps }) {
         <meta property="og:type" content="website" />
       </Head>
       <OfflineBanner />
+      <ToastHost />
       <Component {...pageProps} />
       <TourOverlay />
       <InstallPrompt />

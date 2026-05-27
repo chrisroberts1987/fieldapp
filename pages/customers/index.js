@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
 import { useRefetchOnFocus } from '../../lib/useFocus';
 import TopNav from '../../components/TopNav';
+import { FullPageLoading } from '../../components/PageStates';
 
 export default function Customers() {
 const router = useRouter();
@@ -68,7 +69,7 @@ setCustomers(c => c.filter(x => x.id !== id));
 };
 
 if (loading) return (
-<div style={{minHeight:'100vh',background:'#111827',display:'flex',alignItems:'center',justifyContent:'center',color:'#f0f4ff',fontFamily:'sans-serif'}}>Loading...</div>
+<FullPageLoading/>
 );
 
 return (
@@ -96,7 +97,7 @@ return (
 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6,gap:8}}>
 <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'.04em',color:'#f0f4ff',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.name}</div>
 <ContactActions phone={c.phone} email={c.email}/>
-<button onClick={e => { e.stopPropagation(); del(c.id); }} style={{background:'none',border:'none',color:'#f26060',cursor:'pointer',fontSize:12,fontWeight:700,padding:'2px 6px'}}>✕</button>
+<button onClick={e => { e.stopPropagation(); del(c.id); }} style={{background:'transparent',border:'none',color:'#f26060',cursor:'pointer',fontSize:14,fontWeight:700,padding:'8px 10px',minWidth:36,minHeight:36,borderRadius:6}}>✕</button>
 </div>
 {c.phone && <div style={{fontSize:12,color:'#c8d4ee'}}>{c.phone}</div>}
 {c.email && <div style={{fontSize:12,color:'#7a8db0'}}>{c.email}</div>}

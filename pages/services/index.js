@@ -8,6 +8,7 @@ import { useOrg } from '../../lib/org';
 import { isForeman } from '../../lib/role';
 import { fmt$ } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import { FullPageLoading } from '../../components/PageStates';
 
 const UNITS = ['each','hour','sq ft','linear ft','day','visit','job'];
 
@@ -70,7 +71,7 @@ export default function Services() {
   };
 
   if (loading) return (
-    <div style={{minHeight:'100vh',background:'#111827',display:'flex',alignItems:'center',justifyContent:'center',color:'#f0f4ff',fontFamily:'sans-serif'}}>Loading...</div>
+    <FullPageLoading/>
   );
 
   return (
