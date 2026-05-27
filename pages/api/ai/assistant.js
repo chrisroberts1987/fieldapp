@@ -120,7 +120,7 @@ export default async function handler(req, res) {
     });
     if (blocked) {
       return res.status(429).json({
-        error: `You've hit the AI rate limit (${RATE_LIMIT_MAX} requests per minute). Wait a moment and try again.`,
+        error: `You're asking the assistant faster than it can keep up. Take a breath and try again in a minute.`,
       });
     }
   }

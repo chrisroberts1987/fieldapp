@@ -138,21 +138,42 @@ begin
 
   -- ---------- 6. SAMPLE AI USAGE LOGS ----------------------------
   -- Seed both kinds (live + cached) for both sources so the AI
-  -- Usage panel on Insights has real numbers to show. Spread across
-  -- the last 10 days to look organic.
+  -- Usage panel on Insights has real numbers a contractor can read
+  -- as a story: "lots of cached hits = cost controls are working".
+  -- Target shape (this calendar month):
+  --   Customer chat:  ~58 conversations, ~18 instant (cached)
+  --   In-app AI:      ~36 questions,     ~12 instant (cached)
   delete from public.ai_usage_log where org_id = p_org_id;
+
+  -- Customer chat — heavier traffic because it's the public booking
+  -- page. Spread organically across the last 28 days.
   insert into public.ai_usage_log (source, org_id, user_id, model, tokens_in, tokens_out, estimated_cost, cached, created_at)
   select
-    case (n % 4) when 0 then 'customer_chat' when 1 then 'internal_ai' when 2 then 'customer_chat' else 'internal_ai' end,
+    'customer_chat',
     p_org_id,
     v_owner_id,
     'claude-haiku-4-5-20251001',
-    case when (n % 5) = 0 then 0 else 400 + (n % 6) * 100 end,
-    case when (n % 5) = 0 then 0 else 80 + (n % 4) * 30 end,
-    case when (n % 5) = 0 then 0 else round( ((400 + (n % 6) * 100) * 1.00 + (80 + (n % 4) * 30) * 5.00) / 1000000.0, 4) end,
-    (n % 5) = 0,
-    now() - make_interval(days => n)
-  from generate_series(0, 28) as n;
+    case when (n % 3) = 0 then 0 else 380 + (n % 7) * 90 end,
+    case when (n % 3) = 0 then 0 else 70  + (n % 5) * 25 end,
+    case when (n % 3) = 0 then 0 else round( ((380 + (n % 7) * 90) * 1.00 + (70 + (n % 5) * 25) * 5.00) / 1000000.0, 4) end,
+    (n % 3) = 0,
+    now() - make_interval(hours => (n * 11)::int)
+  from generate_series(0, 57) as n;
+
+  -- In-app AI assistant — the contractor poking at it during the
+  -- workday. Fewer total questions, similar cache rate.
+  insert into public.ai_usage_log (source, org_id, user_id, model, tokens_in, tokens_out, estimated_cost, cached, created_at)
+  select
+    'internal_ai',
+    p_org_id,
+    v_owner_id,
+    'claude-haiku-4-5-20251001',
+    case when (n % 3) = 0 then 0 else 250 + (n % 6) * 80 end,
+    case when (n % 3) = 0 then 0 else 60  + (n % 4) * 30 end,
+    case when (n % 3) = 0 then 0 else round( ((250 + (n % 6) * 80) * 1.00 + (60 + (n % 4) * 30) * 5.00) / 1000000.0, 4) end,
+    (n % 3) = 0,
+    now() - make_interval(hours => (n * 18)::int)
+  from generate_series(0, 35) as n;
 
   -- ---------- 7. AI COACH LAST-RUN DATE --------------------------
   -- 0013 already seeds an insight_recommendations row for the

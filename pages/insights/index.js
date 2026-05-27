@@ -466,10 +466,11 @@ export default function Insights() {
 }
 
 function AiUsageCard({ usage }) {
-  // Show a placeholder if the RPC hasn't returned yet. Empty data is
-  // a valid state (no AI calls this month) and we render the full
-  // card with zeros so contractors who haven't used AI yet still see
-  // the policy laid out plainly.
+  // Plain-English version of the AI usage panel. Contractors don't
+  // know what "API" or "cache" means — we frame the two columns as
+  // "fresh AI answers" (the AI actually thinks about it) vs "instant
+  // answers" (someone asked the same thing recently so we replayed
+  // that). Instant answers are free; fresh answers count.
   const chat     = usage?.customer_chat || { calls: 0, cache_hits: 0 };
   const internal = usage?.internal_ai   || { calls: 0, cache_hits: 0 };
   const coachLast = usage?.coach_last_run;
@@ -479,24 +480,21 @@ function AiUsageCard({ usage }) {
 
   return (
     <div style={cardStyle}>
-      <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55,marginBottom:14}}>
-        MyForeman uses AI to power your customer chat and monthly business coaching.
-        AI features are included in your plan with fair usage guidelines.
-        Cached responses are completely free and never count toward your usage totals.
-        Only live API requests count toward usage.
-        These guidelines are designed so normal business use is never affected.
+      <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.6,marginBottom:14}}>
+        MyForeman's AI helps your customers book work and gives you a monthly business read-out.
+        It's all included in your plan. When someone asks the AI a question we've already answered recently, we replay that answer instantly for free. Only fresh AI answers count toward your usage, and a normal busy month won't get close to a limit.
       </div>
 
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:10,marginBottom:14}}>
         <UsageRow
-          label="Customer chat"
+          label="Customer chat (your booking page)"
           totalLabel={`${chatTotal} conversation${chatTotal === 1 ? '' : 's'}`}
           calls={chat.calls || 0}
           cacheHits={chat.cache_hits || 0}
           accent="#4f9eff"
         />
         <UsageRow
-          label="Internal AI assistant"
+          label="In-app AI assistant"
           totalLabel={`${internalTotal} question${internalTotal === 1 ? '' : 's'}`}
           calls={internal.calls || 0}
           cacheHits={internal.cache_hits || 0}
@@ -506,19 +504,19 @@ function AiUsageCard({ usage }) {
 
       <div style={{borderTop:'1px solid #2e3f60',paddingTop:12,display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
         <div>
-          <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700}}>Next AI Coach run</div>
+          <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700}}>Your next monthly business read-out</div>
           <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:'#f0f4ff',letterSpacing:'.04em',marginTop:4}}>
             {nextCoach}
           </div>
           <div style={{fontSize:11,color:'#7a8db0',marginTop:4}}>
-            {coachLast ? `Last analysis: ${new Date(coachLast).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric', timeZone:'UTC' })}` : 'No analysis run yet.'}
+            {coachLast ? `Last read-out: ${new Date(coachLast).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric', timeZone:'UTC' })}` : 'No read-out yet — runs after your first full month.'}
           </div>
         </div>
         <div>
-          <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700}}>Limits</div>
+          <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700}}>The fine print</div>
           <ul style={{listStyle:'none',padding:0,margin:'6px 0 0',fontSize:12,color:'#c8d4ee',lineHeight:1.7}}>
-            <li>Customer chat: 10 messages per conversation</li>
-            <li>Internal AI responses: cached for 24 hours</li>
+            <li>Each customer chat stops after 10 messages, then they call you.</li>
+            <li>Your in-app AI remembers answers to common questions for a day.</li>
           </ul>
         </div>
       </div>
@@ -534,10 +532,10 @@ function UsageRow({ label, totalLabel, calls, cacheHits, accent }) {
         <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:accent,letterSpacing:'.04em'}}>{totalLabel}</div>
       </div>
       <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.55}}>
-        <strong style={{color:'#f0f4ff'}}>{calls}</strong> live API call{calls === 1 ? '' : 's'} (counts toward usage)
+        <strong style={{color:'#f0f4ff'}}>{calls}</strong> fresh AI answer{calls === 1 ? '' : 's'} {calls === 1 ? 'counts' : 'count'} toward your usage
       </div>
       <div style={{fontSize:12,color:'#7a8db0',lineHeight:1.55,marginTop:2}}>
-        <strong style={{color:'#2edf87'}}>{cacheHits}</strong> served from cache — free, not counted
+        <strong style={{color:'#2edf87'}}>{cacheHits}</strong> instant answer{cacheHits === 1 ? '' : 's'} replayed from recent questions — free
       </div>
     </div>
   );

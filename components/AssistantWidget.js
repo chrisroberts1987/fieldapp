@@ -127,7 +127,7 @@ export default function AssistantWidget({ user, orgId }) {
                 ✨ ASSISTANT
               </div>
               <span
-                title="AI responses are cached for 24 hours for common questions. Cached replies are free and never count toward your usage. Limit: 60 requests / minute."
+                title="Ask the same question twice in a day and the second answer is free and instant. Up to 60 questions per minute — you'd have to type fast to hit that."
                 style={{
                   display:'inline-flex',alignItems:'center',justifyContent:'center',
                   width:18,height:18,borderRadius:9,
