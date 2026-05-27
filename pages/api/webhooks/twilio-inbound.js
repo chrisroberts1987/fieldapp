@@ -26,11 +26,21 @@ export const config = { api: { bodyParser: false } };
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const sb = createClient(SUPABASE_URL, SERVICE_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
-
-const client = new Anthropic();
+// Lazy-init the clients. If we eagerly instantiate at module load
+// and any env var is missing, the entire route fails with a 500
+// AT IMPORT TIME — which then makes Twilio retry, which spams the
+// customer with duplicate messages. Defensive: build on demand,
+// inside the try/catch.
+function getSupabase() {
+  if (!SUPABASE_URL || !SERVICE_KEY) return null;
+  return createClient(SUPABASE_URL, SERVICE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+function getAnthropic() {
+  if (!process.env.ANTHROPIC_API_KEY) return null;
+  try { return new Anthropic(); } catch { return null; }
+}
 
 // Read the raw stream so we can validate Twilio's signature.
 function readRaw(req) {
@@ -68,11 +78,28 @@ Voice:
 - Sign off with a short "— <org name>" only if it fits naturally. Don't append it to every message.`;
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end();
+  // Always-200 contract: Twilio retries 5xx, which double-fires the
+  // AI reply. Wrap the whole flow so any unhandled error returns an
+  // empty TwiML response — silent for the customer, retry-safe for
+  // Twilio. The error gets logged for us to find later.
+  try {
+    return await handleInbound(req, res);
+  } catch (e) {
+    console.error('[twilio-inbound] crash:', e?.message || e);
+    return res.status(200).type('text/xml').send('<Response/>');
+  }
+}
+
+async function handleInbound(req, res) {
+  if (req.method !== 'POST') return res.status(200).type('text/xml').send('<Response/>');
 
   // If Twilio isn't configured at all, we shouldn't have an
-  // inbound webhook hitting us. Refuse politely.
-  if (!smsReady()) return res.status(503).type('text/xml').send('<Response/>');
+  // inbound webhook hitting us. Refuse politely (200 + empty TwiML
+  // so Twilio doesn't retry on a misconfigured deploy).
+  if (!smsReady()) return res.status(200).type('text/xml').send('<Response/>');
+
+  const sb = getSupabase();
+  if (!sb) return res.status(200).type('text/xml').send('<Response/>');
 
   const raw = await readRaw(req);
   const params = Object.fromEntries(new URLSearchParams(raw));
@@ -85,8 +112,11 @@ export default async function handler(req, res) {
   // — useful for local Postman testing.
   if (!process.env.TWILIO_SKIP_SIG_CHECK) {
     const sig = req.headers['x-twilio-signature'];
-    if (!verifyTwilioSig(process.env.TWILIO_AUTH_TOKEN, sig, fullUrl, params)) {
-      return res.status(403).type('text/xml').send('<Response/>');
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    if (!authToken || !verifyTwilioSig(authToken, sig, fullUrl, params)) {
+      // Always 200 here too — Twilio gives up faster on a clean
+      // 200 than on a 403. Bad signature just gets ignored.
+      return res.status(200).type('text/xml').send('<Response/>');
     }
   }
 
@@ -187,8 +217,11 @@ export default async function handler(req, res) {
   // history into the prompt here (could grow that later from the
   // messages table; for an MVP each reply is independent).
   let reply = '';
-  try {
-    const resp = await client.messages.create({
+  const anthropic = getAnthropic();
+  if (!anthropic) {
+    reply = `Got your message — ${org?.name || 'we'}'ll get back to you shortly.`;
+  } else try {
+    const resp = await anthropic.messages.create({
       model: 'claude-haiku-4-5',
       max_tokens: 200,
       system: SYSTEM + '\n\nContext you have on this customer:\n' + ctx,
