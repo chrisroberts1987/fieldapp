@@ -244,14 +244,18 @@ async function markInvoicePaid(sb, invoiceId, { paymentIntentId, sessionId }) {
     });
   }
 
-  // 3. Customer emails: branded receipt FIRST, then the feedback ask.
-  // Both go via Resend so they're branded with the contractor's name +
-  // logo (Stripe sends its own plain card receipt separately, this is
-  // the contractor-facing acknowledgement).
+  // 3. Customer email: a single branded receipt with an inline
+  // "leave feedback" CTA at the bottom. We used to send two separate
+  // emails (receipt + feedback ask), which felt like a double-tap to
+  // customers. paymentReceivedEmail now accepts an optional
+  // feedbackUrl and folds the review ask in.
+  // (Stripe sends its own plain card receipt as well — this one is
+  // the contractor-branded acknowledgement that ALSO covers the
+  // review prompt.)
   if (customer.email) {
     try {
       const { Resend } = await import('resend');
-      const { paymentReceivedEmail, invoicePaidFeedbackEmail } = await import('../../../lib/email/templates');
+      const { paymentReceivedEmail } = await import('../../../lib/email/templates');
       const apiKey = process.env.RESEND_API_KEY;
       if (apiKey) {
         const resend = new Resend(apiKey);
@@ -262,10 +266,10 @@ async function markInvoicePaid(sb, invoiceId, { paymentIntentId, sessionId }) {
         const sender = `${safeName} <${fromAddr}>`;
         const replyTo = org.business_email || undefined;
 
-        // Receipt
         const invoiceNumber = 'INV-' + String(inv.id).slice(0, 8).toUpperCase();
         const invoiceUrl = inv.public_token ? `${baseUrl}/inv/${inv.public_token}` : null;
         const paidDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        const feedbackUrl = existing?.token ? `${baseUrl}/feedback/${existing.token}` : null;
         const receipt = paymentReceivedEmail({
           org: { name: org.name, logo_url: org.logo_url, business_email: org.business_email },
           customerName: custName,
@@ -274,26 +278,12 @@ async function markInvoicePaid(sb, invoiceId, { paymentIntentId, sessionId }) {
           paidVia: 'stripe',
           paidDate,
           invoiceUrl,
+          feedbackUrl,
         });
         await resend.emails.send({
           from: sender, to: [customer.email], replyTo,
           subject: receipt.subject, html: receipt.html, text: receipt.text,
         });
-
-        // Feedback follow-up
-        if (existing?.token) {
-          const feedbackUrl = `${baseUrl}/feedback/${existing.token}`;
-          const feedback = invoicePaidFeedbackEmail({
-            org: { name: org.name, logo_url: org.logo_url, business_email: org.business_email },
-            customerName: custName,
-            amount,
-            feedbackUrl,
-          });
-          await resend.emails.send({
-            from: sender, to: [customer.email], replyTo,
-            subject: feedback.subject, html: feedback.html, text: feedback.text,
-          });
-        }
       }
     } catch (e) {
       console.warn('[stripe webhook] customer email send failed:', e?.message);

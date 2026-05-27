@@ -4,7 +4,6 @@ import { sendBrandedEmail } from '../../../lib/email/send';
 import {
   quoteSentEmail,
   invoiceSentEmail,
-  invoicePaidFeedbackEmail,
   paymentReceivedEmail,
   jobCompletedEmail,
   jobScheduledEmail,
@@ -31,10 +30,6 @@ const TYPES = {
   invoice_sent: {
     template: invoiceSentEmail,
     required: ['customerName', 'invoiceNumber', 'amount'],
-  },
-  invoice_paid_feedback: {
-    template: invoicePaidFeedbackEmail,
-    required: ['customerName', 'amount', 'feedbackUrl'],
   },
   payment_received: {
     template: paymentReceivedEmail,

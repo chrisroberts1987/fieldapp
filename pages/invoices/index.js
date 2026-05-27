@@ -156,15 +156,18 @@ export default function Invoices() {
       body: `${custName} just paid ${'$'+Number(amount||0).toFixed(2)}. Feedback link generated.`,
       link: '/invoices',
     });
-    // Fire the feedback-request email to the customer (if we have an
-    // email on file). Best-effort — a failure here doesn't unwind the
-    // "marked paid" save.
-    if (cust?.email && existing?.token) {
-      const feedbackUrl = `${window.location.origin}/feedback/${existing.token}`;
+    // One customer email: receipt + inline feedback CTA. Best-effort —
+    // a failure here doesn't unwind the "marked paid" save.
+    if (cust?.email) {
+      const invoiceNumber = 'INV-' + String(invoiceId).slice(0, 8).toUpperCase();
+      const paidDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      const feedbackUrl = existing?.token
+        ? `${window.location.origin}/feedback/${existing.token}`
+        : null;
       await sendEmail({
-        type: 'invoice_paid_feedback',
+        type: 'payment_received',
         to: cust.email,
-        data: { customerName: custName, amount, feedbackUrl },
+        data: { customerName: custName, invoiceNumber, amount, paidVia: 'other', paidDate, feedbackUrl },
       });
     }
   };
