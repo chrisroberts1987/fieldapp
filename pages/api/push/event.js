@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { preflight } from '../../../lib/apiSecurity';
 import { sendPushToUsers, sendPushToOrg } from '../../../lib/push/send';
+import { notifyOrgBySMS } from '../../../lib/sms/notify';
+import { newLeadSMS, quoteApprovedSMS, invoicePaidSMS } from '../../../lib/sms/templates';
 
 // Fan-out endpoint for push events. Public callable (the lead-capture
 // form and the customer's quote-approval page hit it without a JWT)
@@ -48,7 +50,7 @@ export default async function handler(req, res) {
 
   try {
     if (event === 'new_lead') {
-      const { data: lead } = await sb.from('leads').select('id, name, estimated_value, org_id').eq('id', refId).maybeSingle();
+      const { data: lead } = await sb.from('leads').select('id, name, estimated_value, org_id, source').eq('id', refId).maybeSingle();
       if (!lead) return res.status(404).json({ error: 'Lead not found.' });
       const value = Number(lead.estimated_value || 0);
       await sendPushToOrg(lead.org_id, {
@@ -57,6 +59,10 @@ export default async function handler(req, res) {
         url:   '/leads',
         tag:   `lead-${lead.id}`,
       });
+      // Owner SMS — silently skipped if no sms_phone or disabled.
+      await notifyOrgBySMS(sb, lead.org_id, newLeadSMS({
+        leadName: lead.name, estimatedValue: value, source: lead.source,
+      }));
       return res.status(200).json({ ok: true });
     }
 
@@ -69,6 +75,9 @@ export default async function handler(req, res) {
         url:   q.converted_job_id ? '/jobs' : '/quotes',
         tag:   `quote-${q.id}`,
       });
+      await notifyOrgBySMS(sb, q.org_id, quoteApprovedSMS({
+        customerName: q.customer_name, amount: q.amount,
+      }));
       return res.status(200).json({ ok: true });
     }
 
@@ -82,6 +91,9 @@ export default async function handler(req, res) {
         url:   '/invoices',
         tag:   `invoice-${inv.id}`,
       });
+      await notifyOrgBySMS(sb, inv.org_id, invoicePaidSMS({
+        customerName: name, amount: inv.amount,
+      }));
       return res.status(200).json({ ok: true });
     }
 

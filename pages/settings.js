@@ -352,6 +352,8 @@ export default function Settings() {
 
         <PushToggle/>
 
+        <SMSNotificationsSection orgId={orgId}/>
+
         <TwoFactorSection/>
 
         <Section title="Switch to MyForeman">
@@ -644,6 +646,73 @@ function DisplayNameSection({ user, orgId }) {
         style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'8px 16px',fontWeight:700,letterSpacing:'.04em',fontSize:12,cursor:'pointer',opacity:(saving || !dirty) ? 0.5 : 1}}>
         {saving ? 'Saving…' : (savedAt ? '✓ Saved' : 'SAVE NAME')}
       </button>
+    </Section>
+  );
+}
+
+// SMS notifications to the owner's mobile when key things happen in
+// their business: new lead landed, quote approved, invoice paid,
+// trial ending. Skipped entirely if the field is blank, so trial
+// users who don't want texts just leave it empty.
+function SMSNotificationsSection({ orgId }) {
+  const [phone, setPhone]     = useState('');
+  const [enabled, setEnabled] = useState(true);
+  const [orig, setOrig]       = useState({ phone: '', enabled: true });
+  const [saving, setSaving]   = useState(false);
+  const [savedAt, setSavedAt] = useState(0);
+
+  useEffect(() => {
+    if (!orgId) return;
+    (async () => {
+      const { data } = await supabase
+        .from('organizations')
+        .select('sms_phone, sms_notifications_enabled')
+        .eq('id', orgId).maybeSingle();
+      const p = data?.sms_phone || '';
+      const e = data?.sms_notifications_enabled !== false;
+      setPhone(p); setEnabled(e);
+      setOrig({ phone: p, enabled: e });
+    })();
+  }, [orgId]);
+
+  const dirty = phone !== orig.phone || enabled !== orig.enabled;
+
+  const save = async () => {
+    setSaving(true);
+    await supabase.from('organizations').update({
+      sms_phone: phone.trim() || null,
+      sms_notifications_enabled: enabled,
+    }).eq('id', orgId);
+    setOrig({ phone: phone.trim(), enabled });
+    setSaving(false);
+    setSavedAt(Date.now());
+    setTimeout(() => setSavedAt(0), 1800);
+  };
+
+  return (
+    <Section title="Text alerts">
+      <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.5,marginBottom:10}}>
+        We'll text your mobile when something important happens: a new lead lands, a customer approves a quote, an invoice gets paid, or your trial is about to end. One-tap unsubscribe — just turn the toggle off.
+      </div>
+      <Field label="Your mobile">
+        <input type="tel" placeholder="(512) 555-0100"
+          value={phone} onChange={e => setPhone(e.target.value)}
+          maxLength={40}
+          style={inputStyle}/>
+      </Field>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+        <label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:'#c8d4ee',cursor:'pointer'}}>
+          <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)}/>
+          Text alerts on
+        </label>
+      </div>
+      <button onClick={save} disabled={saving || !dirty}
+        style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'8px 16px',fontWeight:700,letterSpacing:'.04em',fontSize:12,cursor:'pointer',opacity:(saving || !dirty) ? 0.5 : 1}}>
+        {saving ? 'Saving…' : (savedAt ? '✓ Saved' : 'SAVE')}
+      </button>
+      <div style={{fontSize:11,color:'#7a8db0',marginTop:8}}>
+        Carrier fees apply. We text from a single MyForeman number; replies to that number are not monitored.
+      </div>
     </Section>
   );
 }
