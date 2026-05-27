@@ -94,8 +94,7 @@ export default function Approvals() {
 
       <main style={{maxWidth:880,margin:'0 auto',padding:'28px 20px 0'}}>
         <div style={{marginBottom:18}}>
-          <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase'}}>Approvals</div>
-          <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,letterSpacing:'.04em',margin:'4px 0 0'}}>APPROVALS</h1>
+          <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,letterSpacing:'.04em',margin:'0'}}>APPROVALS</h1>
           <div style={{fontSize:13,color:'#7a8db0',marginTop:2}}>{total} pending</div>
         </div>
 

@@ -185,8 +185,7 @@ export default function Mileage() {
       <main style={{maxWidth:1080,margin:'0 auto',padding:'28px 20px 0'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:14,flexWrap:'wrap',marginBottom:18}}>
           <div>
-            <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase'}}>Mileage</div>
-            <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,letterSpacing:'.04em',margin:'4px 0 0',color:'#f0f4ff'}}>MILEAGE</h1>
+            <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,letterSpacing:'.04em',margin:'0',color:'#f0f4ff'}}>MILEAGE</h1>
           </div>
         </div>
 

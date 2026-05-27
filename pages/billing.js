@@ -93,8 +93,7 @@ export default function Billing() {
 
       <main style={{maxWidth:880,margin:'0 auto',padding:'24px 16px 0'}}>
         <div style={{marginBottom:18}}>
-          <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase'}}>Billing</div>
-          <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:36,letterSpacing:'.04em',margin:'4px 0 0'}}>BILLING</h1>
+          <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:36,letterSpacing:'.04em',margin:'0'}}>BILLING</h1>
         </div>
 
         {router.query.started === '1' && (

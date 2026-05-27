@@ -164,8 +164,7 @@ export default function Crew() {
         <TopNav active="/crew"/>
         <main style={{maxWidth:520,margin:'0 auto',padding:'28px 20px 0'}}>
           <div style={{marginBottom:18}}>
-            <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase'}}>Your profile</div>
-            <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,letterSpacing:'.04em',margin:'4px 0 0'}}>YOUR PROFILE</h1>
+            <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,letterSpacing:'.04em',margin:'0'}}>YOUR PROFILE</h1>
           </div>
           <div style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,padding:'20px 18px'}}>
             <Row label="Role"><RolePill role={role}/></Row>
@@ -210,8 +209,7 @@ export default function Crew() {
       <main style={{maxWidth:1080,margin:'0 auto',padding:'28px 20px 0'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:14,flexWrap:'wrap',marginBottom:18}}>
           <div>
-            <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase'}}>Crew</div>
-            <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,letterSpacing:'.04em',margin:'4px 0 0'}}>CREW</h1>
+            <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,letterSpacing:'.04em',margin:'0'}}>CREW</h1>
             <div style={{fontSize:13,color:'#7a8db0',marginTop:2}}>
               {members.length} member{members.length===1?'':'s'} · {seatUsage} of {seats.limit} seats used
             </div>

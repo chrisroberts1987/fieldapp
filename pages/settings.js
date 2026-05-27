@@ -175,8 +175,7 @@ export default function Settings() {
       <TopNav active="/settings"/>
 
       <div style={{maxWidth:560,margin:'24px auto 14px',padding:'0 16px'}}>
-        <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase'}}>Settings</div>
-        <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:36,letterSpacing:'.04em',margin:'4px 0 0'}}>SETTINGS</h1>
+        <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:36,letterSpacing:'.04em',margin:'0'}}>SETTINGS</h1>
       </div>
 
       <div style={{maxWidth:560,margin:'16px auto 0',padding:'0 16px'}}>
