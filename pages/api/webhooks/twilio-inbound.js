@@ -19,9 +19,12 @@ import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import { sendBrandedSMS, smsReady } from '../../../lib/sms/send';
 
-// Twilio's webhook is form-urlencoded. We need the raw body for
-// signature verification AND the parsed body to read From/Body/etc.
-export const config = { api: { bodyParser: false } };
+// Let Next.js parse the form-urlencoded body — Vercel's runtime
+// pre-buffers the request, so manual stream-reading hangs.
+// req.body comes through as an object like { From, To, Body, ... }
+// and Twilio's signature still validates because we can reconstruct
+// the same sorted-key concatenation server-side.
+export const config = { api: { bodyParser: { sizeLimit: '32kb' } } };
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -40,16 +43,6 @@ function getSupabase() {
 function getAnthropic() {
   if (!process.env.ANTHROPIC_API_KEY) return null;
   try { return new Anthropic(); } catch { return null; }
-}
-
-// Read the raw stream so we can validate Twilio's signature.
-function readRaw(req) {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', (chunk) => { body += chunk; });
-    req.on('end',  () => resolve(body));
-    req.on('error', reject);
-  });
 }
 
 // Twilio's signature scheme: HMAC-SHA1 of (URL + sorted-and-
@@ -117,8 +110,13 @@ async function handleInbound(req, res) {
   const sb = getSupabase();
   if (!sb) return res.status(200).type('text/xml').send('<Response/>');
 
-  const raw = await readRaw(req);
-  const params = Object.fromEntries(new URLSearchParams(raw));
+  // req.body is the parsed form object thanks to default bodyParser.
+  // Coerce undefined → null and stringify everything so signature
+  // matching is consistent (Twilio sends all values as strings).
+  const params = {};
+  for (const [k, v] of Object.entries(req.body || {})) {
+    params[k] = v == null ? '' : String(v);
+  }
   const proto  = req.headers['x-forwarded-proto'] || 'https';
   const host   = req.headers['x-forwarded-host'] || req.headers.host;
   const fullUrl = `${proto}://${host}${req.url}`;
