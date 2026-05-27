@@ -95,7 +95,10 @@ export default async function handler(req, res) {
     return await handleInbound(req, res);
   } catch (e) {
     console.error('[twilio-inbound] crash:', e?.message || e);
-    return res.status(200).type('text/xml').send('<Response/>');
+    // TEMP debugging: surface the error message in the response
+    // body so we can read it via curl. Twilio still gets 200 so
+    // it won't retry. Remove once the underlying bug is found.
+    return res.status(200).type('text/plain').send('crash: ' + (e?.message || String(e)).slice(0, 500));
   }
 }
 
