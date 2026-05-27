@@ -83,7 +83,7 @@ export default async function handler(req, res) {
       has_twilio_sid:   !!process.env.TWILIO_ACCOUNT_SID,
       has_twilio_token: !!process.env.TWILIO_AUTH_TOKEN,
       has_twilio_from:  !!process.env.TWILIO_FROM_NUMBER,
-      commit: 'bodyparser-fix',
+      commit: 'debug-crash-v2',
     });
   }
 
