@@ -12,6 +12,7 @@ export default function BookingPage() {
   const { slug } = router.query;
   const [data, setData] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [mode, setMode] = useState('chat'); // 'chat' | 'form'
   const [form, setForm] = useState({
     name:'', phone:'', email:'', address:'',
     service_id:'', requested_date:'', requested_time:'',
@@ -94,10 +95,24 @@ export default function BookingPage() {
         <div style={{marginTop:18,marginBottom:14}}>
           <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:26,letterSpacing:'.06em',color:'#f0f4ff'}}>BOOK A SERVICE</div>
           <div style={{fontSize:13,color:'#c8d4ee',marginTop:4,lineHeight:1.5}}>
-            Fill this out and {org.name} will reach out to confirm. Usually within a day.
+            Chat with our AI receptionist or fill out the quick form. {org.name} reaches out within a day either way.
           </div>
         </div>
 
+        <div style={{display:'flex',gap:6,marginBottom:14,padding:4,background:'#0d1726',border:'1px solid #2e3f60',borderRadius:10}}>
+          <button onClick={() => setMode('chat')}
+            style={{flex:1,background:mode==='chat'?'#4f9eff':'transparent',border:'none',borderRadius:8,color:mode==='chat'?'#fff':'#7a8db0',padding:'10px',fontSize:12,fontWeight:700,letterSpacing:'.06em',cursor:'pointer'}}>
+            💬 CHAT WITH AI
+          </button>
+          <button onClick={() => setMode('form')}
+            style={{flex:1,background:mode==='form'?'#4f9eff':'transparent',border:'none',borderRadius:8,color:mode==='form'?'#fff':'#7a8db0',padding:'10px',fontSize:12,fontWeight:700,letterSpacing:'.06em',cursor:'pointer'}}>
+            📝 USE THE FORM
+          </button>
+        </div>
+
+        {mode === 'chat' ? (
+          <BookingChat slug={slug} org={org} onDone={() => setDone(true)} setName={(n) => setForm(p => ({ ...p, name: n }))} setRequestedDate={(d) => setForm(p => ({ ...p, requested_date: d }))}/>
+        ) : (
         <div style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,padding:'16px'}}>
           <Field label="Your name *">
             <input style={input} type="text" placeholder="Full name" maxLength={120}
@@ -160,10 +175,107 @@ export default function BookingPage() {
             We'll confirm by phone, text, or email before anyone shows up.
           </div>
         </div>
+        )}
 
         <div style={{textAlign:'center',marginTop:20,fontSize:11,color:'#7a8db0'}}>
           Powered by <a href="https://myforemanhq.com" style={{color:'#4f9eff'}}>MyForeman</a>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Chat-based intake. Posts full message history each turn — the
+// server keeps no state. When the AI's tool call lands a booking,
+// the API returns booking:{ok:true,...} and we flip to the "done"
+// view on the parent.
+function BookingChat({ slug, org, onDone }) {
+  const [msgs, setMsgs] = useState([
+    { role:'assistant', content: `Hi! I'm here to help you book a service with ${org.name}. What do you need done today?` },
+  ]);
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const [bookedAt, setBookedAt] = useState(null);
+
+  const send = async () => {
+    const text = input.trim();
+    if (!text || sending || bookedAt) return;
+    const next = [...msgs, { role:'user', content:text }];
+    setMsgs(next);
+    setInput('');
+    setSending(true);
+    try {
+      const resp = await fetch('/api/ai/booking-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, messages: next }),
+      });
+      const body = await resp.json();
+      if (!resp.ok) {
+        setMsgs(prev => [...prev, { role:'assistant', content: body?.error || 'Something went wrong. Try again?' }]);
+      } else {
+        if (body.reply) {
+          setMsgs(prev => [...prev, { role:'assistant', content: body.reply }]);
+        }
+        if (body.booking?.ok) {
+          setBookedAt(Date.now());
+          setTimeout(() => onDone?.(), 1800);
+        }
+      }
+    } catch {
+      setMsgs(prev => [...prev, { role:'assistant', content: 'Network hiccup. Try again?' }]);
+    }
+    setSending(false);
+  };
+
+  const onKey = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  };
+
+  return (
+    <div style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,padding:'14px',display:'flex',flexDirection:'column',height:480,maxHeight:'70vh'}}>
+      <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:8,padding:'4px 2px'}}>
+        {msgs.map((m, i) => (
+          <div key={i}
+            style={{
+              alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+              maxWidth: '88%',
+              background: m.role === 'user' ? '#4f9eff' : '#0d1726',
+              border: m.role === 'user' ? 'none' : '1px solid #2e3f60',
+              color: m.role === 'user' ? '#fff' : '#f0f4ff',
+              padding: '9px 13px',
+              borderRadius: m.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+              fontSize: 13.5, lineHeight: 1.5,
+              whiteSpace: 'pre-wrap',
+            }}>
+            {m.content}
+          </div>
+        ))}
+        {sending && (
+          <div style={{alignSelf:'flex-start',color:'#7a8db0',fontSize:13,padding:'8px 12px',fontStyle:'italic'}}>
+            typing…
+          </div>
+        )}
+        {bookedAt && (
+          <div style={{alignSelf:'center',marginTop:8,padding:'8px 12px',background:'rgba(46,223,135,0.12)',border:'1px solid #2edf87',borderRadius:8,color:'#2edf87',fontSize:12,fontWeight:700,letterSpacing:'.04em'}}>
+            ✓ BOOKING SUBMITTED
+          </div>
+        )}
+      </div>
+      <div style={{display:'flex',gap:6,marginTop:10}}>
+        <input value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={onKey}
+          disabled={sending || !!bookedAt}
+          placeholder={bookedAt ? 'Booking sent!' : 'Type your message...'}
+          style={{flex:1,background:'#111827',border:'1.5px solid #2e3f60',borderRadius:10,color:'#f0f4ff',fontSize:14,padding:'10px 12px',outline:'none',fontFamily:'inherit'}}/>
+        <button onClick={send} disabled={sending || !input.trim() || !!bookedAt}
+          style={{background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'0 18px',fontWeight:700,fontSize:14,letterSpacing:'.04em',cursor:'pointer',opacity:(sending||!input.trim()||bookedAt)?0.5:1}}>
+          SEND
+        </button>
       </div>
     </div>
   );
