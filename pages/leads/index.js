@@ -166,37 +166,49 @@ export default function Leads() {
       </div>
 
       {org?.slug && typeof window !== 'undefined' && (() => {
-        const url = `${window.location.origin}/quote/${org.slug}`;
+        // QR + share now point at /book/<slug> — the same link
+        // surfaced in Settings. Customers either chat with the AI
+        // receptionist or fall back to the form. One link, one
+        // experience, no confusion.
+        const url = `${window.location.origin}/book/${org.slug}`;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(url)}&size=220x220&margin=12&color=0d1726&bgcolor=ffffff`;
         const copy = async () => {
           try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(()=>setCopied(false),1800); } catch {}
         };
-        const smsHref  = `sms:?body=${encodeURIComponent(`Quick way to request a quote from ${org?.name || 'us'}: ${url}`)}`;
-        const mailHref = `mailto:?subject=${encodeURIComponent(`Request a quote from ${org?.name || 'us'}`)}&body=${encodeURIComponent(`Tap this link any time to send us a quote request: ${url}`)}`;
+        const smsHref  = `sms:?body=${encodeURIComponent(`Book a service with ${org?.name || 'us'}: ${url}`)}`;
+        const mailHref = `mailto:?subject=${encodeURIComponent(`Book a service with ${org?.name || 'us'}`)}&body=${encodeURIComponent(`Tap this link any time to book a service: ${url}`)}`;
         return (
-          <div data-tour="lead-share-card" style={{margin:'10px 16px 4px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'14px',display:'grid',gridTemplateColumns:'auto 1fr',gap:14,alignItems:'center'}}>
+          <div data-tour="lead-share-card" className="share-card" style={{margin:'10px 16px 4px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'14px',display:'flex',gap:14,alignItems:'flex-start'}}>
             <a href={qrUrl} target="_blank" rel="noopener noreferrer" title="Open large QR in new tab — right-click to save"
               style={{display:'block',background:'#fff',borderRadius:10,padding:6,lineHeight:0,flexShrink:0}}>
-              <img src={qrUrl} alt="Quote-request QR" width="120" height="120" style={{display:'block',borderRadius:6}}/>
+              <img src={qrUrl} alt="Booking QR" width="110" height="110" style={{display:'block',borderRadius:6}}/>
             </a>
-            <div style={{minWidth:0}}>
+            <div style={{minWidth:0,flex:1}}>
               <div style={{fontSize:11,letterSpacing:'.1em',fontWeight:700,color:'#fbbf24',textTransform:'uppercase',marginBottom:4}}>Capture leads automatically</div>
               <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.45,marginBottom:8}}>
-                Print this QR, put it on your truck, business cards, yard signs. Anyone who scans it lands on your quote form. Submissions appear here in Leads.
+                Print this QR or share the link. Customers chat with AI or use the form — leads land here either way.
               </div>
               <div style={{display:'flex',gap:6,marginBottom:6,alignItems:'center'}}>
-                <input readOnly value={url} style={{flex:1,background:'#111827',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',fontSize:11,padding:'6px 8px',outline:'none',fontFamily:'monospace'}}/>
+                <input readOnly value={url} style={{flex:1,minWidth:0,background:'#111827',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',fontSize:11,padding:'6px 8px',outline:'none',fontFamily:'monospace'}}/>
                 <button onClick={copy}
-                  style={{background:copied?'#2edf8722':'#4f9eff',border:copied?'1px solid #2edf87':'none',borderRadius:8,color:copied?'#2edf87':'#fff',padding:'6px 10px',fontSize:10,fontWeight:700,letterSpacing:'.05em',cursor:'pointer',whiteSpace:'nowrap'}}>
+                  style={{flexShrink:0,background:copied?'#2edf8722':'#4f9eff',border:copied?'1px solid #2edf87':'none',borderRadius:8,color:copied?'#2edf87':'#fff',padding:'6px 12px',fontSize:11,fontWeight:700,letterSpacing:'.05em',cursor:'pointer',whiteSpace:'nowrap'}}>
                   {copied ? 'COPIED' : 'COPY'}
                 </button>
               </div>
               <div style={{display:'flex',gap:6}}>
-                <a href={smsHref}  style={{flex:1,background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'6px 0',fontSize:10,fontWeight:700,letterSpacing:'.06em',textAlign:'center',textDecoration:'none'}}>TEXT IT</a>
-                <a href={mailHref} style={{flex:1,background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'6px 0',fontSize:10,fontWeight:700,letterSpacing:'.06em',textAlign:'center',textDecoration:'none'}}>EMAIL IT</a>
+                <a href={smsHref}  style={{flex:1,background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'6px 0',fontSize:10,fontWeight:700,letterSpacing:'.06em',textAlign:'center',textDecoration:'none'}}>TEXT</a>
+                <a href={mailHref} style={{flex:1,background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'6px 0',fontSize:10,fontWeight:700,letterSpacing:'.06em',textAlign:'center',textDecoration:'none'}}>EMAIL</a>
                 <a href={qrUrl} download={`${org?.slug || 'myforeman'}-qr.png`} style={{flex:1,background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'6px 0',fontSize:10,fontWeight:700,letterSpacing:'.06em',textAlign:'center',textDecoration:'none'}}>SAVE QR</a>
               </div>
             </div>
+            <style jsx>{`
+              /* Narrow screens: QR shrinks + stacks the input row so the
+                 COPY button isn't crammed off the edge. */
+              @media (max-width: 460px) {
+                .share-card { flex-direction: column; align-items: stretch; }
+                .share-card > a { align-self: center; }
+              }
+            `}</style>
           </div>
         );
       })()}

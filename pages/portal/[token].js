@@ -60,7 +60,7 @@ export default function CustomerPortal() {
 
         <Section title="Open quotes" empty="Nothing pending.">
           {quotes.filter(q => q.status === 'sent' || q.status === 'draft').map(q => (
-            <a key={q.id} href={`/quote/${q.approval_token}`}
+            <a key={q.id} href={`/q/${q.approval_token}`}
               style={rowStyle}>
               <div style={{flex:1}}>
                 <div style={{fontWeight:600}}>{q.title}</div>

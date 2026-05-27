@@ -180,19 +180,19 @@ export default function Settings() {
 
         <DisplayNameSection user={user} orgId={orgId}/>
 
-        <Section title="Public Quote Link">
+        <Section title="Your Lead Capture Link">
           <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.55,marginBottom:10}}>
-            Share this link anywhere: on your website, in texts, on social, in your voicemail. They'll fill out a quick form and land in your Leads pipeline.
+            One link, one experience. Customers can chat with your AI receptionist or use the form. Either way, leads land in your pipeline. Share it on your site, in texts, on yard signs, business cards — anywhere.
           </div>
           <div style={{display:'flex',gap:6,marginBottom:8,alignItems:'stretch'}}>
-            <input readOnly value={quoteUrl} style={{...inputStyle, flex:1, fontFamily:'monospace', fontSize:12}}/>
-            <button onClick={copyUrl} disabled={!quoteUrl}
-              style={{background:copied?'#2edf8722':'#4f9eff',border:copied?'1px solid #2edf87':'none',borderRadius:10,color:copied?'#2edf87':'#fff',padding:'0 14px',fontSize:12,fontWeight:700,letterSpacing:'.06em',cursor:'pointer',whiteSpace:'nowrap'}}>
-              {copied ? 'COPIED' : 'COPY'}
+            <input readOnly value={bookingUrl} style={{...inputStyle, flex:1, minWidth:0, fontFamily:'monospace', fontSize:12}}/>
+            <button onClick={copyBookingUrl} disabled={!bookingUrl}
+              style={{flexShrink:0,background:copiedBooking?'#2edf8722':'#4f9eff',border:copiedBooking?'1px solid #2edf87':'none',borderRadius:10,color:copiedBooking?'#2edf87':'#fff',padding:'0 14px',fontSize:12,fontWeight:700,letterSpacing:'.06em',cursor:'pointer',whiteSpace:'nowrap'}}>
+              {copiedBooking ? 'COPIED' : 'COPY'}
             </button>
           </div>
-          {quoteUrl && (
-            <a href={quoteUrl} target="_blank" rel="noopener noreferrer" style={{display:'inline-block',fontSize:12,color:'#4f9eff',marginBottom:10}}>
+          {bookingUrl && (
+            <a href={bookingUrl} target="_blank" rel="noopener noreferrer" style={{display:'inline-block',fontSize:12,color:'#4f9eff',marginBottom:10}}>
               Preview ↗
             </a>
           )}
@@ -201,26 +201,8 @@ export default function Settings() {
               onChange={e => setForm(p => ({...p, slug:e.target.value}))}
               placeholder="smith-lawn-care"/>
           </Field>
-          <div style={{fontSize:11,color:'#fbbf24'}}>Changing this breaks any links you've already shared.</div>
-        </Section>
-
-        <Section title="Public Booking Link">
-          <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.55,marginBottom:10}}>
-            Send this link to customers who want to book a service themselves. They pick a service, date, and time. It lands as a self-booking lead with a notification.
-          </div>
-          <div style={{display:'flex',gap:6,marginBottom:8,alignItems:'stretch'}}>
-            <input readOnly value={bookingUrl} style={{...inputStyle, flex:1, fontFamily:'monospace', fontSize:12}}/>
-            <button onClick={copyBookingUrl} disabled={!bookingUrl}
-              style={{background:copiedBooking?'#2edf8722':'#4f9eff',border:copiedBooking?'1px solid #2edf87':'none',borderRadius:10,color:copiedBooking?'#2edf87':'#fff',padding:'0 14px',fontSize:12,fontWeight:700,letterSpacing:'.06em',cursor:'pointer',whiteSpace:'nowrap'}}>
-              {copiedBooking ? 'COPIED' : 'COPY'}
-            </button>
-          </div>
-          {bookingUrl && (
-            <a href={bookingUrl} target="_blank" rel="noopener noreferrer" style={{display:'inline-block',fontSize:12,color:'#4f9eff'}}>
-              Preview ↗
-            </a>
-          )}
-          <div style={{fontSize:11,color:'#7a8db0',marginTop:6}}>Build out your <a onClick={() => router.push('/services')} style={{color:'#4f9eff',cursor:'pointer'}}>Services</a> price book so customers see real options.</div>
+          <div style={{fontSize:11,color:'#fbbf24',marginBottom:6}}>Changing this breaks any links or QR codes you've already shared.</div>
+          <div style={{fontSize:11,color:'#7a8db0'}}>Build out your <a onClick={() => router.push('/services')} style={{color:'#4f9eff',cursor:'pointer'}}>Services</a> price book so customers see real options when they book.</div>
         </Section>
 
         <Section title="Business">
