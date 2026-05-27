@@ -1,11 +1,9 @@
-// SMS message threads viewer. Shows every conversation the AI
-// receptionist has been having with customers via inbound SMS,
-// most recent first. Click a thread to see the back-and-forth and
-// jump in with a typed reply.
+// SMS message threads viewer. Inbound texts from customers land
+// here as threads, sorted by most recent. Owner reads + replies
+// manually — no auto-bot.
 //
 // Requires Twilio to be configured. Until then, the page renders
-// but stays empty — the inbound webhook is the only thing that
-// creates threads today.
+// empty — the inbound webhook is the only thing that creates threads.
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
@@ -96,7 +94,7 @@ export default function Messages() {
           <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase'}}>Messages</div>
           <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:36,letterSpacing:'.04em',margin:'4px 0 0'}}>SMS THREADS</h1>
           <div style={{fontSize:13,color:'#c8d4ee',marginTop:6,lineHeight:1.5}}>
-            Inbound texts to your business number. AI replies automatically. Tap a thread to read or take over.
+            Inbound texts to your business number. Tap a thread to read and reply.
           </div>
         </div>
 
@@ -105,7 +103,7 @@ export default function Messages() {
         ) : threads.length === 0 ? (
           <div style={{padding:'40px 20px',textAlign:'center',color:'#7a8db0',fontSize:13,background:'#1e2a42',border:'1px dashed #2e3f60',borderRadius:12}}>
             <div style={{fontSize:32,marginBottom:8}}>💬</div>
-            <div>No messages yet. When a customer texts your business number, it shows up here and the AI auto-replies.</div>
+            <div>No messages yet. When a customer texts your business number, the thread shows up here and you get a notification.</div>
           </div>
         ) : (
           <div style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,overflow:'hidden'}}>
@@ -155,7 +153,7 @@ export default function Messages() {
                     }}>
                     {m.body}
                     <div style={{fontSize:9,opacity:0.6,marginTop:3,letterSpacing:'.04em',textTransform:'uppercase'}}>
-                      {isOut ? (m.sent_by_user ? 'You' : 'AI') : ''} {new Date(m.created_at).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })}
+                      {isOut ? 'You' : ''} {new Date(m.created_at).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })}
                     </div>
                   </div>
                 );
