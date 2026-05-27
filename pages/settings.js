@@ -7,6 +7,8 @@ import { validateUpload, ACCEPT_ATTR } from '../lib/uploads';
 import { launchTour } from '../components/TourOverlay';
 import { enablePushNotifications, disablePushNotifications, notificationPermission, isPushSupported } from '../lib/push/client';
 import TwoFactorSection from '../components/TwoFactorSection';
+import { FullPageLoading } from '../components/PageStates';
+import { toast } from '../components/Toast';
 
 export default function Settings() {
   const router = useRouter();
@@ -161,10 +163,11 @@ export default function Settings() {
     setSaving(false);
     setLogoFile(null);
     setSavedAt(Date.now());
+    toast.success('Settings saved.');
   };
 
   if (!user || orgLoading || !form) {
-    return <div style={loadingStyle}>Loading...</div>;
+    return <FullPageLoading/>;
   }
 
   return (

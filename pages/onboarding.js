@@ -6,6 +6,7 @@ import Logo from '../components/Logo';
 import { validateUpload, ACCEPT_ATTR } from '../lib/uploads';
 import { PLANS, PLAN_ORDER } from '../lib/billing';
 import { sendEmail } from '../lib/email/client';
+import { FullPageLoading } from '../components/PageStates';
 
 // Two-step onboarding:
 //   Step 1: business profile (name, contact, logo, basics)
@@ -266,7 +267,7 @@ export default function Onboarding() {
   };
 
   if (!user || (orgLoading && step === 1)) {
-    return <div style={loadingStyle}>Loading...</div>;
+    return <FullPageLoading/>;
   }
 
   return (

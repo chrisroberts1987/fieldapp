@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org';
 import TopNav from '../../components/TopNav';
+import { FullPageLoading } from '../../components/PageStates';
 import {
   TARGET_SCHEMAS, ENTITY_ORDER, ENTITY_LABELS,
   PRESETS, detectFormat, buildDefaultMapping, classifySheet,
@@ -215,7 +216,7 @@ export default function ImportPage() {
     }
   };
 
-  if (!user || orgLoading) return <div style={loadingStyle}>Loading...</div>;
+  if (!user || orgLoading) return <FullPageLoading/>;
 
   return (
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif",paddingBottom:80}}>

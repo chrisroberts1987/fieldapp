@@ -6,6 +6,7 @@ import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import { sendInvoiceEmail } from '../../lib/email/client';
 import { toast } from '../../components/Toast';
+import { FullPageLoading } from '../../components/PageStates';
 
 export default function InvoiceDetail() {
   const router = useRouter();
@@ -60,7 +61,7 @@ export default function InvoiceDetail() {
   };
 
   if (loading || orgLoading || !org) {
-    return <div style={loadingStyle}>Loading...</div>;
+    return <FullPageLoading/>;
   }
   if (!invoice) {
     return (

@@ -6,6 +6,7 @@ import { useRefetchOnFocus } from '../../lib/useFocus';
 import { isForeman } from '../../lib/role';
 import { fmt$, fmtDate } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
+import { FullPageLoading } from '../../components/PageStates';
 
 // Customer reviews dashboard. Lists every submitted feedback for
 // the contractor's org, sorted newest first, with summary stats
@@ -73,7 +74,7 @@ export default function Reviews() {
   }, [submitted, pending, filter]);
 
   if (!user || orgLoading || rows === null) {
-    return <div style={loadingStyle}>Loading...</div>;
+    return <FullPageLoading/>;
   }
   if (!isForeman(role)) {
     return (
