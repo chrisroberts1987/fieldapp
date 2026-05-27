@@ -181,7 +181,7 @@ function Hero({ router, supabase }) {
           FROM LEAD<br/>TO <span className="accent">PAID.</span>
         </h1>
         <p className="hero-subhead">
-          Run your field service business from the booking link to the signed receipt. One app. Mobile-first. Automation that does the chasing.
+          Run your field service business from the booking link to the signed receipt. One app. Mobile-first. We email customers their quotes, invoices, and overdue reminders so you don't have to.
         </p>
         <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
           <button onClick={() => router.push('/signup')}
@@ -219,7 +219,7 @@ function Compare() {
     { label:'Direct deposits, no platform cut',    values:['no',     'partial',     'yes'] },
     { label:'Switch from your old platform',       values:['no',     'partial',     '10 min import'] },
     { label:'Tax + accountant-ready exports',      values:['no',     'Add-on $$',   'yes'] },
-    { label:'Automation does the chasing',         values:['no',     'partial',     'yes'] },
+    { label:'Auto-bills + chases overdue invoices', values:['no',     'partial',     'yes'] },
     { label:'AI business coach',                   values:['no',     'no',          'yes'], ai:true },
     { label:'Live demo',                           values:['N/A',    'Sales call',  'One tap'] },
   ];
@@ -336,15 +336,15 @@ function CompareCell({ value, isUs }) {
    WORKFLOW — five steps, tight copy.
    ===================================================== */
 function Workflow() {
-  // Workflow is the chronological story (lead → paid). Features
+  // Workflow is the chronological story (lead to paid). Features
   // section below is the by-feature deep dive. To avoid duplication,
-  // each stage gets ONE short phrase here — the details live below.
+  // each stage gets a short value sentence, not a full feature pitch.
   const steps = [
-    { label:'Book',     color:'#54d4f8', icon:<PhoneIcon/>,  desc:'Lead lands.' },
-    { label:'Quote',    color:'#b197fc', icon:<ScrollIcon/>, desc:'Customer approves.' },
-    { label:'Work',     color:'#4f9eff', icon:<WrenchIcon/>, desc:'Crew gets it done.' },
-    { label:'Invoice',  color:'#fbbf24', icon:<DocIcon/>,    desc:'Bill goes out.' },
-    { label:'Paid',     color:'#2edf87', icon:<CheckIcon/>,  desc:'Money lands.' },
+    { label:'Lead',     color:'#54d4f8', icon:<PhoneIcon/>,  desc:'Booking link, quote form, QR code on the truck. Every channel lands in one pipeline, tagged by source.' },
+    { label:'Quote',    color:'#b197fc', icon:<ScrollIcon/>, desc:'Build line-item quotes from your price book. Customers approve on their phone. Job is auto-created.' },
+    { label:'Work',     color:'#4f9eff', icon:<WrenchIcon/>, desc:'On the way emails the customer. Time clock and mileage auto-track. Customer signs off on the screen.' },
+    { label:'Invoice',  color:'#fbbf24', icon:<DocIcon/>,    desc:'Bill fires the second a job completes. Pay Now link in the email. Card, Venmo, Zelle, Cash App.' },
+    { label:'Paid',     color:'#2edf87', icon:<CheckIcon/>,  desc:'Money lands in your Stripe. Review request goes out. Books update for tax season.' },
   ];
   return (
     <section className="section">
@@ -355,14 +355,17 @@ function Workflow() {
         </p>
         <div className="workflow-grid">
           {steps.map((s, i) => (
-            <div key={s.label} style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,padding:'18px 14px',display:'flex',flexDirection:'column',gap:8,alignItems:'center',textAlign:'center',position:'relative'}}>
-              <div style={{width:44,height:44,borderRadius:10,background:s.color+'22',border:'1px solid '+s.color+'66',display:'flex',alignItems:'center',justifyContent:'center',color:s.color}}>
-                {s.icon}
+            <div key={s.label} style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,padding:'18px 16px',display:'flex',flexDirection:'column',gap:10,alignItems:'flex-start',textAlign:'left',position:'relative'}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',width:'100%'}}>
+                <div style={{width:44,height:44,borderRadius:10,background:s.color+'22',border:'1px solid '+s.color+'66',display:'flex',alignItems:'center',justifyContent:'center',color:s.color}}>
+                  {s.icon}
+                </div>
+                <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:14,color:'#7a8db0',letterSpacing:'.08em'}}>0{i+1}</div>
               </div>
-              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.06em',color:s.color,marginTop:4}}>
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.06em',color:s.color}}>
                 {s.label.toUpperCase()}
               </div>
-              <div style={{fontSize:13,color:'#c8d4ee'}}>{s.desc}</div>
+              <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.5}}>{s.desc}</div>
             </div>
           ))}
         </div>
@@ -380,7 +383,7 @@ function Features() {
     {
       icon: <LinkIcon/>,
       title: 'Leads from everywhere',
-      body: 'Booking link customers fill out themselves. Quote-request link for fast pricing. QR code for yard signs, trucks, business cards. Phone, walk-in, referrals get tagged by source so you know what\'s actually working.',
+      body: "Booking link customers fill out themselves. Quote-request link for fast pricing. QR code for yard signs, trucks, business cards. Phone, walk-in, and referral get tagged by source so you know what's actually working.",
     },
     {
       icon: <DownloadIcon/>,
@@ -389,17 +392,17 @@ function Features() {
     },
     {
       icon: <TruckIcon/>,
-      title: '“On my way” auto-tracks',
-      body: 'One tap texts the customer their crew name + ETA, starts the time clock, and starts the GPS trip. Mark the job complete and mileage logs itself with real driving distance.',
+      title: '"On my way" auto-tracks',
+      body: 'One tap emails the customer their crew name and ETA, starts the time clock, and starts the GPS trip. Mark the job complete and mileage logs itself with real driving distance.',
     },
     {
       icon: <SignIcon/>,
       title: 'Customer signs off',
-      body: "Finger on the screen at completion. Signature lands on the invoice + emailed receipt + customer portal. Disputes don't happen when the receipt has their name on it.",
+      body: "Finger on the screen at completion. Signature lands on the invoice, emailed receipt, and the customer portal. Disputes don't happen when the receipt has their name on it.",
     },
     {
       icon: <BoltIcon/>,
-      title: 'Auto-invoice → chase → review',
+      title: 'Auto-invoice, chase, review',
       body: 'Job marked complete: invoice fires with a Pay Now link. One week past due: friendly reminder. Two weeks: firmer one. A month: final notice. Once they pay, a review request goes out. You stop chasing checks.',
     },
     {
@@ -410,18 +413,12 @@ function Features() {
     {
       icon: <CycleIcon/>,
       title: 'Recurring + multi-day + portal',
-      body: 'Set a maintenance plan once, jobs materialize on cadence. Multi-day jobs span the calendar correctly. Customer portal shows quotes, scheduled visits, and unpaid invoices — no login needed.',
+      body: 'Set a maintenance plan once, jobs materialize on cadence. Multi-day jobs span the calendar correctly. Customer portal shows quotes, scheduled visits, and unpaid invoices. No login needed.',
     },
     {
       icon: <ChartIcon/>,
       title: 'Tax + accountant exports',
       body: 'Quarterly tax estimates that account for income, expenses, and IRS mileage. Accountant CSV and QuickBooks Online CSV exports at year-end. Your books, ready when they ask.',
-    },
-    {
-      ai: true,
-      icon: <CoachIcon/>,
-      title: 'AI business coach',
-      body: 'Real recommendations with real numbers, not generic tips. See the showcase below.',
     },
   ];
 
@@ -495,21 +492,42 @@ function Features() {
    formatted exactly the way the live AI ships them.
    ===================================================== */
 function AIShowcase({ router }) {
-  // 4 categories of insight, one example each. All numbers are
-  // mock-but-plausible for a small landscaping/HVAC/handyman shop.
+  // Four AI capabilities, four insight examples to back up the coach.
+  const tools = [
+    {
+      title: 'AI Receptionist',
+      sub: 'On your booking link',
+      body: 'Customers chat with an AI to book a service. It asks the right qualifying questions, picks a date, and drops the lead in your queue.',
+    },
+    {
+      title: 'In-app Assistant',
+      sub: '✨ Voice + text, every page',
+      body: 'Tap the sparkle button. Say "log $40 fuel" or "what\'s my net this month." It runs the action or answers from your data.',
+    },
+    {
+      title: 'Invoice Import',
+      sub: 'Snap a photo',
+      body: 'Take a picture of a vendor bill or contractor PDF. AI pulls the customer, total, dates, and line items in seconds. No retyping.',
+    },
+    {
+      title: 'Monthly Business Coach',
+      sub: 'Reads your books',
+      body: 'Once a month, MyForeman reads your revenue, jobs, customers, and expenses and ships 4 to 5 specific plays with dollar figures attached. See examples below.',
+    },
+  ];
   const insights = [
     {
       tag: 'Pricing',
       tagColor: '#2edf87',
-      title: 'You\'re underpriced on lawn care.',
-      body: 'Your average lawn-care job in your area runs $187. Competitors are charging $215+. A $199 price point won\'t lose customers and adds about $340/mo across your 25 active accounts.',
+      title: "You're underpriced on lawn care.",
+      body: "Your average lawn-care job in your area runs $187. Competitors are charging $215+. A $199 price point won't lose customers and adds about $340/mo across your 25 active accounts.",
       impact: '+$4,080/yr',
     },
     {
       tag: 'Retention',
       tagColor: '#4f9eff',
       title: '8 customers ghosted you this year.',
-      body: '8 customers who used you in 2024 haven\'t booked again. 6 of them left 5-star reviews. Send the "haven\'t seen you in a while" nudge — historical conversion on that template is ~30%.',
+      body: "8 customers who used you in 2024 haven't booked again. 6 of them left 5-star reviews. Send the \"haven't seen you in a while\" nudge. Historical conversion on that template is ~30%.",
       impact: '~$1,200 win-back',
     },
     {
@@ -523,7 +541,7 @@ function AIShowcase({ router }) {
       tag: 'Cash flow',
       tagColor: '#f26060',
       title: '$2,847 sitting in unpaid invoices.',
-      body: 'Six invoices (#1042–1047) are an average of 19 days old. Auto-reminders already went out at day 7. Worth a personal call on the two over $800 — those convert ~3x better than another email.',
+      body: 'Six invoices (#1042-1047) are an average of 19 days old. Auto-reminders already went out at day 7. Worth a personal call on the two over $800. Those convert ~3x better than another email.',
       impact: 'Collect this week',
     },
   ];
@@ -532,16 +550,33 @@ function AIShowcase({ router }) {
       <div className="section-inner">
         <div style={{textAlign:'center',marginBottom:8}}>
           <span style={{display:'inline-block',padding:'6px 14px',background:'rgba(251,191,36,0.12)',border:'1px solid rgba(251,191,36,0.45)',borderRadius:999,fontSize:11,letterSpacing:'.12em',fontWeight:700,color:'#fbbf24',textTransform:'uppercase'}}>
-            ⚡ AI Coach · Live monthly
+            ⚡ AI built for the trades
           </span>
         </div>
         <h2 className="section-headline" style={{textAlign:'center',maxWidth:780,margin:'12px auto 10px'}}>
-          Real numbers. Real moves. Not "grow your business".
+          Four AI tools that actually do the work.
         </h2>
-        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 32px',maxWidth:640}}>
-          Every month MyForeman reads your books and your customer history and ships 4-5 specific plays — with dollar figures attached.
+        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 28px',maxWidth:640}}>
+          Not chatbots that talk. Tools that book leads, log your expenses, read vendor bills, and tell you where the money is.
         </p>
 
+        <div className="ai-tools-grid">
+          {tools.map((t, i) => (
+            <div key={i} className="ai-tool-card">
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.04em',color:'#fbbf24',marginBottom:2}}>
+                {t.title.toUpperCase()}
+              </div>
+              <div style={{fontSize:11,color:'#fbbf24',letterSpacing:'.06em',fontWeight:700,textTransform:'uppercase',marginBottom:8,opacity:0.7}}>
+                {t.sub}
+              </div>
+              <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55}}>{t.body}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{marginTop:36,marginBottom:14,textAlign:'center',fontSize:11,letterSpacing:'.14em',fontWeight:700,color:'#fbbf24',textTransform:'uppercase'}}>
+          The monthly coach in action
+        </div>
         <div className="insight-grid">
           {insights.map((it, i) => (
             <div key={i} className="insight-card">
@@ -572,12 +607,20 @@ function AIShowcase({ router }) {
           border-top: 1px solid #1f2a40;
           border-bottom: 1px solid #1f2a40;
         }
+        .ai-tools-grid { display: grid; grid-template-columns: 1fr; gap: 12px; max-width: 960px; margin: 0 auto; }
+        @media (min-width: 760px) { .ai-tools-grid { grid-template-columns: 1fr 1fr; gap: 14px; } }
+        @media (min-width: 1024px) { .ai-tools-grid { grid-template-columns: repeat(4, 1fr); } }
+        .ai-tool-card {
+          background: linear-gradient(160deg, rgba(251,191,36,0.08) 0%, #1e2a42 60%);
+          border: 1px solid rgba(251,191,36,0.45);
+          border-radius: 12px; padding: 16px;
+        }
         .insight-grid { display: grid; grid-template-columns: 1fr; gap: 14px; max-width: 920px; margin: 0 auto; }
         @media (min-width: 760px) { .insight-grid { grid-template-columns: 1fr 1fr; gap: 18px; } }
         .insight-card {
           background: linear-gradient(160deg, rgba(251,191,36,0.05) 0%, #1e2a42 60%);
           border: 1px solid rgba(251,191,36,0.30);
-          border-radius: 14px; padding: 18px 18px;
+          border-radius: 14px; padding: 18px;
           box-shadow: 0 4px 16px rgba(0,0,0,0.25);
         }
       `}</style>
