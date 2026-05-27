@@ -78,6 +78,22 @@ Voice:
 - Sign off with a short "— <org name>" only if it fits naturally. Don't append it to every message.`;
 
 export default async function handler(req, res) {
+  // GET ?probe=1 returns a small JSON diagnostic so we can verify
+  // env wiring without making Twilio happy. Safe — no secrets, just
+  // booleans about which env vars are present.
+  if (req.method === 'GET' && req.query?.probe) {
+    return res.status(200).json({
+      sms_ready: smsReady(),
+      has_supabase_url: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      has_service_key:  !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      has_anthropic_key:!!process.env.ANTHROPIC_API_KEY,
+      has_twilio_sid:   !!process.env.TWILIO_ACCOUNT_SID,
+      has_twilio_token: !!process.env.TWILIO_AUTH_TOKEN,
+      has_twilio_from:  !!process.env.TWILIO_FROM_NUMBER,
+      commit: '9710fa4-or-newer',
+    });
+  }
+
   // Always-200 contract: Twilio retries 5xx, which double-fires the
   // AI reply. Wrap the whole flow so any unhandled error returns an
   // empty TwiML response — silent for the customer, retry-safe for
