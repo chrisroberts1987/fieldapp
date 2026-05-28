@@ -148,7 +148,7 @@ export default function Billing() {
           </div>
         </div>
         {billing === 'annual' && (
-          <div style={{textAlign:'center',fontSize:11,fontWeight:700,letterSpacing:'.12em',color:'#2edf87',marginBottom:10}}>2 MONTHS FREE</div>
+          <div style={{textAlign:'center',fontSize:11,fontWeight:700,letterSpacing:'.12em',color:'#2edf87',marginBottom:10}}>1 MONTH FREE</div>
         )}
 
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))',gap:10,marginBottom:18}}>
