@@ -50,7 +50,7 @@ export default function Admin() {
         WebkitOverflowScrolling:'touch',
         scrollbarWidth:'none',
       }}>
-        {['overview','finances','businesses','usage','ai','support'].map(k => (
+        {['overview','finances','reach','businesses','usage','ai','support'].map(k => (
           <button key={k} onClick={() => setTab(k)}
             style={{
               background:'transparent', border:'none',
@@ -69,6 +69,7 @@ export default function Admin() {
       <main style={{maxWidth:1280,margin:'0 auto',padding:'24px 16px 0'}}>
         {tab === 'overview'   && <OverviewSection onGoTo={setTab} />}
         {tab === 'finances'   && <FinancesSection />}
+        {tab === 'reach'      && <ReachSection />}
         {tab === 'businesses' && <BusinessesSection />}
         {tab === 'usage'      && <UsageSection />}
         {tab === 'ai'         && <AiUsageSection />}
@@ -343,6 +344,142 @@ function TierMrrCard({ tier, mrr, totalMrr, accent }) {
       <div style={{height:4,background:'#0d1726',borderRadius:999,overflow:'hidden',marginTop:8}}>
         <div style={{width:pct+'%',height:'100%',background:accent,transition:'width .3s'}}/>
       </div>
+    </div>
+  );
+}
+
+// =============================================================
+// Reach — geographic breakdown of every paying + trialing org.
+// Each state card expands to show top cities + a recent org list.
+// =============================================================
+function ReachSection() {
+  const [data, setData] = useState(null);
+  const [err, setErr]   = useState(null);
+  const [openId, setOpenId] = useState(null); // expanded state code
+  const [detail, setDetail] = useState(null); // org drill-in
+
+  useEffect(() => {
+    (async () => {
+      const r = await adminFetch('/api/admin/reach');
+      if (r.error) setErr(r.error); else setData(r);
+    })();
+  }, []);
+
+  if (err)   return <ErrorBlock msg={err}/>;
+  if (!data) return <Loading/>;
+
+  const maxCount = Math.max(1, ...data.states.map(s => s.count));
+
+  return (
+    <>
+      <SectionHeading title="Geographic Reach" subtitle="Where your contractors are. Parsed from their business address."/>
+
+      <div style={kpiGrid}>
+        <Kpi label="States Covered" value={data.statesCovered} color="#4f9eff"/>
+        <Kpi label="Mapped Orgs"    value={data.knownTotal}    color="#2edf87" sub={`of ${data.total} total`}/>
+        <Kpi label="Unparseable"    value={data.unknownTotal}  color="#fbbf24" sub="address missing state + ZIP"/>
+        <Kpi label="Top State"      value={data.states[0]?.code || '—'} color="#b197fc" sub={data.states[0] ? `${data.states[0].count} orgs (${data.states[0].pct}%)` : ''}/>
+      </div>
+
+      <Subhead>States · Click a row to expand</Subhead>
+      <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:18}}>
+        {data.states.length === 0 ? (
+          <div style={empty}>No parseable addresses yet. As contractors sign up, this will populate.</div>
+        ) : data.states.map(s => {
+          const isOpen = openId === s.code;
+          const barPct = (s.count / maxCount) * 100;
+          return (
+            <div key={s.code} style={{background:'#1e2a42',border:'1px solid '+(isOpen?'#4f9eff66':'#2e3f60'),borderRadius:10,overflow:'hidden',transition:'border-color .15s'}}>
+              <button onClick={() => setOpenId(isOpen ? null : s.code)}
+                style={{display:'flex',alignItems:'center',gap:12,width:'100%',padding:'12px 14px',background:'transparent',border:'none',cursor:'pointer',fontFamily:'inherit',color:'inherit',textAlign:'left'}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:'#f0f4ff',width:40,letterSpacing:'.04em'}}>{s.code}</div>
+                <div style={{flex:1,height:10,background:'#0d1726',borderRadius:5,overflow:'hidden'}}>
+                  <div style={{height:'100%',width:`${barPct}%`,background:'#4f9eff',transition:'width .25s'}}/>
+                </div>
+                <div style={{fontSize:13,color:'#c8d4ee',fontWeight:600,minWidth:90,textAlign:'right'}}>{s.count} org{s.count === 1 ? '' : 's'} · {s.pct}%</div>
+                <div style={{fontSize:14,color:'#4f9eff',width:14,textAlign:'center'}}>{isOpen ? '▾' : '▸'}</div>
+              </button>
+
+              {isOpen && (
+                <div style={{padding:'4px 14px 14px',borderTop:'1px solid #2e3f60'}}>
+                  {s.topCities.length > 0 && (
+                    <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:10,marginBottom:12}}>
+                      {s.topCities.map(c => (
+                        <span key={c.city} style={{background:'#0d1726',border:'1px solid #2e3f60',borderRadius:999,padding:'4px 10px',fontSize:11,color:'#c8d4ee',fontWeight:600}}>
+                          {c.city} · {c.count}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.06em',textTransform:'uppercase',fontWeight:700,marginBottom:6}}>
+                    Most recent ({s.recentOrgs.length})
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',gap:5}}>
+                    {s.recentOrgs.map(o => (
+                      <ReachOrgRow key={o.id} org={o} onClick={() => setDetail({ id: o.id, name: o.name })}/>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {data.unknownTotal > 0 && (
+        <>
+          <Subhead>Addresses we couldn't parse</Subhead>
+          <div style={{fontSize:12,color:'#7a8db0',marginBottom:8,lineHeight:1.5}}>
+            These orgs are missing a recognizable "ST 12345" pattern in their address. Open each one and prompt the owner to update it in Settings.
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:18}}>
+            {data.unknownOrgs.map(o => (
+              <ReachOrgRow key={o.id} org={o} onClick={() => setDetail({ id: o.id, name: o.name })}/>
+            ))}
+            {data.unknownTotal > data.unknownOrgs.length && (
+              <div style={{fontSize:11,color:'#7a8db0',padding:'6px 4px'}}>
+                …and {data.unknownTotal - data.unknownOrgs.length} more. Open the Businesses tab for the full list.
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {detail && (
+        <BusinessDetailModal
+          business={detail}
+          onClose={() => setDetail(null)}
+          onChanged={() => {}}
+        />
+      )}
+    </>
+  );
+}
+
+function ReachOrgRow({ org, onClick }) {
+  const statusColor = org.status === 'active' ? '#2edf87'
+    : org.status === 'trialing' ? '#fbbf24'
+    : org.status === 'suspended' ? '#f26060'
+    : '#7a8db0';
+  const days = org.createdAt
+    ? Math.floor((Date.now() - new Date(org.createdAt).getTime()) / 86_400_000)
+    : null;
+  const ago = days === 0 ? 'today' : days === 1 ? 'yesterday' : days != null ? `${days}d ago` : '—';
+  return (
+    <div onClick={onClick}
+      style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',background:'#0d1726',border:'1px solid #2e3f60',borderRadius:8,cursor:'pointer'}}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = '#4f9eff66'; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = '#2e3f60'; }}>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:13,color:'#f0f4ff',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{org.name || 'Unnamed'}</div>
+        <div style={{fontSize:11,color:'#7a8db0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+          {org.ownerName || org.email || '—'}
+        </div>
+      </div>
+      <span style={{background:statusColor+'22',color:statusColor,border:'1px solid '+statusColor+'66',borderRadius:999,padding:'2px 8px',fontSize:10,fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap',flexShrink:0}}>
+        {org.status === 'active' ? 'Paying' : org.status}
+      </span>
+      <span style={{fontSize:11,color:'#7a8db0',whiteSpace:'nowrap'}}>{ago}</span>
     </div>
   );
 }
