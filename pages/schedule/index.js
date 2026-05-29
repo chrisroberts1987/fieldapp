@@ -184,7 +184,11 @@ export default function Schedule() {
         </div>
       </div>
 
-      <div style={{padding:'0 12px',display:'grid',gap:8,gridTemplateColumns: view === 'week' ? 'repeat(7, minmax(140px, 1fr))' : '1fr',overflowX: view === 'week' ? 'auto' : 'visible'}}>
+      {/* Week view stacks each day vertically (one full-width row per
+          day) instead of a 7-column horizontal scroll. Easier to read
+          on phones, and matches the native app's layout. Day view
+          remains a single column. */}
+      <div style={{padding:'0 12px',display:'grid',gap:8,gridTemplateColumns:'1fr'}}>
         {days.map(day => {
           const iso = isoDay(day);
           // A job shows on this day if (single-day && scheduled_date == iso)
@@ -223,7 +227,9 @@ export default function Schedule() {
                 border: isToday ? '1px solid #4f9eff' : '1px solid #2e3f60',
                 borderRadius:10,
                 padding:10,
-                minHeight: view === 'week' ? 220 : 320,
+                // Vertical stack: each day card hugs its content. Day
+                // view stays taller so an empty day doesn't collapse.
+                minHeight: view === 'week' ? undefined : 320,
                 display:'flex',
                 flexDirection:'column',
                 gap:8,
