@@ -195,6 +195,13 @@ begin
     (v_today - v.days_ago + 7)::date,
     v.title
   from (values
+    -- ~12-13 months back — fills the "Same month last year" KPI on
+    -- the Insights tab, which compares this calendar month against
+    -- the same month one year ago.
+    (370, 'Patricia Chen',           'Outdoor outlet (May LY)',   295.00),
+    (380, 'Diana Whitaker',          'Garage opener service',     410.00),
+    (395, 'Marcus Robinson',         'Pre-summer AC tune (LY)',   220.00),
+    -- ~14-22 months back — feeds the YoY growth (trailing-12 vs prior-12).
     (440, 'Marcus Robinson',         'Lighting tune-up',          425.00),
     (455, 'Patricia Chen',           'Bathroom GFCI add',         310.00),
     (470, 'James & Linda Foster',    'Spring HVAC service',       380.00),
