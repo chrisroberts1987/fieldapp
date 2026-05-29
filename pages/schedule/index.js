@@ -171,7 +171,7 @@ export default function Schedule() {
 
       <div style={{display:'flex',gap:8,padding:'0 12px 16px',alignItems:'center',flexWrap:'wrap'}}>
         <button onClick={goPrev}  style={navBtn}>‹</button>
-        <button onClick={goToday} style={{...navBtn,padding:'8px 14px',fontSize:12,letterSpacing:'.05em',fontWeight:700}}>TODAY</button>
+        <button onClick={goToday} style={{...navBtn,width:'auto',height:'auto',minHeight:38,padding:'8px 16px',fontSize:12,letterSpacing:'.05em',fontWeight:700}}>TODAY</button>
         <button onClick={goNext}  style={navBtn}>›</button>
         <div style={{flex:1}}/>
         <div style={{display:'flex',background:'#0f1626',border:'1px solid #2e3f60',borderRadius:8,overflow:'hidden'}}>
