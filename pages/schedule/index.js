@@ -248,8 +248,12 @@ export default function Schedule() {
 
               {ghostRecurring.map(g => {
                 const color = '#a855f7';
+                const hasCustomer = !!g.plan.customer_id;
                 return (
-                  <div key={g.id}
+                  <button key={g.id}
+                    onClick={() => hasCustomer && router.push('/customers/' + g.plan.customer_id)}
+                    disabled={!hasCustomer}
+                    title="Recurring plan — tap to manage on the customer page."
                     style={{
                       background: color + '0a',
                       border: '1px dashed ' + color + '66',
@@ -259,15 +263,18 @@ export default function Schedule() {
                       borderRadius: 6,
                       padding: '8px 10px',
                       opacity: 0.85,
-                    }}
-                    title="Recurring plan — a real job will be created automatically on this date.">
+                      textAlign: 'left',
+                      color: 'inherit',
+                      fontFamily: 'inherit',
+                      cursor: hasCustomer ? 'pointer' : 'default',
+                    }}>
                     <div style={{fontSize:10,color:color,fontWeight:700,letterSpacing:'.06em'}}>🔁 RECURRING</div>
                     <div style={{fontSize:13,fontWeight:600,lineHeight:1.25,color:'#f0f4ff'}}>{g.plan.title}</div>
                     <div style={{fontSize:11,color:'#a8b8d8',marginTop:2}}>{customerName(g.plan.customer_id)}</div>
                     {g.plan.price ? (
                       <div style={{fontSize:11,color:'#7a8db0',marginTop:2}}>{fmt$(g.plan.price)}</div>
                     ) : null}
-                  </div>
+                  </button>
                 );
               })}
 

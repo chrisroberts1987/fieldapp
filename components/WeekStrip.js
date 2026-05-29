@@ -142,21 +142,27 @@ export default function WeekStrip({ jobs, recurring = [], customerName, includeR
               })}
 
               {ghosts.map(g => (
-                <div key={g.id}
+                <button key={g.id}
+                  onClick={() => g.plan.customer_id && router.push('/customers/' + g.plan.customer_id)}
+                  disabled={!g.plan.customer_id}
+                  title="Recurring plan — tap to manage on the customer page."
                   style={{
                     background: '#a855f70a',
                     border: '1px dashed #a855f766',
                     borderLeftWidth: 3, borderLeftStyle:'solid', borderLeftColor:'#a855f7',
                     borderRadius: 5,
                     padding:'6px 8px',
-                  }}
-                  title="Recurring plan — materializes into a real job on this date.">
+                    textAlign:'left',
+                    color:'inherit',
+                    fontFamily:'inherit',
+                    cursor: g.plan.customer_id ? 'pointer' : 'default',
+                  }}>
                   <div style={{fontSize:9,color:'#a855f7',fontWeight:700,letterSpacing:'.04em'}}>🔁 RECURRING</div>
                   <div style={{fontSize:12,fontWeight:600,lineHeight:1.2,color:'#f0f4ff',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{g.plan.title}</div>
                   {customerName && (
                     <div style={{fontSize:10,color:'#a8b8d8',marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{customerName(g.plan.customer_id)}</div>
                   )}
-                </div>
+                </button>
               ))}
             </div>
           );
