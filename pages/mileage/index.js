@@ -166,10 +166,15 @@ export default function Mileage() {
 
   // Aggregates (own trips only for non-foreman, all org trips for foreman)
   const visibleTrips = canSeeDeduction ? trips : trips.filter(t => t.user_id === user?.id);
-  const totalMiles = visibleTrips.reduce((s, t) => s + Number(t.miles || 0), 0);
-  const businessMiles = visibleTrips.filter(t => t.purpose === 'business').reduce((s, t) => s + Number(t.miles || 0), 0);
-  const deduction = businessMiles * IRS_RATE;
   const year = new Date().getFullYear();
+  // Year-scoped aggregates: the summary card is labeled "(2026)" and
+  // feeds the IRS deduction estimate, so it has to sum only this
+  // year's trips. The list below stays unfiltered (recent 200) so
+  // crew can scroll back over a year boundary if they need to.
+  const yearTrips = visibleTrips.filter(t => (t.log_date || '').startsWith(String(year) + '-'));
+  const totalMiles = yearTrips.reduce((s, t) => s + Number(t.miles || 0), 0);
+  const businessMiles = yearTrips.filter(t => t.purpose === 'business').reduce((s, t) => s + Number(t.miles || 0), 0);
+  const deduction = businessMiles * IRS_RATE;
 
   if (loading) return (
     <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',sans-serif"}}>
