@@ -501,8 +501,8 @@ function AIShowcase({ router }) {
     },
     {
       title: 'In-app Assistant',
-      sub: '✨ Voice + text, every page',
-      body: 'Tap the sparkle button. Say "log $40 fuel" or "what\'s my net this month." It runs the action or answers from your data.',
+      sub: '✨ One tap, every page',
+      body: 'Tap the sparkle button. Type "log $40 fuel" or "what\'s my net this month." It runs the action or answers from your data.',
     },
     {
       title: 'Invoice Import',

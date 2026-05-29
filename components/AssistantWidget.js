@@ -1,10 +1,13 @@
-// Floating AI assistant bottom-right. Tap mic to dictate (Web
-// Speech API, browser-native, no service required) or type. Posts
-// to /api/ai/assistant which has tool-calling for log_expense,
+// Floating AI assistant bottom-right. Type a command or question.
+// Posts to /api/ai/assistant which has tool-calling for log_expense,
 // log_mileage, read_stats, read_jobs_today.
 //
 // Closed by default. Opens to a small chat sheet that doesn't
 // block the page. Hides if there's no signed-in user.
+//
+// Voice input was previously supported via the Web Speech API but
+// was removed to keep AI usage closer to deliberate, typed asks —
+// voice made it too easy to fire off spam queries.
 
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
@@ -17,9 +20,7 @@ export default function AssistantWidget({ user, orgId }) {
   ]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
-  const [listening, setListening] = useState(false);
   const scrollRef = useRef(null);
-  const recogRef = useRef(null);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -58,34 +59,6 @@ export default function AssistantWidget({ user, orgId }) {
       setMsgs(prev => [...prev, { role: 'assistant', content: 'Network hiccup. Try again?' }]);
     }
     setSending(false);
-  };
-
-  // Voice: native Web Speech API. iOS Safari and Chrome on
-  // Android both have it. Fall back gracefully if not supported.
-  const startListening = () => {
-    const Recog = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
-    if (!Recog) {
-      toast.info('Voice input not supported on this browser. Type instead.');
-      return;
-    }
-    const r = new Recog();
-    r.lang = 'en-US';
-    r.interimResults = false;
-    r.maxAlternatives = 1;
-    recogRef.current = r;
-    setListening(true);
-    r.onresult = (ev) => {
-      const transcript = ev.results?.[0]?.[0]?.transcript || '';
-      setListening(false);
-      if (transcript) send(transcript);
-    };
-    r.onerror = () => setListening(false);
-    r.onend   = () => setListening(false);
-    r.start();
-  };
-  const stopListening = () => {
-    try { recogRef.current?.stop(); } catch {}
-    setListening(false);
   };
 
   if (!user || !orgId) return null;
@@ -165,23 +138,11 @@ export default function AssistantWidget({ user, orgId }) {
           </div>
 
           <div style={{padding:'10px 12px',borderTop:'1px solid #2e3f60',display:'flex',gap:6}}>
-            <button
-              onClick={listening ? stopListening : startListening}
-              aria-label={listening ? 'Stop listening' : 'Start voice'}
-              style={{
-                background: listening ? '#f26060' : '#0d1726',
-                border:'1px solid ' + (listening ? '#f26060' : '#2e3f60'),
-                borderRadius:10, color: listening ? '#fff' : '#c8d4ee',
-                width:38, height:38, cursor:'pointer',
-                display:'flex', alignItems:'center', justifyContent:'center', fontSize:16,
-              }}>
-              {listening ? '⏹' : '🎤'}
-            </button>
             <input value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), send())}
-              disabled={sending || listening}
-              placeholder={listening ? 'Listening…' : 'Ask or tell me anything...'}
+              disabled={sending}
+              placeholder="Ask or tell me anything..."
               style={{flex:1,background:'#0d1726',border:'1px solid #2e3f60',borderRadius:10,color:'#f0f4ff',fontSize:13,padding:'9px 11px',outline:'none',fontFamily:'inherit'}}/>
             <button onClick={() => send()} disabled={sending || !input.trim()}
               style={{background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'0 14px',fontWeight:700,fontSize:12,letterSpacing:'.04em',cursor:'pointer',opacity:(sending||!input.trim())?0.5:1}}>
