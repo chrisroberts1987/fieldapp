@@ -50,7 +50,7 @@ export default function Admin() {
         WebkitOverflowScrolling:'touch',
         scrollbarWidth:'none',
       }}>
-        {['overview','businesses','usage','ai','support'].map(k => (
+        {['overview','finances','businesses','usage','ai','support'].map(k => (
           <button key={k} onClick={() => setTab(k)}
             style={{
               background:'transparent', border:'none',
@@ -68,6 +68,7 @@ export default function Admin() {
 
       <main style={{maxWidth:1280,margin:'0 auto',padding:'24px 16px 0'}}>
         {tab === 'overview'   && <OverviewSection onGoTo={setTab} />}
+        {tab === 'finances'   && <FinancesSection />}
         {tab === 'businesses' && <BusinessesSection />}
         {tab === 'usage'      && <UsageSection />}
         {tab === 'ai'         && <AiUsageSection />}
@@ -144,19 +145,22 @@ function OverviewSection({ onGoTo }) {
         <Kpi label="Total Businesses"   value={data.totalBusinesses}    color="#4f9eff" onClick={() => onGoTo('businesses')}/>
         <Kpi label="Trialing"           value={data.trialAccounts}      color="#fbbf24" sub="card on file, day 1–14" onClick={() => onGoTo('businesses')}/>
         <Kpi label="Active"             value={data.activeSubs}         color="#2edf87" sub="paying" onClick={() => onGoTo('businesses')}/>
-        <Kpi label="MRR"                value={'$' + (data.mrr || 0).toLocaleString()} color="#2edf87" sub="monthly recurring"/>
-        <Kpi label="Conversion"         value={data.conversionRate != null ? `${data.conversionRate}%` : '—'} color="#54d4f8" sub={`trial → paid (n=${data.conversionCohortSize})`}/>
+        <Kpi label="MRR"                value={'$' + (data.mrr || 0).toLocaleString()} color="#2edf87" sub="monthly recurring" onClick={() => onGoTo('finances')}/>
+        <Kpi label="Conversion"         value={data.conversionRate != null ? `${data.conversionRate}%` : '—'} color="#54d4f8" sub={`trial → paid (n=${data.conversionCohortSize})`} onClick={() => onGoTo('businesses')}/>
         <Kpi label="New This Week"      value={data.newSignupsThisWeek} color="#54d4f8" onClick={() => onGoTo('businesses')}/>
-        <Kpi label="Past Due"           value={data.pastDue}            color="#fbbf24" sub="payment failed"/>
-        <Kpi label="Churned This Month" value={data.churnedThisMonth}   color="#f26060" sub="suspended"/>
+        <Kpi label="Past Due"           value={data.pastDue}            color="#fbbf24" sub="payment failed" onClick={() => onGoTo('businesses')}/>
+        <Kpi label="Churned This Month" value={data.churnedThisMonth}   color="#f26060" sub="suspended" onClick={() => onGoTo('businesses')}/>
       </div>
 
       <Subhead>Subscriptions by Tier</Subhead>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10,marginBottom:18}}>
-        <TierCard tier="solo"     count={data.byTier.solo     || 0} total={tierTotal} accent="#4f9eff"/>
-        <TierCard tier="crew"     count={data.byTier.crew     || 0} total={tierTotal} accent="#2edf87"/>
-        <TierCard tier="business" count={data.byTier.business || 0} total={tierTotal} accent="#b197fc"/>
+        <TierCard tier="solo"     count={data.byTier.solo     || 0} total={tierTotal} accent="#4f9eff" onClick={() => onGoTo('businesses')}/>
+        <TierCard tier="crew"     count={data.byTier.crew     || 0} total={tierTotal} accent="#2edf87" onClick={() => onGoTo('businesses')}/>
+        <TierCard tier="business" count={data.byTier.business || 0} total={tierTotal} accent="#b197fc" onClick={() => onGoTo('businesses')}/>
       </div>
+
+      <Subhead>Geographic Reach</Subhead>
+      <StatesPanel states={data.states || []} totalBusinesses={data.totalBusinesses}/>
 
       <Subhead>Recent Signups</Subhead>
       <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:18}}>
@@ -177,16 +181,165 @@ function OverviewSection({ onGoTo }) {
   );
 }
 
-function TierCard({ tier, count, total, accent }) {
+function StatesPanel({ states, totalBusinesses }) {
+  const [expanded, setExpanded] = useState(false);
+  const known = states.filter(s => s.code !== '??');
+  const unknown = states.find(s => s.code === '??');
+  const top = expanded ? known : known.slice(0, 6);
+  const maxCount = Math.max(1, ...known.map(s => s.count));
+  return (
+    <div style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'14px 14px',marginBottom:18}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:10,gap:6,flexWrap:'wrap'}}>
+        <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.10em',textTransform:'uppercase',fontWeight:700}}>
+          {known.length} state{known.length === 1 ? '' : 's'} represented
+          {unknown ? ` · ${unknown.count} unparseable address${unknown.count === 1 ? '' : 'es'}` : ''}
+        </div>
+        {known.length > 6 && (
+          <button onClick={() => setExpanded(e => !e)}
+            style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'4px 10px',fontSize:11,fontWeight:600,letterSpacing:'.04em',cursor:'pointer',fontFamily:'inherit'}}>
+            {expanded ? 'SHOW TOP 6' : `SHOW ALL ${known.length}`}
+          </button>
+        )}
+      </div>
+      {known.length === 0 ? (
+        <div style={empty}>No parseable addresses yet.</div>
+      ) : (
+        <div style={{display:'flex',flexDirection:'column',gap:6}}>
+          {top.map(s => {
+            const pct = totalBusinesses > 0 ? Math.round((s.count / totalBusinesses) * 100) : 0;
+            const barPct = (s.count / maxCount) * 100;
+            return (
+              <div key={s.code} style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:'#f0f4ff',width:36,letterSpacing:'.04em'}}>{s.code}</div>
+                <div style={{flex:1,height:8,background:'#0d1726',borderRadius:4,overflow:'hidden'}}>
+                  <div style={{height:'100%',width:`${barPct}%`,background:'#4f9eff',transition:'width .25s'}}/>
+                </div>
+                <div style={{fontSize:12,color:'#c8d4ee',fontWeight:600,minWidth:50,textAlign:'right'}}>{s.count} · {pct}%</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TierCard({ tier, count, total, accent, onClick }) {
   const label = tier[0].toUpperCase() + tier.slice(1);
   const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+  const interactive = typeof onClick === 'function';
+  return (
+    <div onClick={onClick}
+      onMouseEnter={interactive ? e => { e.currentTarget.style.borderColor = '#4f9eff66'; } : undefined}
+      onMouseLeave={interactive ? e => { e.currentTarget.style.borderColor = '#2e3f60'; } : undefined}
+      style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'14px 14px',cursor: interactive ? 'pointer' : 'default',transition:'border-color .15s'}}>
+      <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:8}}>
+        <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.12em',textTransform:'uppercase',fontWeight:700}}>{label}</div>
+        <div style={{fontSize:11,color:'#7a8db0'}}>{pct}%</div>
+      </div>
+      <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:30,letterSpacing:'.02em',color:accent,lineHeight:1.1,marginTop:4}}>{count}</div>
+      <div style={{height:4,background:'#0d1726',borderRadius:999,overflow:'hidden',marginTop:8}}>
+        <div style={{width:pct+'%',height:'100%',background:accent,transition:'width .3s'}}/>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================
+// Finances — your platform-level dashboard
+// =============================================================
+function FinancesSection() {
+  const [data, setData] = useState(null);
+  const [err, setErr]   = useState(null);
+  useEffect(() => {
+    (async () => {
+      const r = await adminFetch('/api/admin/finances');
+      if (r.error) setErr(r.error); else setData(r);
+    })();
+  }, []);
+  if (err)   return <ErrorBlock msg={err}/>;
+  if (!data) return <Loading/>;
+
+  const fmt = (n) => '$' + (Number(n) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const maxSignups = Math.max(1, ...data.trend.map(t => t.signups));
+  const netColor = data.estNetThisMonth >= 0 ? '#2edf87' : '#f26060';
+
+  return (
+    <>
+      <SectionHeading title="Platform Finances" subtitle="Your business at the platform level. MRR + ARR estimated from current paid tiers, AI cost is live from the usage log."/>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr',gap:14,marginBottom:14}}>
+        <div style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,padding:'22px 20px',position:'relative',overflow:'hidden'}}>
+          <div style={{position:'absolute',inset:0,background:`radial-gradient(circle at top right, ${netColor}1a, transparent 60%)`,pointerEvents:'none'}}/>
+          <div style={{position:'relative'}}>
+            <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.12em',fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Estimated Net · This Month</div>
+            <div style={{display:'flex',alignItems:'baseline',gap:12,flexWrap:'wrap'}}>
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:56,letterSpacing:'.02em',lineHeight:1,color:netColor}}>
+                {fmt(data.estNetThisMonth)}
+              </div>
+              <div style={{fontSize:13,color:'#c8d4ee'}}>
+                {data.grossMargin != null ? `${data.grossMargin}% gross margin` : '—'}
+              </div>
+            </div>
+            <div style={{marginTop:10,display:'flex',gap:18,flexWrap:'wrap',fontSize:13,color:'#c8d4ee'}}>
+              <span>Revenue: <span style={{color:'#2edf87',fontWeight:600}}>{fmt(data.revenueThisMonth)}</span></span>
+              <span>AI cost: <span style={{color:'#f26060',fontWeight:600}}>{fmt(data.aiCostThisMonth)}</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Subhead>Recurring revenue</Subhead>
+      <div style={kpiGrid}>
+        <Kpi label="MRR"            value={fmt(data.mrr)} color="#2edf87" sub={`${data.paidCount} paying customers`}/>
+        <Kpi label="ARR"            value={fmt(data.arr)} color="#2edf87" sub="annualized"/>
+        <Kpi label="Trialing"       value={data.trialingCount} color="#fbbf24" sub="not yet paying"/>
+        <Kpi label="AI Cost YTD"    value={fmt(data.aiCostYTD)} color="#fbbf24" sub="from usage log"/>
+      </div>
+
+      <Subhead>MRR by Tier</Subhead>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10,marginBottom:18}}>
+        <TierMrrCard tier="solo"     mrr={data.tierMrr.solo     || 0} totalMrr={data.mrr} accent="#4f9eff"/>
+        <TierMrrCard tier="crew"     mrr={data.tierMrr.crew     || 0} totalMrr={data.mrr} accent="#2edf87"/>
+        <TierMrrCard tier="business" mrr={data.tierMrr.business || 0} totalMrr={data.mrr} accent="#b197fc"/>
+      </div>
+
+      <Subhead>12-Month Signups</Subhead>
+      <div style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'16px 16px',marginBottom:18}}>
+        <div style={{display:'flex',alignItems:'flex-end',gap:6,height:140}}>
+          {data.trend.map((m, i) => {
+            const h = Math.max(2, Math.round((m.signups / maxSignups) * 120));
+            return (
+              <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+                <div title={`${m.signups} signups`} style={{width:'100%',background:'#4f9eff',height:h,borderRadius:4,opacity:m.signups > 0 ? 1 : 0.18}}/>
+                <div style={{fontSize:10,color:'#7a8db0',letterSpacing:'.04em'}}>{m.label}</div>
+                <div style={{fontSize:10,color:'#c8d4ee',fontWeight:600}}>{m.signups}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{fontSize:11,color:'#7a8db0',lineHeight:1.55,marginTop:8}}>
+        Numbers are estimates. MRR sums published plan prices across active subs (Stripe is the source of truth for actual billed amounts). YTD revenue assumes steady-state MRR; replace with Stripe's actual invoiced total when wired in.
+      </div>
+    </>
+  );
+}
+
+function TierMrrCard({ tier, mrr, totalMrr, accent }) {
+  const label = tier[0].toUpperCase() + tier.slice(1);
+  const pct = totalMrr > 0 ? Math.round((mrr / totalMrr) * 100) : 0;
   return (
     <div style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'14px 14px'}}>
       <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:8}}>
         <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.12em',textTransform:'uppercase',fontWeight:700}}>{label}</div>
         <div style={{fontSize:11,color:'#7a8db0'}}>{pct}%</div>
       </div>
-      <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:30,letterSpacing:'.02em',color:accent,lineHeight:1.1,marginTop:4}}>{count}</div>
+      <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:28,letterSpacing:'.02em',color:accent,lineHeight:1.1,marginTop:4}}>
+        ${mrr.toLocaleString()}
+      </div>
+      <div style={{fontSize:11,color:'#7a8db0',marginTop:3}}>per month</div>
       <div style={{height:4,background:'#0d1726',borderRadius:999,overflow:'hidden',marginTop:8}}>
         <div style={{width:pct+'%',height:'100%',background:accent,transition:'width .3s'}}/>
       </div>

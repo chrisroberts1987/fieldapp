@@ -30,7 +30,7 @@ export default async function handler(req, res) {
   // One big pull. ~500 cap is fine for now; pagination when we grow.
   const { data: orgs, error } = await sb
     .from('organizations')
-    .select('id, name, owner_name, business_email, created_at, suspended_at, subscription_status, subscription_tier, subscription_current_period_end')
+    .select('id, name, owner_name, business_email, address, created_at, suspended_at, subscription_status, subscription_tier, subscription_current_period_end')
     .order('created_at', { ascending: false })
     .limit(1000);
   if (error) return res.status(500).json({ error: error.message });
@@ -86,6 +86,21 @@ export default async function handler(req, res) {
     subscription_tier:   o.subscription_tier,
   }));
 
+  // Geographic reach: pull the 2-letter US state out of each org's
+  // address field. Addresses are free-text and may be incomplete, so
+  // we use the "ST ZIP" pattern (e.g. "TX 78701") which is unique
+  // enough to avoid false positives from prose. Anything that
+  // doesn't match goes in an "Unknown" bucket so it's countable.
+  const byState = {};
+  for (const o of orgs) {
+    const st = stateFrom(o.address);
+    if (!st) { byState['??'] = (byState['??'] || 0) + 1; continue; }
+    byState[st] = (byState[st] || 0) + 1;
+  }
+  const states = Object.entries(byState)
+    .map(([code, count]) => ({ code, count }))
+    .sort((a, b) => b.count - a.count);
+
   res.status(200).json({
     totalBusinesses:    total,
     trialAccounts,
@@ -99,5 +114,12 @@ export default async function handler(req, res) {
     conversionRate,
     conversionCohortSize: eligible.length,
     recentSignups,
+    states,
   });
+}
+
+function stateFrom(addr) {
+  if (!addr || typeof addr !== 'string') return null;
+  const m = addr.match(/\b([A-Z]{2})\s+\d{5}(?:-\d{4})?\b/);
+  return m ? m[1].toUpperCase() : null;
 }
