@@ -180,6 +180,48 @@ begin
   -- current month. Leave it alone — the Insights "Next AI Coach run"
   -- card reads it directly.
 
+  -- ---------- 7a. DEEPER HISTORY (months 13-24 back) ---------------
+  -- The base 0013 seed only goes back ~12 months. The Insights
+  -- "YoY growth (trailing 12)" KPI compares the last 12 months to the
+  -- 12 before that, so without any data older than ~360 days ago it
+  -- divides by zero and renders "—". Backfill ~10 paid invoices into
+  -- the months-13-to-22 window so the YoY calc has something to
+  -- compare against. Smaller volume than the recent year on purpose
+  -- so YoY shows healthy growth rather than a flat line.
+  insert into public.invoices (org_id, owner_id, customer_id, amount, status, issued_date, paid_date, notes)
+  select
+    p_org_id, v_owner_id, cu.id, v.amount, 'paid'::text,
+    (v_today - v.days_ago)::date,
+    (v_today - v.days_ago + 7)::date,
+    v.title
+  from (values
+    (440, 'Marcus Robinson',         'Lighting tune-up',          425.00),
+    (455, 'Patricia Chen',           'Bathroom GFCI add',         310.00),
+    (470, 'James & Linda Foster',    'Spring HVAC service',       380.00),
+    (495, 'Diana Whitaker',          'Front porch repair',        920.00),
+    (510, 'Crestview Property Mgmt', 'Rental #1 disposal swap',   495.00),
+    (540, 'Anderson Family Trust',   'Driveway sealcoat',         1100.00),
+    (575, 'Emily Park',              'Pendant lighting (kitchen)',640.00),
+    (605, 'Robert Thornton',         'Loft AC service',           295.00),
+    (630, 'James & Linda Foster',    'Deck pressure-wash',        385.00),
+    (660, 'Marcus Robinson',         'Outdoor outlet add',        220.00)
+  ) as v(days_ago, customer_name, title, amount)
+  join public.customers cu on cu.org_id = p_org_id and cu.name = v.customer_name;
+
+  -- Sprinkle in a handful of older overhead expenses too so the
+  -- year-over-year expense compare is fair (otherwise the Expense %
+  -- of revenue KPI would also look distorted in the old window).
+  insert into public.expenses (org_id, owner_id, category, amount, expense_date, vendor, description)
+  select p_org_id, v_owner_id, 'insurance', 410.00, (v_today - (n * 30 + 400))::date, 'Hartford', 'Monthly GL premium'
+    from generate_series(0, 7) as n;
+  insert into public.expenses (org_id, owner_id, category, amount, expense_date, vendor, description)
+  select p_org_id, v_owner_id, 'fuel',
+         round((58 + (n % 5) * 6)::numeric, 2),
+         (v_today - 420 - n * 14)::date,
+         case when n % 2 = 0 then 'Shell' else 'Chevron' end,
+         'Truck #' || (1 + (n % 2))::text || ' fill'
+    from generate_series(0, 14) as n;
+
   -- ---------- 7b. CUSTOMER FEEDBACK (REVIEWS) ----------------------
   -- The /reviews tab reads from public.feedback. The base demo seed
   -- (0013) clears feedback at the start of every reset but never
