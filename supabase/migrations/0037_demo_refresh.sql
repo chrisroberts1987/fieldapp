@@ -180,6 +180,37 @@ begin
   -- current month. Leave it alone — the Insights "Next AI Coach run"
   -- card reads it directly.
 
+  -- ---------- 7b. CUSTOMER FEEDBACK (REVIEWS) ----------------------
+  -- The /reviews tab reads from public.feedback. The base demo seed
+  -- (0013) clears feedback at the start of every reset but never
+  -- recreates any, so the Reviews screen looked empty. Backfill a
+  -- handful of submitted reviews tied to historical paid invoices so
+  -- the average-rating tile and the rating breakdown both light up.
+  delete from public.feedback where org_id = p_org_id;
+  insert into public.feedback (org_id, invoice_id, customer_id, customer_name, rating, comment, submitted_at, created_at)
+  select
+    p_org_id,
+    inv.id,
+    inv.customer_id,
+    cu.name,
+    v.rating,
+    v.comment,
+    (v_today - v.days_ago)::timestamptz + interval '15 hours',
+    (v_today - v.days_ago - 1)::timestamptz
+  from (values
+    ('Water heater install',          5, 'Quick and clean. Knew exactly what they were doing, no upsell.', 18),
+    ('Panel upgrade to 200A',         4, 'Good work overall. Took a little longer than I expected but they cleaned up after.', 22),
+    ('Light fixture installation',    5, 'Looks great in the loft. Showed up on time and finished the same day.', 4),
+    ('Toilet replacement (rental #7)',5, 'Tenant was happy too. Thanks for handling everything directly with them.', 50),
+    ('Bathroom plumbing rough-in',    5, 'On budget and on schedule. Will use again for phase 2.', 48),
+    ('AC tune-up + capacitor',        5, 'Honest diagnosis, fair price. Cool air the next day.', 82),
+    ('Kitchen sink repair',           4, 'Solid work. Would have liked a heads-up text the morning of.', 110),
+    ('Interior door hanging',         5, 'All three doors swing perfect now. Thanks Sarah and crew.', 78),
+    ('Outlet replacement',            3, 'Job got done but had to call back the next day to fix one of the outlets.', 108)
+  ) as v(title, rating, comment, days_ago)
+  join public.invoices inv on inv.org_id = p_org_id and inv.notes = v.title and inv.status = 'paid'
+  left join public.customers cu on cu.id = inv.customer_id;
+
   -- ---------- 8. SUPERVISOR HIERARCHY ----------------------------
   -- Wire David Cooper and Marcus Lee to report to Sarah Martinez
   -- (the dispatcher) so the supervisor view has something to show.
