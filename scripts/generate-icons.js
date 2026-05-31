@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Generates all PWA icon PNGs (plus iOS apple-touch-icon and a splash
-// screen) from public/icons/icon-source.svg. Run once after editing the
-// source SVG:
+// screen) from the master brand artwork at
+// public/brand/myforeman-icon-1024.png. Run once after the artwork
+// changes:
 //
 //   npm install --save-dev sharp
 //   node scripts/generate-icons.js
@@ -13,7 +14,7 @@ const fs   = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 
-const SRC      = path.join(__dirname, '..', 'public', 'icons', 'icon-source.svg');
+const SRC      = path.join(__dirname, '..', 'public', 'brand', 'myforeman-icon-1024.png');
 const OUT_DIR  = path.join(__dirname, '..', 'public', 'icons');
 const SPLASH_DIR = path.join(__dirname, '..', 'public', 'splash');
 

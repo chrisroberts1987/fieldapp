@@ -46,7 +46,26 @@ export default function Logo({ size = 'md', icon = true, tagline = false }) {
   );
 }
 
+// LogoIcon now renders the rasterized brand mark from
+// public/brand/myforeman-icon-500.png so the in-app lockup,
+// favicon, and PWA icons all stay visually identical. Fallback to
+// the inline SVG hat would only be needed if the brand asset goes
+// missing — we ship both for safety.
 export function LogoIcon({ size = 40 }) {
+  return (
+    <img
+      src="/brand/myforeman-icon-500.png"
+      alt=""
+      width={size}
+      height={size}
+      style={{display:'block',borderRadius:Math.round(size * 0.18),flexShrink:0}}
+    />
+  );
+}
+
+// Kept around as a fallback (currently unused) so the inline SVG
+// hat is still available if needed for a non-image context.
+function LegacyLogoIconSvg({ size = 40 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <rect width="64" height="64" rx="12" fill="#4f9eff"/>
