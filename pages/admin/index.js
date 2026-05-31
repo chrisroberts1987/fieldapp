@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { fmt$, fmtDate } from '../../lib/helpers';
-import Logo from '../../components/Logo';
+import { HorizontalLogo } from '../../components/Logo';
 import { toast } from '../../components/Toast';
 
 // Platform-owner admin dashboard. Client-side this is a thin shell:
@@ -88,7 +88,7 @@ function AdminHeader({ user, router }) {
     <div style={{background:'#0d1726',borderBottom:'1px solid #1f2a40',padding:'12px 14px'}}>
       <div style={{maxWidth:1280,margin:'0 auto',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
         <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0}}>
-          <Logo size="sm" />
+          <HorizontalLogo height={36}/>
           <span style={{background:'#fbbf2422',color:'#fbbf24',border:'1px solid #fbbf2466',borderRadius:999,padding:'2px 9px',fontSize:10,fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',whiteSpace:'nowrap'}}>Admin</span>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>

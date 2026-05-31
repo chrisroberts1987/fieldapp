@@ -81,7 +81,21 @@ async function main() {
     console.log(`  wrote ${path.relative(process.cwd(), out)}`);
   }
 
-  console.log('\nDone. Generated', sizes.length + maskableSizes.length, 'icon files and', splashSizes.length, 'splash screens.');
+  // Favicons (top-level public/ so /favicon.ico resolves by default).
+  // We emit two PNG favicons at 16 and 32 plus a 32px file at
+  // favicon.ico — modern browsers accept a PNG inside a .ico
+  // filename for single-image fallbacks.
+  const publicDir = path.join(__dirname, '..', 'public');
+  for (const size of [16, 32]) {
+    const out = path.join(publicDir, `favicon-${size}x${size}.png`);
+    await sharp(svg).resize(size, size).png().toFile(out);
+    console.log(`  wrote ${path.relative(process.cwd(), out)}`);
+  }
+  const icoOut = path.join(publicDir, 'favicon.ico');
+  await sharp(svg).resize(32, 32).png().toFile(icoOut);
+  console.log(`  wrote ${path.relative(process.cwd(), icoOut)}`);
+
+  console.log('\nDone. Generated', sizes.length + maskableSizes.length, 'icon files,', splashSizes.length, 'splash screens, and 3 favicons.');
 }
 
 main().catch(err => { console.error(err); process.exit(1); });

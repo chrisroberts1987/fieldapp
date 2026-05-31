@@ -70,6 +70,14 @@ export default function PublicInvoice() {
 
   return (
     <Shell>
+      {/* MyForeman platform header strip — sits above the
+          contractor's own branding so customers know what app
+          rendered the invoice. */}
+      <div style={{padding:'12px 24px',borderBottom:'1px solid #2e3f60',background:'#0d1726'}}>
+        <a href="https://myforemanhq.com" style={{display:'inline-block'}} aria-label="MyForeman">
+          <img src="/brand/myforeman-logo-horizontal.png" alt="MyForeman" style={{height:48,width:'auto',display:'block'}}/>
+        </a>
+      </div>
       {/* Header / branding */}
       <div style={{padding:'24px 24px 18px',borderBottom:'1px solid #2e3f60'}}>
         <div style={{display:'flex',alignItems:'center',gap:14}}>

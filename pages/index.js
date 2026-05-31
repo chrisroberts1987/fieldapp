@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
-import Logo from '../components/Logo';
+import Logo, { HorizontalLogo } from '../components/Logo';
 
 export default function Home() {
   const router = useRouter();
@@ -160,7 +160,9 @@ function Hero({ router, supabase }) {
       <div className="hero-glow"/>
 
       <nav style={{position:'relative',zIndex:2,display:'flex',justifyContent:'space-between',alignItems:'center',maxWidth:1200,margin:'0 auto',padding:'0 20px',gap:12}}>
-        <Logo size="sm"/>
+        <a href="/" style={{display:'inline-block',cursor:'pointer'}} aria-label="MyForeman home">
+          <HorizontalLogo height={40}/>
+        </a>
         <div style={{display:'flex',gap:10,alignItems:'center'}}>
           <button onClick={() => router.push('/login')}
             style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'8px 14px',cursor:'pointer',fontSize:12,fontWeight:600,letterSpacing:'.06em'}}>
@@ -744,7 +746,7 @@ function FooterSection() {
     <footer style={{padding:'40px 20px 32px',borderTop:'1px solid #1f2a40'}}>
       <div className="footer-row" style={{maxWidth:1080,margin:'0 auto'}}>
         <div>
-          <Logo size="sm"/>
+          <HorizontalLogo height={32}/>
           <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.16em',marginTop:8,fontWeight:600,textTransform:'uppercase'}}>
             From lead to paid
           </div>

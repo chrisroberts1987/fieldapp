@@ -5,7 +5,7 @@ import { useRefetchOnFocus } from '../lib/useFocus';
 import { useOrg } from '../lib/org';
 import { isForeman, isSupervisor, isCrew } from '../lib/role';
 import { trialDaysLeft, isBlocked } from '../lib/billing';
-import Logo from './Logo';
+import { HorizontalLogo } from './Logo';
 
 // Tab visibility is the second layer of defense behind RLS (migration
 // 0038). Source of truth — what each tier sees:
@@ -214,8 +214,8 @@ export default function TopNav({ active }) {
         </div>
       )}
       <div style={{maxWidth:1280,margin:'0 auto',padding:'10px 16px',display:'flex',alignItems:'center',gap:14}}>
-        <div onClick={() => router.push('/dashboard')} style={{cursor:'pointer',flexShrink:0}}>
-          <Logo size="sm" />
+        <div onClick={() => router.push('/dashboard')} style={{cursor:'pointer',flexShrink:0}} aria-label="MyForeman home">
+          <HorizontalLogo height={36}/>
         </div>
 
         <nav className="topnav-tabs" style={{display:'flex',gap:2,flex:1,overflowX:'auto',scrollbarWidth:'none'}}>

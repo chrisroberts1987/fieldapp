@@ -58,8 +58,8 @@ export default function MyApp({ Component, pageProps }) {
         <title>MyForeman — From lead to paid</title>
         <meta name="description" content="Run your field service business from first call to final payment, with AI insights that help you grow." />
         <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-        <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
-        <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
+        {/* favicon links live in pages/_document.js so they ship in
+            the initial HTML response. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" />

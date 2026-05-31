@@ -1,3 +1,17 @@
+// Horizontal lockup — the wide PNG wordmark + icon. Use this when
+// the page has horizontal room to spare (landing nav, login, the
+// in-app TopNav, the public invoice header). Accepts a height prop
+// since width auto-scales naturally for an img element.
+export function HorizontalLogo({ height = 40, alt = 'MyForeman', style }) {
+  return (
+    <img
+      src="/brand/myforeman-logo-horizontal.png"
+      alt={alt}
+      style={{ height, width: 'auto', display: 'block', ...style }}
+    />
+  );
+}
+
 // Reusable MyForeman brand lockup.
 //
 // size: 'sm' | 'md' | 'lg' | 'xl'  (controls overall scale)
