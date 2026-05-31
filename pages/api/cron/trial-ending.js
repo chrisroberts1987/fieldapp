@@ -9,6 +9,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { notifyOrgBySMS } from '../../../lib/sms/notify';
 import { trialEndingSMS } from '../../../lib/sms/templates';
+import { sendPushToUsers } from '../../../lib/push/send';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -64,6 +65,23 @@ export default async function handler(req, res) {
     } else {
       skipped++;
     }
+
+    // Push to the owner / admins (web + native). Best-effort; the
+    // SMS above is the source-of-truth signal so we don't unwind
+    // anything on failure.
+    try {
+      const { data: owners } = await sb.from('org_members')
+        .select('user_id').eq('org_id', org.id).in('role', ['owner','admin']);
+      const ids = (owners || []).map(m => m.user_id).filter(Boolean);
+      if (ids.length > 0) {
+        await sendPushToUsers(ids, {
+          title: `Trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'} ⏰`,
+          body:  'Add a payment method to keep your tools, customers, and history.',
+          url:   '/billing',
+          tag:   `trial-${org.id}`,
+        });
+      }
+    } catch (e) { console.warn('[trial-ending] push failed', e?.message); }
   }
 
   return res.status(200).json({ ok: true, sent, skipped, scanned: orgs?.length || 0 });

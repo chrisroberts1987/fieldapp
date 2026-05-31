@@ -95,9 +95,27 @@ export default async function handler(req, res) {
     } else if (event.type === 'invoice.payment_failed') {
       const inv = event.data.object;
       if (inv.subscription) {
-        await sb.from('organizations')
+        const { data: org } = await sb.from('organizations')
           .update({ subscription_status: 'past_due' })
-          .eq('stripe_subscription_id', inv.subscription);
+          .eq('stripe_subscription_id', inv.subscription)
+          .select('id').maybeSingle();
+        // Push to owners/admins: web + native, best-effort.
+        if (org?.id) {
+          try {
+            const { sendPushToUsers } = await import('../../../lib/push/send');
+            const { data: owners } = await sb.from('org_members')
+              .select('user_id').eq('org_id', org.id).in('role', ['owner','admin']);
+            const ids = (owners || []).map(m => m.user_id).filter(Boolean);
+            if (ids.length > 0) {
+              await sendPushToUsers(ids, {
+                title: 'Payment failed ⚠️',
+                body:  'Update your card to keep your subscription active.',
+                url:   '/billing',
+                tag:   `payment-${org.id}`,
+              });
+            }
+          } catch (e) { console.warn('[stripe webhook] payment_failed push failed', e?.message); }
+        }
       }
     } else if (event.type === 'payment_intent.payment_failed') {
       console.log('[stripe webhook] payment_intent.payment_failed', event.data.object?.id);

@@ -8,6 +8,7 @@ import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import SubNav from '../../components/SubNav';
 import { validateUpload, ACCEPT_ATTR } from '../../lib/uploads';
+import { firePushEvent } from '../../lib/push/fire';
 import { toast } from '../../components/Toast';
 
 // deductible: percentage of the expense that's tax-deductible (IRS rules).
@@ -130,12 +131,18 @@ export default function Expenses() {
 
     if (sheet === 'new') {
       const status = isCrew(role) ? 'pending' : 'approved';
-      await supabase.from('expenses').insert({
+      const { data: inserted } = await supabase.from('expenses').insert({
         ...payload, owner_id: user.id, org_id: orgId,
         approval_status: status,
         approved_by: status === 'approved' ? user.id : null,
         approved_at: status === 'approved' ? new Date().toISOString() : null,
-      });
+      }).select('id').single();
+      // Crew submission → ping the office (foreman + this crew's
+      // supervisor) on both web and native. Office-self insertion
+      // is auto-approved so it skips the push.
+      if (status === 'pending' && inserted?.id) {
+        firePushEvent('expense_submitted', inserted.id);
+      }
     } else {
       await supabase.from('expenses').update(payload).eq('id', sheet.id);
     }

@@ -98,16 +98,85 @@ export default async function handler(req, res) {
     }
 
     if (event === 'job_assigned') {
-      const { data: j } = await sb.from('jobs').select('id, title, scheduled_date, assigned_to_user_id, org_id').eq('id', refId).maybeSingle();
+      const { data: j } = await sb.from('jobs').select('id, title, scheduled_date, assigned_to_user_id, org_id, customers ( address )').eq('id', refId).maybeSingle();
       if (!j || !j.assigned_to_user_id) return res.status(404).json({ error: 'Job not found or no assignee.' });
       const when = j.scheduled_date
         ? ` · ${new Date(j.scheduled_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
         : '';
+      const where = j.customers?.address
+        ? ` at ${j.customers.address.split(/[\n,]/)[0].trim()}`
+        : '';
       await sendPushToUsers([j.assigned_to_user_id], {
         title: 'New job assigned 🔧',
-        body:  `${j.title}${when}`,
+        body:  `${j.title}${where}${when}`,
         url:   '/jobs',
         tag:   `job-${j.id}`,
+      });
+      return res.status(200).json({ ok: true });
+    }
+
+    // Expense / mileage submitted by a crew member, ping the office
+    // (foreman + the crew member's supervisor). Wires the approvals
+    // queue notification all the way through to native.
+    if (event === 'expense_submitted') {
+      const { data: e } = await sb
+        .from('expenses')
+        .select('id, amount, owner_id, org_id, approval_status')
+        .eq('id', refId).maybeSingle();
+      if (!e || e.approval_status !== 'pending') return res.status(404).json({ error: 'Expense not found or not pending.' });
+      // Resolve submitter name + their supervisor (if any) so we can
+      // ping the right office members without spamming the whole org.
+      const [{ data: submitter }, { data: foremen }] = await Promise.all([
+        sb.from('org_members').select('user_id, display_name, supervisor_id').eq('user_id', e.owner_id).eq('org_id', e.org_id).maybeSingle(),
+        sb.from('org_members').select('user_id').eq('org_id', e.org_id).in('role', ['owner','admin']),
+      ]);
+      const submitterName = submitter?.display_name || 'Crew';
+      const targets = new Set();
+      (foremen || []).forEach(m => targets.add(m.user_id));
+      if (submitter?.supervisor_id) targets.add(submitter.supervisor_id);
+      targets.delete(e.owner_id); // don't ping the submitter
+      if (targets.size === 0) return res.status(200).json({ ok: true, sent: 0 });
+      await sendPushToUsers([...targets], {
+        title: 'Expense submitted 🧾',
+        body:  `${submitterName} submitted ${fmt$(e.amount)}.`,
+        url:   '/approvals',
+        tag:   `expense-${e.id}`,
+      });
+      return res.status(200).json({ ok: true });
+    }
+
+    // Stripe payment_intent failed — ping the org owner so the trial
+    // banner isn't the only signal that billing is broken.
+    if (event === 'payment_failed') {
+      const { data: org } = await sb.from('organizations').select('id, name').eq('id', refId).maybeSingle();
+      if (!org) return res.status(404).json({ error: 'Org not found.' });
+      const { data: owners } = await sb.from('org_members').select('user_id').eq('org_id', org.id).in('role', ['owner','admin']);
+      const ids = (owners || []).map(m => m.user_id);
+      if (ids.length === 0) return res.status(200).json({ ok: true, sent: 0 });
+      await sendPushToUsers(ids, {
+        title: 'Payment failed ⚠️',
+        body:  'Update your card to keep your subscription active.',
+        url:   '/billing',
+        tag:   `payment-${org.id}`,
+      });
+      return res.status(200).json({ ok: true });
+    }
+
+    // Trial-ending cron fires this with refId = org.id and days_left
+    // in the body. We don't validate days_left server-side — the cron
+    // is the only thing that calls this and it computes the number.
+    if (event === 'trial_ending') {
+      const { data: org } = await sb.from('organizations').select('id, name').eq('id', refId).maybeSingle();
+      if (!org) return res.status(404).json({ error: 'Org not found.' });
+      const days = Number(req.body?.daysLeft ?? 3);
+      const { data: owners } = await sb.from('org_members').select('user_id').eq('org_id', org.id).in('role', ['owner','admin']);
+      const ids = (owners || []).map(m => m.user_id);
+      if (ids.length === 0) return res.status(200).json({ ok: true, sent: 0 });
+      await sendPushToUsers(ids, {
+        title: `Trial ends in ${days} day${days === 1 ? '' : 's'} ⏰`,
+        body:  'Add a payment method to keep your tools, customers, and history.',
+        url:   '/billing',
+        tag:   `trial-${org.id}`,
       });
       return res.status(200).json({ ok: true });
     }
