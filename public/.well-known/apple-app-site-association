@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["J2JH279GW5.com.myforeman.native"],
+        "components": [
+          {
+            "/": "/invite/*",
+            "comment": "MyForeman crew invite deep link"
+          }
+        ]
+      }
+    ]
+  }
+}
