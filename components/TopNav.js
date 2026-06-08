@@ -293,6 +293,9 @@ export default function TopNav({ active }) {
             <>
               <div onClick={() => setMenuOpen(false)} style={{position:'fixed',inset:0,zIndex:60}}/>
               <div style={{position:'absolute',right:0,top:'calc(100% + 6px)',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:10,minWidth:160,padding:6,zIndex:70,boxShadow:'0 8px 24px rgba(0,0,0,.4)'}}>
+                {(user?.email || '').toLowerCase() === 'chris.roberts@myforemanhq.com' && (
+                  <MenuItem label="Admin Panel" onClick={() => { setMenuOpen(false); router.push('/admin'); }} />
+                )}
                 <MenuItem label="Settings"  onClick={() => { setMenuOpen(false); router.push('/settings'); }} />
                 <MenuItem label="Billing"   onClick={() => { setMenuOpen(false); router.push('/billing'); }} />
                 <MenuItem label="Contact"   onClick={() => { setMenuOpen(false); router.push('/contact'); }} />
