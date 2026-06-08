@@ -5,6 +5,7 @@ import { useRefetchOnFocus } from '../lib/useFocus';
 import { useOrg } from '../lib/org';
 import { isForeman, isSupervisor, isCrew } from '../lib/role';
 import { trialDaysLeft, isBlocked } from '../lib/billing';
+import { isPlatformOwner } from '../lib/platformOwner';
 import { HorizontalLogo } from './Logo';
 
 // Tab visibility is the second layer of defense behind RLS (migration
@@ -113,11 +114,15 @@ export default function TopNav({ active }) {
   };
 
   const isDemo = user?.email === 'demo@myforemanhq.com';
+  // Platform owner skips every nag banner — they don't pay for their
+  // own product, don't need a Connect account to test the app, and
+  // shouldn't see "trial ends in 3 days" messaging.
+  const isPlatform = isPlatformOwner(user);
   const isOwner = role === 'owner' || role === 'admin';
   const daysLeft = trialDaysLeft(org);
   const subStatus = org?.subscription_status;
-  const showTrialBanner = !isDemo && isOwner && subStatus === 'trialing' && daysLeft != null;
-  const showPastDue     = !isDemo && isOwner && subStatus === 'past_due';
+  const showTrialBanner = !isDemo && !isPlatform && isOwner && subStatus === 'trialing' && daysLeft != null;
+  const showPastDue     = !isDemo && !isPlatform && isOwner && subStatus === 'past_due';
 
   // Connect prompt: owner hasn't finished Stripe Connect onboarding,
   // so the org can't accept card payments yet. Stacks below the
@@ -125,7 +130,7 @@ export default function TopNav({ active }) {
   // once charges_enabled flips true.
   const connectStarted     = !!org?.stripe_connect_account_id;
   const connectChargesOK   = !!org?.stripe_connect_charges_enabled;
-  const showConnectBanner  = !isDemo && isOwner && !!org && !connectChargesOK;
+  const showConnectBanner  = !isDemo && !isPlatform && isOwner && !!org && !connectChargesOK;
   const [connectBusy, setConnectBusy] = useState(false);
 
   // Hit /api/stripe/connect/start and jump straight to Stripe's

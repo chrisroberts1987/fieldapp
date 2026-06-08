@@ -61,9 +61,12 @@ export default function Onboarding() {
     if (step !== 1) return;
     // Demo account is exempt from the plan-picker gate; just send it
     // to the dashboard. It's a shared read-only org with no
-    // subscription on purpose.
-    const isDemoUser = (user.email || '').toLowerCase() === 'demo@myforemanhq.com';
-    if (isDemoUser) {
+    // subscription on purpose. Platform owner is exempt for the
+    // same reason — they don't pay for their own product.
+    const email = (user.email || '').toLowerCase();
+    const isDemoUser = email === 'demo@myforemanhq.com';
+    const isPlatform = email === 'chris.roberts@myforemanhq.com';
+    if (isDemoUser || isPlatform) {
       router.push('/dashboard');
       return;
     }

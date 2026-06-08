@@ -7,6 +7,7 @@ import { isForeman, isSupervisor, isCrew, isOffice, roleLabel } from '../../lib/
 import { fmt$, fmtDate, todayStr } from '../../lib/helpers';
 import TopNav from '../../components/TopNav';
 import { isBlocked } from '../../lib/billing';
+import { isPlatformOwner } from '../../lib/platformOwner';
 import MarkPaidModal from '../../components/MarkPaidModal';
 import WeekStrip from '../../components/WeekStrip';
 
@@ -235,7 +236,11 @@ export default function Dashboard() {
     // intentionally has no subscription. Forcing it through the
     // plan picker would either trap it or charge real money.
     const isDemoUser = (user?.email || '').toLowerCase() === 'demo@myforemanhq.com';
-    if (!isDemoUser && role === 'owner' && org && !org.stripe_subscription_id) {
+    // Platform owner is exempt from every billing gate — they're the
+    // one running the platform; charging them a subscription on
+    // their own product would be circular.
+    const isPlatform = isPlatformOwner(user);
+    if (!isDemoUser && !isPlatform && role === 'owner' && org && !org.stripe_subscription_id) {
       router.push('/onboarding');
       return;
     }
@@ -243,7 +248,7 @@ export default function Dashboard() {
     // / expired — punt the owner straight to billing so they can fix
     // it. Crew + supervisor still get the dashboard so they can keep
     // working while the foreman sorts billing.
-    if (isForeman(role) && isBlocked(org)) {
+    if (!isPlatform && isForeman(role) && isBlocked(org)) {
       router.push('/billing');
       return;
     }
