@@ -180,6 +180,59 @@ begin
   -- current month. Leave it alone — the Insights "Next AI Coach run"
   -- card reads it directly.
 
+  -- ---------- 7c. MONTH-ANCHORED DATA (always populates MTD) -------
+  -- The base seed in 0013 anchors everything to v_today offsets,
+  -- which means on the 1st of a new calendar month the "Revenue
+  -- this month" KPI can read $0 (the most recent paid_date is a
+  -- few days ago — in last month). Guarantee at least three
+  -- invoices, an expense, and a scheduled job within the current
+  -- calendar month so the demo never opens on a flat dashboard.
+  declare
+    v_month_start date := date_trunc('month', v_today)::date;
+  begin
+    insert into public.invoices (org_id, owner_id, customer_id, amount, status, issued_date, paid_date, notes)
+    select
+      p_org_id, v_owner_id, cu.id, v.amount, 'paid'::text,
+      least(v_month_start + v.day_off, v_today),
+      least(v_month_start + v.day_off + 2, v_today),
+      v.title
+    from (values
+      (0,  'Patricia Chen',           'Garage outlet add',         320.00),
+      (3,  'Anderson Family Trust',   'Walk-through + filter swap',480.00),
+      (7,  'Marcus Robinson',         'Bath faucet swap',          240.00),
+      (12, 'James & Linda Foster',    'Disposal install',          295.00),
+      (18, 'Emily Park',              'Ceiling fan rebalance',     180.00)
+    ) as v(day_off, customer_name, title, amount)
+    join public.customers cu on cu.org_id = p_org_id and cu.name = v.customer_name
+    where (v_month_start + v.day_off) <= v_today;
+
+    -- Month-anchored expenses so net-income math also stays live.
+    insert into public.expenses (org_id, owner_id, category, amount, expense_date, vendor, description)
+    select
+      p_org_id, v_owner_id, v.category, v.amount,
+      least(v_month_start + v.day_off, v_today),
+      v.vendor, v.description
+    from (values
+      (1,  'fuel',     62.20, 'Shell',            'Truck #1 fill'),
+      (4,  'materials',148.30,'Home Depot',       'Faucet, supply lines'),
+      (10, 'insurance',410.00,'Hartford',         'Monthly GL premium'),
+      (15, 'fuel',     71.80, 'Chevron',          'Truck #2 fill')
+    ) as v(day_off, category, amount, vendor, description)
+    where (v_month_start + v.day_off) <= v_today;
+
+    -- A scheduled active job in the current month so the WeekStrip /
+    -- schedule never reads "nothing scheduled" even on day-1.
+    insert into public.jobs (org_id, owner_id, customer_id, assigned_to_user_id, title, description, status, scheduled_date, price, created_at)
+    select p_org_id, v_owner_id, cu.id, om.user_id,
+           'This-month tune-up', 'Maintenance visit on the recurring plan.',
+           'scheduled'::text, v_today + 2, 350.00,
+           (v_today)::timestamptz
+      from public.customers cu, public.org_members om
+      where cu.org_id = p_org_id and cu.name = 'Anderson Family Trust'
+        and om.org_id = p_org_id and om.role = 'crew'
+      limit 1;
+  end;
+
   -- ---------- 7a. DEEPER HISTORY (months 13-24 back) ---------------
   -- The base 0013 seed only goes back ~12 months. The Insights
   -- "YoY growth (trailing 12)" KPI compares the last 12 months to the
