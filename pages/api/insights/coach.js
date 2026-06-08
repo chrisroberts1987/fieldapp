@@ -16,8 +16,10 @@ const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY;
 // Cost-control policy: keep Sonnet (not Opus) for the monthly coach.
 // Run is once-a-month per org, so the per-call cost ceiling is small;
 // what matters is reasoning quality on the recommendation set, and
-// Sonnet 4 is the sweet spot.
-const COACH_MODEL = 'claude-sonnet-4-20250514';
+// Sonnet is the sweet spot. (The earlier date-suffixed alias
+// claude-sonnet-4-20250514 was returning 404 — switched to the
+// current canonical Sonnet ID.)
+const COACH_MODEL = 'claude-sonnet-4-6';
 
 const client = new Anthropic();
 
