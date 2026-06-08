@@ -46,13 +46,16 @@ Rules:
 - If the data is genuinely too sparse for a particular area, skip that area rather than guessing.
 - Return ONLY the JSON object, no preamble.`;
 
+// Note: Claude's output_config json_schema only supports minItems
+// values of 0 or 1, so we can't enforce "exactly 4 or 5" at the
+// schema level. The count constraint lives in SYSTEM_PROMPT
+// ("Return EXACTLY 4 or 5 recommendations, ordered by impact.")
+// which the model honors in practice.
 const SCHEMA = {
   type: 'object',
   properties: {
     recommendations: {
       type: 'array',
-      minItems: 4,
-      maxItems: 5,
       items: {
         type: 'object',
         properties: {
