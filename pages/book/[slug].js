@@ -18,6 +18,7 @@ export default function BookingPage() {
     name:'', phone:'', email:'', address:'',
     service_id:'', requested_date:'', requested_time:'',
     notes:'',
+    sms_opt_in: false,
   });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -50,6 +51,10 @@ export default function BookingPage() {
       p_requested_date: form.requested_date || null,
       p_requested_time: form.requested_time || null,
       p_notes:         form.notes || null,
+      // Customer affirmatively opted in to receiving SMS — captures
+      // documented consent on the lead so it carries to the customer
+      // record at conversion.
+      p_sms_opt_in:    !!(form.sms_opt_in && form.phone),
     });
     setSubmitting(false);
     if (rpcErr || !resp?.ok) { setError(rpcErr?.message || 'Could not submit. Try again.'); return; }
@@ -164,6 +169,25 @@ export default function BookingPage() {
               placeholder="Access, gate codes, dogs, what's going wrong..."
               style={{...input, resize:'vertical', minHeight:80, fontFamily:'inherit'}}/>
           </Field>
+
+          {/* SMS opt-in. Only shown when a phone number is on file —
+              consent without a phone number is meaningless. The
+              language is plain "checkbox-and-disclosure" so a TCPA
+              audit reads cleanly. */}
+          {form.phone.trim() && (
+            <label htmlFor="sms-opt-in"
+              style={{display:'flex',gap:10,alignItems:'flex-start',padding:'10px 12px',marginBottom:12,
+                      background:'#1a2236',border:'1.5px solid '+(form.sms_opt_in ? '#2edf87' : '#2e3f60'),
+                      borderRadius:10,cursor:'pointer',transition:'border-color .15s'}}>
+              <input id="sms-opt-in" type="checkbox"
+                checked={form.sms_opt_in}
+                onChange={e => setForm(p => ({...p, sms_opt_in: e.target.checked}))}
+                style={{marginTop:2,width:18,height:18,flexShrink:0,accentColor:'#2edf87',cursor:'pointer'}}/>
+              <span style={{fontSize:12,color:'#c8d4ee',lineHeight:1.5}}>
+                Text me appointment confirmations and on-the-way alerts at the number above. Message + data rates may apply. Reply STOP at any time to opt out.
+              </span>
+            </label>
+          )}
 
           {error && <div style={{background:'rgba(242,96,96,.12)',border:'1px solid rgba(242,96,96,.3)',borderRadius:8,padding:'9px 12px',marginBottom:10,fontSize:12,color:'#f26060'}}>{error}</div>}
 

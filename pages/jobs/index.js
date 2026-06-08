@@ -382,14 +382,32 @@ export default function Jobs() {
     // they remember to clock in.
     const { lat, lng } = await tryGetCoords();
 
-    // Customer notification goes by email only. We don't text
-    // customers on the contractor's behalf — that's a trust + legal
-    // exposure problem (a bot or template committing the contractor
-    // to a time / price). Email is enough to land the heads-up.
+    // Customer notification: email always (no consent required for
+    // transactional appointment updates) PLUS SMS when the customer
+    // has affirmatively opted in. The SMS endpoint gates on
+    // customer.sms_opt_in_at and sms_opt_out for TCPA compliance —
+    // we just fire and forget.
     let emailOk = false;
     if (cust.email) {
       const r = await sendEmail({ type: 'on_my_way', to: cust.email, data });
       emailOk = !!r?.ok;
+    }
+    if (cust.phone) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await fetch('/api/sms/customer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({
+              kind: 'on_my_way',
+              customerId: cust.id,
+              data: { crewName, etaMins: 30 },
+            }),
+            keepalive: true,
+          });
+        }
+      } catch { /* best-effort */ }
     }
 
     // Auto-clock-in for THIS visit. For multi-day jobs, we want one
