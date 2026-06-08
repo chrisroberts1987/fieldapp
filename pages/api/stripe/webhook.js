@@ -209,7 +209,7 @@ async function markInvoicePaid(sb, invoiceId, { paymentIntentId, sessionId }) {
 
   const { data: inv } = await sb
     .from('invoices')
-    .select('id, status, amount, org_id, customer_id, public_token, customers ( name, email ), organizations ( name, business_email, logo_url )')
+    .select('id, status, amount, org_id, customer_id, public_token, customers ( id, name, email, phone, sms_opt_in_at, sms_opt_out ), organizations ( name, business_email, logo_url )')
     .eq('id', invoiceId)
     .maybeSingle();
   if (!inv) {
@@ -305,6 +305,30 @@ async function markInvoicePaid(sb, invoiceId, { paymentIntentId, sessionId }) {
       }
     } catch (e) {
       console.warn('[stripe webhook] customer email send failed:', e?.message);
+    }
+  }
+
+  // 3b. Customer SMS sister to the email (gated server-side on
+  // sms_opt_in_at + !sms_opt_out by sendCustomerSMS).
+  if (customer.phone) {
+    try {
+      const { sendCustomerSMS } = await import('../../../lib/sms/customer');
+      const { paymentReceivedCustomerSMS } = await import('../../../lib/sms/templates');
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
+        || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'https://www.myforemanhq.com');
+      const invoiceUrl = inv.public_token ? `${baseUrl}/inv/${inv.public_token}` : null;
+      const feedbackUrl = existing?.token ? `${baseUrl}/feedback/${existing.token}` : null;
+      const body = paymentReceivedCustomerSMS({
+        orgName: org.name, amount, invoiceUrl, feedbackUrl,
+      });
+      await sendCustomerSMS(sb, {
+        orgId: inv.org_id,
+        customer,
+        body,
+        kind: 'payment',
+      });
+    } catch (e) {
+      console.warn('[stripe webhook] customer SMS send failed:', e?.message);
     }
   }
 

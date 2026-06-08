@@ -615,6 +615,30 @@ export default function Jobs() {
       } else if (cust) {
         scheduleNotice = { ok: false, text: `No email on file for ${cust.name}. Add one in Customers to auto-notify them next time.` };
       }
+      // SMS sister to the email — gated server-side on
+      // customer.sms_opt_in_at + !sms_opt_out, so this call is safe
+      // to fire for every customer with a phone on file.
+      if (cust?.phone) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            await fetch('/api/sms/customer', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+              body: JSON.stringify({
+                kind: 'appointment',
+                customerId: cust.id,
+                data: {
+                  dateStr: human,
+                  timeStr: payload.scheduled_time ? payload.scheduled_time.slice(0,5) : null,
+                  jobTitle: payload.title,
+                },
+              }),
+              keepalive: true,
+            });
+          }
+        } catch { /* best-effort */ }
+      }
     }
 
     // When a job transitions to completed, close out any open time
