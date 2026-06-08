@@ -18,7 +18,7 @@ const DEMO_EMAIL   = 'demo@myforemanhq.com';
 // Routes where the tour is allowed to live (avoids firing on the
 // landing page, login, signup, public quote, feedback, etc).
 const TOUR_ROUTES = new Set([
-  '/dashboard', '/leads', '/quotes', '/jobs', '/invoices',
+  '/dashboard', '/leads', '/quotes', '/services', '/jobs', '/invoices',
   '/insights', '/customers', '/expenses', '/mileage', '/crew',
   '/approvals', '/tax', '/settings',
 ]);

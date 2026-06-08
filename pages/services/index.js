@@ -85,7 +85,7 @@ export default function Services() {
             <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:36,letterSpacing:'.04em',margin:'4px 0 0'}}>SERVICES</h1>
           </div>
           {isForeman(role) && (
-            <button onClick={openNew} style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'10px 18px',fontWeight:700,fontSize:13,letterSpacing:'.04em',cursor:'pointer'}}>+ NEW</button>
+            <button data-tour="page-cta" onClick={openNew} style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'10px 18px',fontWeight:700,fontSize:13,letterSpacing:'.04em',cursor:'pointer'}}>+ NEW</button>
           )}
         </div>
 
