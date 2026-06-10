@@ -7,6 +7,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { FullPageLoading } from '../../components/PageStates';
+import { detectIntent, isShortMessage } from '../../lib/booking-intents';
+import { lastAskedKind, localConfirmReply, localRejectReply } from '../../lib/booking-state';
 
 export default function BookingPage() {
   const router = useRouter();
@@ -230,15 +232,72 @@ function BookingChat({ slug, org, onDone }) {
   const [sending, setSending] = useState(false);
   const [bookedAt, setBookedAt] = useState(null);
   const [limitHit, setLimitHit] = useState(false);
+  // When a short message is genuinely ambiguous (e.g. "hmm"), we show
+  // quick-reply buttons instead of burning an API call asking Claude
+  // to clarify. Cleared the moment the customer taps one or types
+  // anything new.
+  const [quickReplies, setQuickReplies] = useState(null);
 
   const userTurns  = msgs.filter(m => m.role === 'user').length;
   const limitClose = userTurns >= CHAT_MAX_MESSAGES - 2 && !bookedAt && !limitHit;
 
-  const send = async () => {
-    const text = input.trim();
-    if (!text || sending || bookedAt || limitHit) return;
+  // Core send path. Accepts an optional override so quick-reply taps
+  // and intent-rewrites can short-circuit the text input.
+  const send = async (overrideText) => {
+    const rawText = (overrideText ?? input).trim();
+    if (!rawText || sending || bookedAt || limitHit) return;
     if (userTurns >= CHAT_MAX_MESSAGES) { setLimitHit(true); return; }
-    const next = [...msgs, { role:'user', content:text }];
+
+    // Always clear quick replies — the customer is making a choice now.
+    setQuickReplies(null);
+
+    // ---- LOCAL INTENT HANDLING ---------------------------------
+    // We try to handle short, high-confidence intents (yes / no /
+    // sounds good / etc.) without ever calling Claude. This saves
+    // the customer's 10-message budget AND keeps the response snappy.
+    // Only short messages enter the local path — long messages
+    // probably carry real info Claude needs to see.
+    const short = isShortMessage(rawText);
+    const intent = detectIntent(rawText);
+    const lastAssistant = [...msgs].reverse().find(m => m.role === 'assistant')?.content || '';
+    const asked = lastAskedKind(lastAssistant);
+
+    if (short && intent.confidence === 'high') {
+      // CONFIRM in the middle of the booking flow: synthesize the
+      // next prompt locally. EXCEPT when the assistant just asked
+      // "shall I book this?" — that needs Claude to fire the
+      // submit_booking tool call.
+      if (intent.kind === 'confirm' && asked !== 'confirm') {
+        const reply = localConfirmReply(asked, org.name);
+        setMsgs(prev => [...prev, { role:'user', content: rawText }, { role:'assistant', content: reply }]);
+        setInput('');
+        return;
+      }
+      if (intent.kind === 'reject') {
+        const reply = localRejectReply(asked, org.name);
+        setMsgs(prev => [...prev, { role:'user', content: rawText }, { role:'assistant', content: reply }]);
+        setInput('');
+        return;
+      }
+      // book / price intents fall through — Claude does a better job
+      // pulling out org-specific service names + price hints.
+    }
+
+    // Short and the intent classifier shrugged. Don't waste an API
+    // call asking Claude to figure it out — show quick replies.
+    if (short && intent.kind === 'unknown') {
+      setMsgs(prev => [...prev, { role:'user', content: rawText }]);
+      setInput('');
+      setQuickReplies([
+        { label: 'Book a job',     text: 'I want to book a service.' },
+        { label: 'Get a quote',    text: 'Can you give me a price estimate?' },
+        { label: 'Something else', text: rawText, passthrough: true },
+      ]);
+      return;
+    }
+
+    // ---- API path (rich messages or settled-confirmation submit) ---
+    const next = [...msgs, { role:'user', content: rawText }];
     setMsgs(next);
     setInput('');
     setSending(true);
@@ -284,6 +343,13 @@ function BookingChat({ slug, org, onDone }) {
     setSending(false);
   };
 
+  // Quick-reply tap → send the canned text (or for "Something else",
+  // pass through the customer's original typed text so Claude sees it).
+  const tapQuickReply = (qr) => {
+    setQuickReplies(null);
+    send(qr.text);
+  };
+
   const onKey = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -313,6 +379,33 @@ function BookingChat({ slug, org, onDone }) {
         {sending && (
           <div style={{alignSelf:'flex-start',color:'#7a8db0',fontSize:13,padding:'8px 12px',fontStyle:'italic'}}>
             typing…
+          </div>
+        )}
+        {/* Quick replies — surfaced when a short message was too
+            ambiguous to handle locally. Tapping one calls send() with
+            a canned phrase; the "Something else" option passes the
+            customer's original text straight through to Claude. */}
+        {quickReplies && !sending && !bookedAt && !limitHit && (
+          <div style={{alignSelf:'flex-start',maxWidth:'92%',display:'flex',flexDirection:'column',gap:6,marginTop:2}}>
+            <div style={{fontSize:12,color:'#7a8db0',padding:'0 4px',marginBottom:2}}>
+              Did you mean…
+            </div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+              {quickReplies.map((qr, i) => (
+                <button key={i} onClick={() => tapQuickReply(qr)}
+                  style={{
+                    background: qr.passthrough ? 'transparent' : '#0d1726',
+                    border: '1px solid '+(qr.passthrough ? '#2e3f60' : '#4f9eff66'),
+                    borderRadius: 14,
+                    color: qr.passthrough ? '#c8d4ee' : '#4f9eff',
+                    padding: '7px 14px',
+                    fontSize: 12.5, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                  {qr.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {bookedAt && (
