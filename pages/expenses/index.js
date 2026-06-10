@@ -357,7 +357,7 @@ function CategoryBreakdown({ expenses }) {
   const max = entries[0][1];
 
   return (
-    <div style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'14px 14px',marginBottom:14}}>
+    <div data-tour="expenses-breakdown" style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:'14px 14px',marginBottom:14}}>
       <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:10}}>
         <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:14,letterSpacing:'.1em',color:'#7a8db0',fontWeight:700}}>WHERE THE MONEY IS GOING</div>
         <div style={{fontSize:11,color:'#7a8db0'}}>{fmt$(grand)} total</div>
