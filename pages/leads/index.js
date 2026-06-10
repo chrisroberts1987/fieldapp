@@ -110,17 +110,56 @@ export default function Leads() {
 
   const generateQuote = async (lead) => {
     if (!orgId) return;
+    // If the customer already exists in the system (matched by email
+    // first, then phone), link the quote to them so quote history +
+    // customer LTV stay correct. We surface the match on the quote
+    // detail page with a "Returning customer — N previous jobs" note.
+    let linkedCustomerId = lead.converted_customer_id || null;
+    if (!linkedCustomerId && (lead.email || lead.phone)) {
+      let q = supabase.from('customers').select('id').eq('org_id', orgId);
+      if (lead.email) q = q.eq('email', lead.email);
+      else            q = q.eq('phone', lead.phone);
+      const { data: match } = await q.limit(1).maybeSingle();
+      if (match?.id) linkedCustomerId = match.id;
+    }
+
+    // Build a richer title + description from whatever the lead has.
+    // Self-booking + AI-chat leads usually have a service_name; manual
+    // leads may not. Fall back to "Quote for <name>" so we always
+    // have a non-empty title.
+    const title = (lead.service_name && lead.service_name.trim())
+      ? `${lead.service_name.trim()} — ${lead.name}`.slice(0, 120)
+      : `Quote for ${lead.name}`;
+
+    // Description holds the customer's own words about the job.
+    // Notes holds operational context (address, source, requested
+    // date) so the contractor sees it inline while drafting.
+    const description = lead.notes || null;
+    const notesLines = [];
+    if (lead.address)        notesLines.push(`Service address: ${lead.address.replace(/\n/g, ', ')}`);
+    if (lead.requested_date) notesLines.push(`Customer requested: ${fmtDate(lead.requested_date)}${lead.requested_time ? ' at ' + lead.requested_time.slice(0,5) : ''}`);
+    if (lead.source)         notesLines.push(`Source: ${sourceLabel(lead.source)}`);
+    const internalNotes = notesLines.length ? notesLines.join('\n') : null;
+
+    // Default the valid-until window to 30 days from now — gives the
+    // contractor a reasonable expiry without making them think about it.
+    const validUntil = new Date();
+    validUntil.setDate(validUntil.getDate() + 30);
+
     const { data, error } = await supabase.from('quotes').insert({
       org_id: orgId,
       owner_id: user.id,
       lead_id: lead.id,
-      customer_id: lead.converted_customer_id || null,
-      customer_name: lead.name,
+      customer_id: linkedCustomerId,
+      customer_name:  lead.name,
       customer_email: lead.email,
       customer_phone: lead.phone,
-      title: lead.notes ? lead.notes.slice(0, 80) : 'Quote for ' + lead.name,
-      description: lead.notes,
+      title,
+      description,
+      notes: internalNotes,
       amount: lead.estimated_value || 0,
+      status: 'draft',
+      valid_until: validUntil.toISOString().slice(0, 10),
     }).select('id').single();
     if (error) { toast.error('Could not create quote: ' + error.message); return; }
     router.push(`/quotes/${data.id}`);

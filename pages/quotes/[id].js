@@ -20,6 +20,11 @@ export default function QuoteDetail() {
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
+  // Returning-customer banner: if quote.customer_id is linked, count
+  // their past quotes (excluding this one) and jobs so the contractor
+  // can read "Returning customer — 3 previous jobs, 2 quotes" at a
+  // glance while drafting.
+  const [history, setHistory] = useState(null);
 
   const load = async () => {
     const [{ data: q }, { data: c }, { data: s }, { data: li }] = await Promise.all([
@@ -32,6 +37,19 @@ export default function QuoteDetail() {
     setCustomers(c || []);
     setServices(s || []);
     setLineItems(li || []);
+    // History lookup: only when the quote is linked to an existing
+    // customer record. Cheap count queries, no row fetch.
+    if (q?.customer_id) {
+      const [{ count: jobCount }, { count: quoteCount }] = await Promise.all([
+        supabase.from('jobs').select('id', { count:'exact', head:true })
+          .eq('org_id', orgId).eq('customer_id', q.customer_id),
+        supabase.from('quotes').select('id', { count:'exact', head:true })
+          .eq('org_id', orgId).eq('customer_id', q.customer_id).neq('id', id),
+      ]);
+      setHistory({ jobs: jobCount || 0, quotes: quoteCount || 0 });
+    } else {
+      setHistory(null);
+    }
   };
 
   // Line items math: each line is qty × unit_price, summed for the
@@ -185,6 +203,28 @@ export default function QuoteDetail() {
             {quote.status === 'approved' && <>Customer approved this quote{quote.approved_at && <> on {fmtDate(quote.approved_at.slice(0,10))}</>}.{quote.converted_job_id && <> Job <a onClick={() => router.push('/jobs')} style={{color:'#4f9eff',cursor:'pointer'}}>created</a>.</>}</>}
             {quote.status === 'declined' && <>Customer declined this quote{quote.declined_at && <> on {fmtDate(quote.declined_at.slice(0,10))}</>}.</>}
             {quote.status === 'expired' && <>This quote has expired.</>}
+          </div>
+        )}
+
+        {/* Returning-customer banner. Surfaces history that the
+            generate-quote auto-link from a lead established, so the
+            contractor knows they're quoting someone they've worked
+            with before. */}
+        {history && (history.jobs > 0 || history.quotes > 0) && (
+          <div style={{background:'rgba(46,223,135,0.08)',border:'1px solid #2edf8766',borderRadius:10,padding:'10px 14px',marginBottom:14,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+            <span style={{background:'#2edf8722',color:'#2edf87',border:'1px solid #2edf8766',borderRadius:999,padding:'2px 9px',fontSize:10,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase'}}>
+              Returning customer
+            </span>
+            <span style={{fontSize:13,color:'#c8d4ee'}}>
+              {history.jobs} previous job{history.jobs === 1 ? '' : 's'}
+              {history.quotes > 0 && ` · ${history.quotes} other quote${history.quotes === 1 ? '' : 's'}`}
+            </span>
+            {quote.customer_id && (
+              <button onClick={() => router.push('/customers/' + quote.customer_id)}
+                style={{marginLeft:'auto',background:'transparent',border:'1px solid #2edf8744',borderRadius:8,color:'#2edf87',padding:'5px 11px',fontSize:11,fontWeight:700,letterSpacing:'.05em',cursor:'pointer',fontFamily:'inherit'}}>
+                VIEW CUSTOMER
+              </button>
+            )}
           </div>
         )}
 
