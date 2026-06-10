@@ -1052,10 +1052,14 @@ export default function Jobs() {
               </div>
             )}
 
-            {/* CHANGE ORDER — foreman/supervisor can open the CO sheet
-                from any active job (scheduled or in-progress). Hidden on
-                pending / completed / cancelled so the surface stays clean. */}
-            {sheet !== 'new' && isOffice(role) && form.customer_id
+            {/* CHANGE ORDER — any role can open the CO sheet from any
+                active job (scheduled or in-progress). The crew member
+                on site is usually the first to see scope change, so
+                making them flag down the foreman just to write it up
+                slows the customer approval. RLS still scopes who can
+                touch which CO. Hidden on pending / completed /
+                cancelled so the surface stays clean. */}
+            {sheet !== 'new' && form.customer_id
               && ['scheduled','in_progress'].includes(form.status) && (
               <div style={{margin:'14px 16px'}}>
                 <button
