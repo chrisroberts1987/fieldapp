@@ -10,6 +10,7 @@ import {
   crewInviteEmail,
   welcomeEmail,
   onMyWayEmail,
+  changeOrderRequestEmail,
 } from '../../../lib/email/templates';
 
 export const config = {
@@ -26,6 +27,10 @@ const TYPES = {
   quote_sent: {
     template: quoteSentEmail,
     required: ['customerName', 'quoteTitle', 'amount', 'approvalUrl'],
+  },
+  change_order_request: {
+    template: changeOrderRequestEmail,
+    required: ['customerName', 'amount', 'approvalUrl'],
   },
   invoice_sent: {
     template: invoiceSentEmail,

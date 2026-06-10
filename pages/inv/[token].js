@@ -13,6 +13,7 @@ export default function PublicInvoice() {
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState('');
   const [inv, setInv]       = useState(null);
+  const [changeOrders, setChangeOrders] = useState([]);
   const [paying, setPaying] = useState(false);
   const [payErr, setPayErr] = useState('');
 
@@ -22,6 +23,14 @@ export default function PublicInvoice() {
     const { data, error: e } = await supabase.rpc('get_invoice_by_token', { p_token: token });
     if (e) { setError(e.message); setLoading(false); return; }
     setInv(data);
+    // If the invoice is tied to a job, load any approved change
+    // orders so the customer sees the full breakdown.
+    if (data?.job?.id) {
+      const { data: cos } = await supabase.rpc('list_job_change_orders', { p_job_id: data.job.id });
+      setChangeOrders(Array.isArray(cos) ? cos : []);
+    } else {
+      setChangeOrders([]);
+    }
     setLoading(false);
   };
 
@@ -114,6 +123,50 @@ export default function PublicInvoice() {
         {isPaid && <Row label="Paid"  value={`${fmtDate(inv.paid_date)}${inv.paid_via ? ` · ${inv.paid_via}` : ''}`} color="#2edf87"/>}
         {!isPaid && <Row label="Status" value="Unpaid" color="#fbbf24"/>}
         {inv.notes && <Row label="Notes" value={inv.notes}/>}
+
+        {/* Change-order breakdown — shows the customer that the total
+            on this invoice = original price + each approved change
+            they signed off on. Hidden when there are no approved COs
+            so simple jobs stay clean. */}
+        {changeOrders.length > 0 && (
+          <div style={{marginTop:18,padding:'14px 16px',background:'#0d1726',border:'1px solid #2e3f60',borderRadius:12}}>
+            <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.12em',textTransform:'uppercase',fontWeight:700,marginBottom:8}}>
+              Breakdown
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:'1px solid #2e3f60'}}>
+              <span style={{fontSize:13,color:'#c8d4ee'}}>Original work</span>
+              <span style={{fontSize:13,color:'#f0f4ff',fontWeight:600,fontVariantNumeric:'tabular-nums'}}>
+                {fmt$(Number(inv.amount || 0) - changeOrders.reduce((s, co) => s + Number(co.amount || 0), 0))}
+              </span>
+            </div>
+            {changeOrders.map(co => (
+              <div key={co.id} style={{padding:'7px 0',borderBottom:'1px solid #2e3f60'}}>
+                <div style={{display:'flex',justifyContent:'space-between',gap:8}}>
+                  <span style={{fontSize:13,color:'#c8d4ee'}}>
+                    Change order
+                    {co.approved_at && (
+                      <span style={{fontSize:11,color:'#7a8db0',marginLeft:6}}>
+                        approved {fmtDate(co.approved_at.slice(0,10))}
+                      </span>
+                    )}
+                  </span>
+                  <span style={{fontSize:13,color:'#fbbf24',fontWeight:600,fontVariantNumeric:'tabular-nums'}}>
+                    +{fmt$(co.amount)}
+                  </span>
+                </div>
+                {co.description && (
+                  <div style={{fontSize:11,color:'#7a8db0',marginTop:3,lineHeight:1.4}}>{co.description}</div>
+                )}
+              </div>
+            ))}
+            <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0 0',marginTop:2}}>
+              <span style={{fontSize:14,color:'#f0f4ff',fontWeight:700}}>Invoice total</span>
+              <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,color:'#2edf87',letterSpacing:'.02em',fontVariantNumeric:'tabular-nums'}}>
+                {fmt$(inv.amount)}
+              </span>
+            </div>
+          </div>
+        )}
 
         {inv.job?.signature_url && (
           <div style={{marginTop:18,padding:'14px',background:'rgba(46,223,135,0.06)',border:'1px solid rgba(46,223,135,0.35)',borderRadius:12}}>

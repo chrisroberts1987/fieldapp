@@ -64,6 +64,44 @@ export default function Jobs() {
   const [materials, setMaterials] = useState([]);
   const [newMaterial, setNewMaterial] = useState({ name:'', quantity:'1', unit_cost:'' });
   const [sendingOnMyWay, setSendingOnMyWay] = useState(false);
+  // Change-order creation sheet — { jobId, customerId, jobTitle } or null.
+  const [changeOrderSheet, setChangeOrderSheet] = useState(null);
+  const [changeOrderForm,  setChangeOrderForm]  = useState({ description:'', reason:'', amount:'' });
+  const [changeOrderBusy,  setChangeOrderBusy]  = useState(false);
+  const [changeOrderDone,  setChangeOrderDone]  = useState(null); // { approvalUrl } after send
+
+  const sendChangeOrder = async () => {
+    if (!changeOrderSheet) return;
+    setChangeOrderBusy(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error('Not signed in.'); return; }
+      const r = await fetch('/api/change-orders/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          jobId: changeOrderSheet.jobId,
+          description: changeOrderForm.description.trim(),
+          reason: changeOrderForm.reason.trim() || null,
+          amount: Number(changeOrderForm.amount) || 0,
+        }),
+      });
+      const body = await r.json();
+      if (!r.ok) { toast.error(body?.error || 'Could not send.'); return; }
+      setChangeOrderDone({ approvalUrl: body.approvalUrl });
+      toast.success('Change order sent.');
+    } catch (e) {
+      toast.error(e?.message || 'Network error.');
+    } finally {
+      setChangeOrderBusy(false);
+    }
+  };
+
+  const closeChangeOrderSheet = () => {
+    setChangeOrderSheet(null);
+    setChangeOrderForm({ description:'', reason:'', amount:'' });
+    setChangeOrderDone(null);
+  };
   const [signaturePending, setSignaturePending] = useState(false); // shows the pad as a modal
 
   const loadAll = async () => {
@@ -1014,6 +1052,31 @@ export default function Jobs() {
               </div>
             )}
 
+            {/* CHANGE ORDER — foreman/supervisor can open the CO sheet
+                from any active job (scheduled or in-progress). Hidden on
+                pending / completed / cancelled so the surface stays clean. */}
+            {sheet !== 'new' && isOffice(role) && form.customer_id
+              && ['scheduled','in_progress'].includes(form.status) && (
+              <div style={{margin:'14px 16px'}}>
+                <button
+                  onClick={() => setChangeOrderSheet({ jobId: sheet.id, customerId: form.customer_id, jobTitle: form.title })}
+                  style={{
+                    width:'100%',
+                    background:'#1a2236',
+                    border:'1px solid #fbbf24',
+                    color:'#fbbf24',
+                    borderRadius:10, padding:'14px',
+                    fontSize:13, fontWeight:800, letterSpacing:'.06em',
+                    cursor:'pointer', fontFamily:'inherit',
+                  }}>
+                  + CHANGE ORDER
+                </button>
+                <div style={{fontSize:11,color:'#7a8db0',marginTop:6,textAlign:'center',lineHeight:1.5}}>
+                  Extra work the customer needs to approve before you do it.
+                </div>
+              </div>
+            )}
+
             {sheet !== 'new' && timeEntries.length > 0 && (
               <div style={{margin:'14px 16px',padding:'12px',background:'#0f1626',border:'1px solid #2e3f60',borderRadius:10}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
@@ -1321,6 +1384,87 @@ export default function Jobs() {
             <SignaturePad
               onSave={(sig) => save(sig)}
               onCancel={() => save({ skipped: true, name: null, dataUrl: null })}/>
+          </div>
+        </div>
+      )}
+
+      {/* Change-order creation sheet. Foreman/supervisor fills in
+          description + reason + amount, then sends. Customer gets the
+          approval link via email + SMS via /api/change-orders/send. */}
+      {changeOrderSheet && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.72)',zIndex:300,display:'flex',alignItems:'flex-end',backdropFilter:'blur(3px)'}}
+          onClick={e => e.target === e.currentTarget && closeChangeOrderSheet()}>
+          <div style={{background:'#1a2236',borderTop:'2px solid #fbbf24',borderRadius:'20px 20px 0 0',width:'100%',maxWidth:480,margin:'0 auto',maxHeight:'92dvh',overflowY:'auto'}}>
+            <div style={{width:36,height:4,background:'#2e3f60',borderRadius:2,margin:'12px auto 4px'}}/>
+            <div style={{padding:'6px 18px 18px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,marginBottom:8}}>
+                <div>
+                  <div style={{fontSize:11,letterSpacing:'.12em',color:'#fbbf24',fontWeight:700,textTransform:'uppercase'}}>Change order</div>
+                  <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:24,letterSpacing:'.04em',color:'#f0f4ff',marginTop:2}}>{changeOrderSheet.jobTitle?.toUpperCase()}</div>
+                </div>
+                <button onClick={closeChangeOrderSheet}
+                  style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'6px 10px',fontSize:14,cursor:'pointer'}}>
+                  ✕
+                </button>
+              </div>
+
+              {changeOrderDone ? (
+                <div style={{background:'#0d1726',border:'1px solid #2edf8766',borderRadius:10,padding:'14px 16px'}}>
+                  <div style={{fontSize:13,color:'#2edf87',fontWeight:700,marginBottom:6}}>✓ Sent to customer</div>
+                  <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.55,marginBottom:10}}>
+                    They got an email and a text with this link. The job's price will update automatically when they approve.
+                  </div>
+                  <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                    <input readOnly value={changeOrderDone.approvalUrl}
+                      style={{flex:1,background:'#111827',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',fontSize:11,padding:'7px 9px',outline:'none',fontFamily:'monospace'}}/>
+                    <button onClick={() => navigator.clipboard?.writeText(changeOrderDone.approvalUrl).then(() => toast.success('Link copied.'))}
+                      style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'7px 12px',fontSize:11,fontWeight:700,cursor:'pointer'}}>
+                      COPY
+                    </button>
+                  </div>
+                  <button onClick={closeChangeOrderSheet}
+                    style={{width:'100%',background:'transparent',border:'1px solid #2e3f60',borderRadius:10,color:'#c8d4ee',padding:'12px 0',marginTop:14,fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:'.08em',cursor:'pointer'}}>
+                    DONE
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div style={{marginBottom:10}}>
+                    <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>What's changing?</div>
+                    <textarea value={changeOrderForm.description}
+                      onChange={e => setChangeOrderForm(p => ({...p, description: e.target.value}))}
+                      placeholder="Extra outlet in the garage. Tear-out + drywall patch."
+                      maxLength={2000}
+                      style={{...inputStyle, minHeight:80, resize:'vertical', fontFamily:'inherit'}}/>
+                  </div>
+                  <div style={{marginBottom:10}}>
+                    <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Why (optional)</div>
+                    <input type="text" value={changeOrderForm.reason}
+                      onChange={e => setChangeOrderForm(p => ({...p, reason: e.target.value}))}
+                      placeholder="Wire run was further than we could see."
+                      maxLength={500}
+                      style={inputStyle}/>
+                  </div>
+                  <div style={{marginBottom:10}}>
+                    <div style={{fontSize:11,fontWeight:600,letterSpacing:'.08em',textTransform:'uppercase',color:'#7a8db0',marginBottom:5}}>Additional cost ($)</div>
+                    <input type="number" inputMode="decimal" min="0" step="0.01"
+                      value={changeOrderForm.amount}
+                      onChange={e => setChangeOrderForm(p => ({...p, amount: e.target.value}))}
+                      placeholder="195.00" style={inputStyle}/>
+                  </div>
+                  <button onClick={sendChangeOrder}
+                    disabled={changeOrderBusy
+                      || !changeOrderForm.description.trim()
+                      || !(Number(changeOrderForm.amount) > 0)}
+                    style={{width:'100%',background:'#fbbf24',color:'#0d1726',border:'none',borderRadius:10,padding:'14px 0',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.08em',cursor:'pointer',opacity:(changeOrderBusy||!changeOrderForm.description.trim()||!(Number(changeOrderForm.amount)>0))?0.5:1}}>
+                    {changeOrderBusy ? 'SENDING…' : 'SEND TO CUSTOMER'}
+                  </button>
+                  <div style={{fontSize:11,color:'#7a8db0',marginTop:8,textAlign:'center',lineHeight:1.5}}>
+                    Customer gets an approval link by email and (if opted in) text. Status shows up in the job sheet once they respond.
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
