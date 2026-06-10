@@ -315,13 +315,13 @@ export default function Settings() {
 
         <Section title="Public reviews">
           <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.5,marginBottom:12}}>
-            When a customer rates you 4 or 5 stars, they're redirected to leave a public review. Negative ratings stay private — only you see them.
+            When a customer rates you 4 or 5 stars, MyForeman shows them a "Post to Google" button on the thank-you screen. Negative ratings (1–3 stars) stay private — only you see them and you get a notification to follow up.
           </div>
-          <Field label="Google review URL">
+          <Field label="Google Business Review Link">
             <input style={inputStyle} type="url" placeholder="https://g.page/r/..."
               value={form.google_review_url}
               onChange={e => setForm(p => ({...p, google_review_url:e.target.value}))}/>
-            <div style={{fontSize:11,color:'#7a8db0',marginTop:4}}>From your Google Business profile → "Get more reviews" → "Share review form".</div>
+            <div style={{fontSize:11,color:'#7a8db0',marginTop:4}}>Get this from your Google Business Profile → Get more reviews.</div>
           </Field>
           <Field label="Yelp review URL (optional)">
             <input style={inputStyle} type="url" placeholder="https://www.yelp.com/biz/..."

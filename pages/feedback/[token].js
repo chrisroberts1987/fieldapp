@@ -31,16 +31,11 @@ export default function PublicFeedback() {
     if (error) { setError(error.message); setSubmitting(false); return; }
     setSubmitted(true);
     setSubmitting(false);
-    // Review deflection: if the contractor has set a Google (or Yelp)
-    // review URL and the rating clears their threshold (default 4),
-    // bounce the happy customer over there 1.2s after the thank-you
-    // shows. Negative reviews stay private — they get the normal
-    // thank-you screen and the contractor gets a notification.
-    const threshold = Number(data?.review_deflect_threshold || 4);
-    const url = data?.google_review_url || data?.yelp_review_url;
-    if (rating >= threshold && url) {
-      setTimeout(() => { window.location.href = url; }, 1400);
-    }
+    // No auto-redirect. The thank-you screen now shows an explicit
+    // "Post to Google" CTA when the rating clears the threshold AND
+    // the contractor configured a review URL. Low-rating customers
+    // see a private apology message instead — the contractor gets a
+    // notification via the submit_feedback RPC.
   };
 
   if (!loaded) return <FullPageLoading/>;
@@ -58,17 +53,65 @@ export default function PublicFeedback() {
   const alreadyDone = data.submitted_at || submitted;
 
   if (alreadyDone) {
+    // Three branches:
+    //   high rating + URL set        → Google review CTA
+    //   high rating but no URL       → simple thank you
+    //   low rating (≤3)              → private apology (no public ask)
+    // We only know `rating` after a fresh submit in this session; if
+    // the page is reopened later we always show the simple thank-you.
+    const threshold = Number(data?.review_deflect_threshold || 4);
+    const googleUrl = data?.google_review_url || null;
+    const isHigh = submitted && rating >= threshold;
+    const isLow  = submitted && rating > 0 && rating < threshold;
+    const orgName = data?.org_name || 'They';
+
     return (
       <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',system-ui,sans-serif",display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
-        <div style={{maxWidth:420,textAlign:'center'}}>
+        <div style={{maxWidth:420,textAlign:'center',width:'100%'}}>
           <BizHeader biz={{ name:data.org_name, logo:data.org_logo_url }}/>
-          <div style={{width:60,height:60,margin:'24px auto 14px',borderRadius:30,background:'#2edf8722',border:'2px solid #2edf87',display:'flex',alignItems:'center',justifyContent:'center',color:'#2edf87',fontSize:28,fontWeight:700}}>✓</div>
-          <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:26,letterSpacing:'.06em',marginBottom:10}}>THANK YOU</div>
-          <div style={{fontSize:14,color:'#c8d4ee',lineHeight:1.55}}>Your feedback was sent to {data.org_name}. They appreciate it.</div>
-          {submitted && rating >= Number(data?.review_deflect_threshold || 4) && (data?.google_review_url || data?.yelp_review_url) && (
-            <div style={{marginTop:20,fontSize:12,color:'#7a8db0'}}>
-              Redirecting you to leave a public review...{' '}
-              <a href={data.google_review_url || data.yelp_review_url} style={{color:'#4f9eff'}}>tap here</a> if it doesn't.
+
+          {isLow ? (
+            <>
+              <div style={{width:60,height:60,margin:'24px auto 14px',borderRadius:30,background:'#fbbf2422',border:'2px solid #fbbf24',display:'flex',alignItems:'center',justifyContent:'center',color:'#fbbf24',fontSize:28,fontWeight:700}}>!</div>
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:26,letterSpacing:'.06em',marginBottom:10}}>WE'RE SORRY</div>
+              <div style={{fontSize:14,color:'#c8d4ee',lineHeight:1.55}}>
+                We're sorry to hear that. {orgName} will be in touch to make it right.
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{width:60,height:60,margin:'24px auto 14px',borderRadius:30,background:'#2edf8722',border:'2px solid #2edf87',display:'flex',alignItems:'center',justifyContent:'center',color:'#2edf87',fontSize:28,fontWeight:700}}>✓</div>
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:26,letterSpacing:'.06em',marginBottom:10}}>THANK YOU</div>
+              <div style={{fontSize:14,color:'#c8d4ee',lineHeight:1.55}}>
+                Your feedback was sent to {data.org_name}. They appreciate it.
+              </div>
+            </>
+          )}
+
+          {/* Google review CTA — only after a high rating AND only
+              when the contractor has actually configured a URL. */}
+          {isHigh && googleUrl && (
+            <div style={{marginTop:22,padding:'18px 18px',background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,textAlign:'left'}}>
+              <div style={{fontSize:14,color:'#f0f4ff',fontWeight:600,marginBottom:6,lineHeight:1.45}}>
+                Glad you had a great experience!
+              </div>
+              <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55,marginBottom:14}}>
+                Mind sharing your review on Google? It helps {data.org_name} grow.
+              </div>
+              <a href={googleUrl} target="_blank" rel="noopener noreferrer"
+                style={{display:'block',background:'#4f9eff',color:'#fff',textDecoration:'none',borderRadius:10,padding:'13px 0',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:16,letterSpacing:'.08em',textAlign:'center',marginBottom:8}}>
+                POST TO GOOGLE
+              </a>
+              <button onClick={() => { /* dismiss = no-op, just keep them on this screen */ }}
+                aria-label="No thanks, don't post a review"
+                style={{display:'block',width:'100%',background:'transparent',color:'#7a8db0',border:'1px solid #2e3f60',borderRadius:10,padding:'11px 0',fontSize:13,fontWeight:600,letterSpacing:'.05em',cursor:'pointer',fontFamily:'inherit'}}
+                onClickCapture={(e) => {
+                  // Replace the CTA card with a quiet acknowledgement.
+                  const card = e.currentTarget.closest('div');
+                  if (card) card.style.display = 'none';
+                }}>
+                No thanks
+              </button>
             </div>
           )}
         </div>
