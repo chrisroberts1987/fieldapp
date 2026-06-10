@@ -13,9 +13,15 @@
 
 begin;
 
+-- Drop both the original "office" names AND our new "org" names
+-- so this migration is safe to re-run if a previous attempt
+-- partially applied.
 drop policy if exists "change_orders office select" on public.change_orders;
 drop policy if exists "change_orders office insert" on public.change_orders;
 drop policy if exists "change_orders office update" on public.change_orders;
+drop policy if exists "change_orders org select"    on public.change_orders;
+drop policy if exists "change_orders org insert"    on public.change_orders;
+drop policy if exists "change_orders org update"    on public.change_orders;
 
 create policy "change_orders org select" on public.change_orders
   for select using (public.is_org_member(org_id));
