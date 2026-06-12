@@ -19,14 +19,42 @@ export default function Admin() {
   const [tab, setTab] = useState('overview');
 
   useEffect(() => {
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    let cancelled = false;
+    const resolveSession = async () => {
+      // PWA cold-launch + iOS standalone can return null on the first
+      // getSession() call while the supabase storage adapter is still
+      // rehydrating. Wait for the INITIAL_SESSION event before we give
+      // up and bounce to /login.
+      let session = (await supabase.auth.getSession()).data.session;
+      if (!session) {
+        session = await new Promise((resolve) => {
+          let done = false;
+          const timer = setTimeout(() => { if (!done) { done = true; resolve(null); } }, 1500);
+          const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+            if (done) return;
+            if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+              done = true; clearTimeout(timer); sub?.subscription?.unsubscribe?.(); resolve(s);
+            }
+          });
+        });
+      }
+      if (cancelled) return;
       if (!session) { router.push('/login'); return; }
       setUser(session.user);
       const ok = (session.user.email || '').toLowerCase() === ADMIN_EMAIL.toLowerCase();
       setAllowed(ok);
       if (!ok) router.push('/dashboard');
-    })();
+    };
+    resolveSession();
+    // Bounce out the moment the session is invalidated (token refresh
+    // fails, user signs out elsewhere) instead of showing "Not signed in"
+    // on every panel.
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {
+        router.push('/login');
+      }
+    });
+    return () => { cancelled = true; sub?.subscription?.unsubscribe?.(); };
   }, []);
 
   if (allowed !== true) {
@@ -105,19 +133,44 @@ function AdminHeader({ user, router }) {
 // API helpers
 // =============================================================
 async function adminFetch(path, opts = {}) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return { error: 'Not signed in.' };
-  const r = await fetch(path, {
-    ...opts,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(opts.headers || {}),
-      'Authorization': `Bearer ${session.access_token}`,
-    },
-  });
-  const body = await r.json().catch(() => ({}));
-  if (!r.ok) return { error: body?.error || `Request failed (${r.status})` };
-  return body;
+  // Resilient to PWA / iOS standalone token churn: try the current session,
+  // refresh once on null session or 401, then bounce to /login if still cold.
+  const callOnce = async (token) => {
+    const r = await fetch(path, {
+      ...opts,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(opts.headers || {}),
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    const body = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, body };
+  };
+
+  let { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    const { data } = await supabase.auth.refreshSession();
+    session = data?.session || null;
+  }
+  if (!session) {
+    if (typeof window !== 'undefined') window.location.replace('/login');
+    return { error: 'Not signed in.' };
+  }
+
+  let res = await callOnce(session.access_token);
+  if (res.status === 401) {
+    const { data } = await supabase.auth.refreshSession();
+    if (data?.session) {
+      res = await callOnce(data.session.access_token);
+    } else if (typeof window !== 'undefined') {
+      window.location.replace('/login');
+      return { error: 'Not signed in.' };
+    }
+  }
+
+  if (!res.ok) return { error: res.body?.error || `Request failed (${res.status})` };
+  return res.body;
 }
 
 // =============================================================
