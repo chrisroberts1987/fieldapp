@@ -177,17 +177,6 @@ export default function Home() {
           background: radial-gradient(ellipse, rgba(79,158,255,0.35) 0%, transparent 70%);
           z-index: 0; pointer-events: none;
         }
-        .badge-float {
-          position: absolute; z-index: 20;
-          background: ${C.card};
-          border: 1px solid ${C.borderHi};
-          border-radius: 12px;
-          padding: 10px 14px;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-          display: flex; align-items: center; gap: 10px;
-          white-space: nowrap;
-        }
-
         .feat-card {
           background: ${C.card};
           border: 1px solid ${C.border};
@@ -203,8 +192,6 @@ export default function Home() {
         @media (max-width: 980px) {
           .hero-grid { grid-template-columns: 1fr !important; gap: 60px !important; }
           .phone { width: 260px; height: 540px; }
-          .badge-float.left  { left: -10px !important; top: 70px !important; }
-          .badge-float.right { right: -10px !important; top: 220px !important; }
           .feat-grid { grid-template-columns: 1fr 1fr !important; }
           .price-grid { grid-template-columns: 1fr 1fr !important; }
           .all-features { grid-template-columns: 1fr 1fr !important; }
@@ -409,22 +396,6 @@ function Hero({ router, launchDemo }) {
               <div className="phone">
                 <img src="/hero-app-screenshot.png" alt="MyForeman app screenshot"/>
                 <div className="phone-notch"/>
-              </div>
-
-              <div className="badge-float left" style={{left:-120,top:100}}>
-                <div style={{width:8,height:8,borderRadius:'50%',background:C.green,boxShadow:'0 0 6px rgba(46,223,135,0.6)',flexShrink:0}}/>
-                <div>
-                  <div style={{fontSize:12,fontWeight:700,color:C.subtext}}>Invoice Auto-Sent</div>
-                  <div style={{fontSize:12,fontWeight:800,color:C.green}}>Job Complete ✓</div>
-                </div>
-              </div>
-
-              <div className="badge-float right" style={{right:-110,top:260}}>
-                <div style={{width:8,height:8,borderRadius:'50%',background:C.blue,boxShadow:'0 0 6px rgba(79,158,255,0.6)',flexShrink:0}}/>
-                <div>
-                  <div style={{fontSize:12,fontWeight:700,color:C.subtext}}>New Lead</div>
-                  <div style={{fontSize:12,fontWeight:800,color:C.blue}}>AI Chat → Booked</div>
-                </div>
               </div>
             </div>
           </div>
