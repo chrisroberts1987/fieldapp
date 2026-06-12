@@ -647,7 +647,7 @@ function Pricing({ billing, setBilling, router }) {
     },
     {
       name:'Business', monthly:159, annual:1749, users:'Up to 25 Users', sub:'Owner + supervisors + crew',
-      desc:'For established contractors running a real operation.',
+      desc:'For established contractors with supervisors and a full crew.',
       featured:true,
     },
     {
