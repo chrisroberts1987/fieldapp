@@ -388,7 +388,7 @@ function Hero({ router, launchDemo }) {
 
             <div style={{fontSize:12,color:C.muted,display:'flex',alignItems:'center',gap:8,marginBottom:24}}>
               <span style={{width:6,height:6,borderRadius:'50%',background:C.green,boxShadow:'0 0 6px rgba(46,223,135,0.6)'}}/>
-              No credit card required · Setup in 10 minutes · Cancel anytime
+              14-day free trial · Setup in 10 minutes · Cancel anytime
             </div>
 
             <div className="social-proof" style={{display:'flex',alignItems:'center',gap:20,paddingTop:24,borderTop:`1px solid ${C.border}`}}>
@@ -1048,7 +1048,7 @@ function FinalCta({ router, launchDemo }) {
           The last app you&apos;ll ever need.
         </h2>
         <p style={{fontSize:17,color:C.muted,maxWidth:600,margin:'0 auto 36px',lineHeight:1.6}}>
-          Start your 14-day free trial today. No credit card required, no per-user fees, no feature gates. Set up in 10 minutes.
+          Start your 14-day free trial today. No per-user fees, no feature gates. Set up in 10 minutes.
         </p>
         <div style={{display:'flex',gap:14,justifyContent:'center',flexWrap:'wrap'}}>
           <button className="btn-primary" onClick={() => router.push('/signup')} style={{padding:'18px 40px',fontSize:16}}>
