@@ -77,7 +77,7 @@ export default function Home() {
       <Features/>
       <Workflow/>
       <Pricing billing={billing} setBilling={setBilling} router={router}/>
-      <CompetitorTable/>
+      <CompareTable/>
       <FinalCta router={router} launchDemo={launchDemo}/>
       <Footer/>
 
@@ -484,7 +484,7 @@ function Compare() {
   return (
     <section style={{background:C.surface,padding:'80px 0',borderTop:`1px solid ${C.border}`}}>
       <div className="container">
-        <div className="section-label">The Way It Should Have Always Been</div>
+        <div className="section-label">Before vs. After</div>
 
         <div className="compare-grid" style={{
           maxWidth:1000, margin:'0 auto',
@@ -856,23 +856,27 @@ function PlanCard({ plan, annual, router }) {
 }
 
 /* =====================================================
-   COMPETITOR COMPARISON
+   COMPARE TABLE
+   Three category buckets, not specific products. We
+   deliberately don't name competitors. The middle column
+   is the legacy CRM category as a whole.
    ===================================================== */
-function CompetitorTable() {
-  const competitors = ['MyForeman','Jobber','Housecall Pro','ServiceTitan'];
+function CompareTable() {
   const rows = [
-    { label:'Starting price',     values:['$39 / mo','$49 / mo','$59 / mo','$398 / mo'] },
-    { label:'Setup time',         values:['10 minutes','Hours','Hours','Days + onboarding fee'] },
-    { label:'AI built in',        values:[true, false, false, false] },
-    { label:'All features included', values:[true, false, false, false] },
-    { label:'No per-user fees',   values:[true, false, false, false] },
-    { label:'Contractor focused', values:[true, true,  true,  false] },
+    { label:'Setup time',                           values:['None',   '4 to 8 hrs',   '10 min'] },
+    { label:'Monthly cost',                         values:['$0',     '$99 to $300',  '$39 to $159'] },
+    { label:'Lead to paid in one app',              values:['no',     'yes',          'yes'] },
+    { label:'Mobile-first PWA',                     values:['no',     'partial',      'yes'] },
+    { label:'Direct deposits, no platform cut',     values:['no',     'partial',      'yes'] },
+    { label:'Switch from your old platform',        values:['no',     'partial',      '10 min import'] },
+    { label:'Tax + accountant-ready exports',       values:['no',     'Add-on $$',    'yes'] },
+    { label:'Auto-bills + chases overdue invoices', values:['no',     'partial',      'yes'] },
+    { label:'AI business coach',                    values:['no',     'no',           'yes'], ai:true },
+    { label:'Live demo',                            values:['N/A',    'Sales call',   'One tap'] },
   ];
-  const cell = (v, isFm) => {
-    if (v === true)  return <span style={{color:C.green,fontWeight:900,fontSize:18}}>✓</span>;
-    if (v === false) return <span style={{color:C.red,fontWeight:900,fontSize:18}}>✕</span>;
-    return <span style={{color: isFm ? C.green : C.subtext,fontWeight: isFm ? 800 : 600,fontSize:13}}>{v}</span>;
-  };
+  const cols      = ['Texts & sheets', 'Old-school CRM', 'MyForeman'];
+  const colsShort = ['Texts',          'Old-school',     'MyForeman'];
+
   return (
     <section style={{background:C.surface,padding:'80px 0',borderTop:`1px solid ${C.border}`}}>
       <div className="container">
@@ -884,56 +888,138 @@ function CompetitorTable() {
         }}>
           The Way It Should Have Always Been
         </h2>
-        <p style={{textAlign:'center',color:C.muted,fontSize:15,marginBottom:48,maxWidth:600,marginLeft:'auto',marginRight:'auto'}}>
-          One price for one app that does the whole job. No paywalls, no per-seat tax, no 90-day onboarding.
+        <p style={{textAlign:'center',color:C.muted,fontSize:15,marginBottom:36,maxWidth:620,marginLeft:'auto',marginRight:'auto'}}>
+          Your work is professional. Your tools should be too.
         </p>
 
-        <div style={{
-          maxWidth:980,margin:'0 auto',
-          background:C.card, border:`1px solid ${C.borderHi}`,
-          borderRadius:14, overflow:'hidden',
-        }}>
-          <div style={{overflowX:'auto'}}>
-            <table style={{width:'100%',borderCollapse:'collapse',minWidth:640}}>
-              <thead>
-                <tr style={{background:'rgba(79,158,255,0.06)'}}>
-                  <th style={{textAlign:'left',padding:'18px 20px',fontSize:11,fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:C.muted}}></th>
-                  {competitors.map((c, i) => (
-                    <th key={c} style={{
-                      textAlign:'center',padding:'18px 12px',
-                      fontSize: i === 0 ? 14 : 12,
-                      fontWeight: i === 0 ? 900 : 700,
-                      color: i === 0 ? C.blue : C.subtext,
-                      letterSpacing:'.04em',
-                      borderLeft: i === 0 ? `1px solid ${C.borderHi}` : 'none',
-                      background: i === 0 ? 'rgba(79,158,255,0.08)' : 'transparent',
-                    }}>
-                      {c}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.label} style={{borderTop:`1px solid ${C.border}`}}>
-                    <td style={{padding:'16px 20px',fontSize:13,fontWeight:700,color:C.subtext}}>{r.label}</td>
-                    {r.values.map((v, i) => (
-                      <td key={i} style={{
-                        textAlign:'center',padding:'16px 12px',
-                        background: i === 0 ? 'rgba(79,158,255,0.05)' : 'transparent',
-                        borderLeft: i === 0 ? `1px solid ${C.borderHi}` : 'none',
-                      }}>
-                        {cell(v, i === 0)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="cmp-table">
+          <div className="cmp-row cmp-header">
+            <div className="cmp-feature">&nbsp;</div>
+            {cols.map((c, i) => (
+              <div key={c} className={'cmp-col ' + (i === 2 ? 'cmp-us' : '')}>
+                {i === 2 && <span style={{color:C.yellow,marginRight:4}}>⚡</span>}
+                <span className="cmp-col-full">{c.toUpperCase()}</span>
+                <span className="cmp-col-short">{colsShort[i].toUpperCase()}</span>
+              </div>
+            ))}
           </div>
+          {rows.map((row) => (
+            <div key={row.label} className={'cmp-row ' + (row.ai ? 'cmp-ai' : '')}>
+              <div className="cmp-feature">
+                {row.label}
+                {row.ai && <span className="cmp-tag">AI</span>}
+              </div>
+              {row.values.map((v, ci) => (
+                <div key={ci} className={'cmp-col ' + (ci === 2 ? 'cmp-us' : '')}>
+                  <CmpCell value={v} isUs={ci === 2}/>
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       </div>
+
+      <style jsx>{`
+        .cmp-table {
+          background: ${C.surface};
+          border: 1px solid ${C.borderHi};
+          border-radius: 14px;
+          overflow: hidden;
+          max-width: 880px;
+          margin: 0 auto;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+        }
+        .cmp-row {
+          display: grid;
+          grid-template-columns: 1.3fr 1fr 1fr 1fr;
+          align-items: stretch;
+        }
+        .cmp-header {
+          border-bottom: 1px solid ${C.borderHi};
+          background: #0d1726;
+        }
+        .cmp-header .cmp-col {
+          font-family: 'Bebas Neue', Impact, sans-serif;
+          letter-spacing: .06em; color: ${C.muted};
+          text-align: center;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .cmp-header .cmp-us {
+          background: linear-gradient(180deg, rgba(79,158,255,0.20), rgba(79,158,255,0.06));
+          color: ${C.text}; font-weight: 700;
+          border-left: 1px solid rgba(79,158,255,0.35);
+          border-right: 1px solid rgba(79,158,255,0.35);
+        }
+        .cmp-row + .cmp-row { border-top: 1px solid #1f2a40; }
+        .cmp-row:nth-child(odd) { background: rgba(255,255,255,0.012); }
+        .cmp-feature {
+          color: ${C.subtext}; font-weight: 500;
+          display: flex; align-items: center;
+        }
+        .cmp-col {
+          text-align: center; color: ${C.subtext};
+          display: flex; align-items: center; justify-content: center;
+        }
+        .cmp-us {
+          background: rgba(79,158,255,0.06);
+          border-left: 1px solid rgba(79,158,255,0.35);
+          border-right: 1px solid rgba(79,158,255,0.35);
+          color: ${C.text};
+        }
+        .cmp-ai .cmp-feature { color: ${C.yellow}; }
+        .cmp-ai .cmp-us { background: rgba(251,191,36,0.08); }
+        .cmp-tag {
+          background: rgba(251,191,36,0.15);
+          color: ${C.yellow};
+          border: 1px solid rgba(251,191,36,0.4);
+          border-radius: 999px;
+          padding: 1px 7px;
+          font-size: 9px; font-weight: 700; letter-spacing: .08em;
+          margin-left: 6px;
+        }
+        .cmp-col-short { display: inline; }
+        .cmp-col-full  { display: none; }
+        .cmp-header .cmp-col { font-size: 11px; padding: 12px 6px; }
+        .cmp-feature { padding: 10px 12px; font-size: 12px; line-height: 1.25; }
+        .cmp-col { padding: 10px 6px; font-size: 12px; }
+        @media (min-width: 768px) {
+          .cmp-col-short { display: none; }
+          .cmp-col-full  { display: inline; }
+          .cmp-row { grid-template-columns: 1.6fr 1fr 1fr 1fr; }
+          .cmp-header .cmp-col { font-size: 13px; letter-spacing: .08em; padding: 16px 14px; }
+          .cmp-feature { padding: 13px 18px; font-size: 14px; }
+          .cmp-col { padding: 13px; font-size: 14px; }
+        }
+      `}</style>
     </section>
+  );
+}
+
+function CmpCell({ value, isUs }) {
+  if (value === 'yes') return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+      stroke={isUs ? C.green : C.muted}
+      strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+      style={{display:'inline-block',verticalAlign:'middle'}}>
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  );
+  if (value === 'no') return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+      stroke={C.red}
+      strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+      style={{display:'inline-block',verticalAlign:'middle',opacity:0.75}}>
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  );
+  if (value === 'partial') return (
+    <span style={{color:C.yellow,fontWeight:600}}>Partial</span>
+  );
+  return (
+    <span style={{color: isUs ? C.text : C.subtext,fontWeight: isUs ? 700 : 500,lineHeight:1.25}}>
+      {value}
+    </span>
   );
 }
 
