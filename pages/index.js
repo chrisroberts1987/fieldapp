@@ -28,7 +28,7 @@ const C = {
 export default function Home() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
-  const [billing, setBilling] = useState('annual');
+  const [billing, setBilling] = useState('monthly');
 
   useEffect(() => {
     const standalone = typeof window !== 'undefined'
