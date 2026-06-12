@@ -1,16 +1,36 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import { supabase } from '../lib/supabase';
-import Logo, { HorizontalLogo } from '../components/Logo';
+
+// Color tokens kept inline-readable so designer + dev are working off the
+// same palette as the source mockup at design/myforeman-landing-mockup_8.html.
+const C = {
+  bg:        '#0a0f1a',
+  surface:   '#111827',
+  card:      '#1a2438',
+  border:    '#1e2e4a',
+  borderHi:  '#2e3f60',
+  blue:      '#4f9eff',
+  blueDeep:  '#2a7de8',
+  green:     '#2edf87',
+  red:       '#f26060',
+  yellow:    '#fbbf24',
+  orange:    '#fb923c',
+  cyan:      '#54d4f8',
+  purple:    '#b197fc',
+  text:      '#f0f4ff',
+  subtext:   '#c8d4ee',
+  muted:     '#7a8db0',
+  dark:      '#3a4a66',
+};
 
 export default function Home() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
-  const [billing, setBilling] = useState('monthly');
+  const [billing, setBilling] = useState('annual');
 
   useEffect(() => {
-    // Installed PWA users don't want the marketing page; punt them
-    // straight into the app.
     const standalone = typeof window !== 'undefined'
       && (window.matchMedia?.('(display-mode: standalone)')?.matches
           || window.navigator?.standalone === true);
@@ -20,9 +40,6 @@ export default function Home() {
         router.push(session ? '/dashboard' : '/login');
         return;
       }
-      // Signed-in users go to their dashboard. Demo viewers stay on
-      // the marketing page so closing the tab doesn't trap them in
-      // the demo on next visit.
       if (session && session.user?.email !== 'demo@myforemanhq.com') {
         router.push('/dashboard');
       } else {
@@ -33,120 +50,18 @@ export default function Home() {
 
   if (checking) {
     return (
-      <div style={{minHeight:'100vh',background:'#111827',display:'flex',alignItems:'center',justifyContent:'center',color:'#f0f4ff',fontFamily:"'Inter',system-ui,sans-serif"}}>
+      <div style={{minHeight:'100vh',background:C.bg,display:'flex',alignItems:'center',justifyContent:'center',color:C.text,fontFamily:"'Inter',system-ui,sans-serif"}}>
         Loading...
       </div>
     );
   }
 
-  return (
-    <div style={{minHeight:'100vh',background:'#111827',color:'#f0f4ff',fontFamily:"'Inter',system-ui,sans-serif"}}>
-      <Hero router={router} supabase={supabase}/>
-      <Compare/>
-      <Workflow/>
-      <Features/>
-      <AIShowcase router={router}/>
-      <Pricing billing={billing} setBilling={setBilling} router={router}/>
-      <FooterSection/>
-
-      <style jsx global>{`
-        html, body { background: #111827; }
-        a { color: inherit; }
-
-        .hero-section {
-          position: relative; overflow: hidden;
-          padding: 18px 0 72px;
-        }
-        .hero-grid-bg {
-          position: absolute; inset: 0;
-          background-image:
-            linear-gradient(rgba(79,158,255,0.06) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(79,158,255,0.06) 1px, transparent 1px);
-          background-size: 48px 48px;
-          -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, #000 25%, transparent 75%);
-                  mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, #000 25%, transparent 75%);
-          pointer-events: none;
-        }
-        .hero-glow {
-          position: absolute; left: 50%; top: -240px;
-          transform: translateX(-50%);
-          width: 760px; height: 760px; border-radius: 50%;
-          background: radial-gradient(circle, rgba(79,158,255,0.18), transparent 60%);
-          pointer-events: none;
-        }
-        .hero-headline {
-          font-family: 'Bebas Neue', Impact, sans-serif;
-          font-size: 62px; letter-spacing: 0.04em; line-height: 0.95;
-          margin: 0 0 16px; color: #f0f4ff;
-        }
-        .hero-headline .accent { color: #4f9eff; }
-        .hero-subhead {
-          font-size: 16px; line-height: 1.55; color: #c8d4ee;
-          max-width: 580px; margin: 0 auto 28px;
-        }
-        @media (min-width: 720px) {
-          .hero-headline { font-size: 104px; }
-          .hero-subhead { font-size: 19px; }
-          .hero-section { padding: 18px 0 88px; }
-        }
-        @media (min-width: 1024px) {
-          .hero-headline { font-size: 128px; }
-        }
-
-        .section { padding: 64px 20px; }
-        .section.alt {
-          background: #0d1726;
-          border-top: 1px solid #1f2a40;
-          border-bottom: 1px solid #1f2a40;
-        }
-        .section-inner { max-width: 1080px; margin: 0 auto; }
-        .section-headline {
-          font-family: 'Bebas Neue', Impact, sans-serif;
-          font-size: 34px; letter-spacing: 0.04em; line-height: 1.05;
-          margin: 0 0 10px; color: #f0f4ff;
-        }
-        .section-lede {
-          font-size: 15px; line-height: 1.55; color: #c8d4ee;
-          max-width: 560px; margin: 0 0 32px;
-        }
-        @media (min-width: 720px) {
-          .section { padding: 92px 24px; }
-          .section-headline { font-size: 50px; }
-          .section-lede { font-size: 17px; }
-        }
-
-        .workflow-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
-        @media (min-width: 720px)  { .workflow-grid { grid-template-columns: repeat(5, 1fr); gap: 12px; } }
-
-        .feature-grid {
-          display: grid; grid-template-columns: 1fr; gap: 12px;
-        }
-        @media (min-width: 720px)  { .feature-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; } }
-        @media (min-width: 1024px) { .feature-grid { grid-template-columns: repeat(3, 1fr); } }
-
-        .pricing-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 22px; align-items: stretch; }
-        @media (min-width: 880px) { .pricing-grid { grid-template-columns: repeat(3, 1fr); gap: 18px; } }
-
-        .footer-row { display: flex; flex-direction: column; gap: 22px; align-items: flex-start; }
-        @media (min-width: 720px) { .footer-row { flex-direction: row; align-items: center; justify-content: space-between; } }
-      `}</style>
-    </div>
-  );
-}
-
-/* =====================================================
-   HERO — two CTAs only. No anchor scroll button.
-   ===================================================== */
-function Hero({ router, supabase }) {
-  const [demoBusy, setDemoBusy] = useState(false);
-  const [demoErr, setDemoErr] = useState(null);
   const launchDemo = async () => {
-    setDemoErr(null); setDemoBusy(true);
     const { data, error } = await supabase.auth.signInWithPassword({
       email: 'demo@myforemanhq.com',
       password: 'demo1234',
     });
-    if (error) { setDemoErr(error.message); setDemoBusy(false); return; }
+    if (error) return;
     const meta = { ...(data?.user?.user_metadata || {}) };
     delete meta.onboarding_completed_at;
     delete meta.onboarding_skipped_at;
@@ -155,609 +70,965 @@ function Hero({ router, supabase }) {
   };
 
   return (
-    <section className="hero-section">
-      <div className="hero-grid-bg"/>
-      <div className="hero-glow"/>
+    <div style={{background:C.bg,color:C.text,fontFamily:"'Inter',system-ui,sans-serif",overflowX:'hidden'}}>
+      <Nav router={router}/>
+      <Hero router={router} launchDemo={launchDemo}/>
+      <Compare/>
+      <Features/>
+      <Workflow/>
+      <Pricing billing={billing} setBilling={setBilling} router={router}/>
+      <CompetitorTable/>
+      <FinalCta router={router} launchDemo={launchDemo}/>
+      <Footer/>
 
-      <nav style={{position:'relative',zIndex:2,display:'flex',justifyContent:'space-between',alignItems:'center',maxWidth:1200,margin:'0 auto',padding:'0 20px',gap:12}}>
-        <a href="/" style={{display:'inline-block',cursor:'pointer'}} aria-label="MyForeman home">
-          <HorizontalLogo height={40}/>
-        </a>
-        <div style={{display:'flex',gap:10,alignItems:'center'}}>
-          <button onClick={() => router.push('/login')}
-            style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'8px 14px',cursor:'pointer',fontSize:12,fontWeight:600,letterSpacing:'.06em'}}>
-            SIGN IN
-          </button>
-          <button onClick={() => router.push('/signup')}
-            style={{background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'8px 16px',cursor:'pointer',fontSize:12,fontWeight:700,letterSpacing:'.06em'}}>
-            START FREE
-          </button>
-        </div>
-      </nav>
+      <style jsx global>{`
+        html, body { background: ${C.bg}; margin: 0; padding: 0; }
+        * { box-sizing: border-box; }
+        a { color: inherit; text-decoration: none; }
+        button { font-family: inherit; cursor: pointer; }
 
-      <div style={{position:'relative',zIndex:2,maxWidth:880,margin:'0 auto',padding:'56px 20px 0',textAlign:'center'}}>
-        <div style={{display:'inline-block',marginBottom:20,padding:'6px 14px',background:'rgba(79,158,255,0.10)',border:'1px solid rgba(79,158,255,0.3)',borderRadius:999,fontSize:11,letterSpacing:'.12em',fontWeight:700,color:'#4f9eff',textTransform:'uppercase'}}>
-          Built for the trades
-        </div>
-        <h1 className="hero-headline">
-          FROM LEAD<br/>TO <span className="accent">PAID.</span>
-        </h1>
-        <p className="hero-subhead">
-          Run your field service business from the booking link to the signed receipt. One app. Mobile-first. We email customers their quotes, invoices, and overdue reminders so you don't have to.
-        </p>
-        <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
-          <button onClick={() => router.push('/signup')}
-            style={{background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'14px 26px',cursor:'pointer',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.08em'}}>
-            START 14-DAY FREE TRIAL
-          </button>
-          <button onClick={launchDemo} disabled={demoBusy}
-            style={{background:'transparent',border:'1.5px solid #2edf87',borderRadius:10,color:'#2edf87',padding:'14px 26px',cursor:demoBusy?'wait':'pointer',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.08em',opacity:demoBusy?0.6:1}}>
-            {demoBusy ? 'OPENING…' : 'LIVE DEMO →'}
-          </button>
-        </div>
-        <div style={{marginTop:14,fontSize:12,color:'#7a8db0',letterSpacing:'.03em'}}>
-          Demo opens instantly. No card, no signup.
-        </div>
-        {demoErr && <div style={{marginTop:10,fontSize:12,color:'#f26060'}}>Couldn't open demo: {demoErr}</div>}
-      </div>
-    </section>
-  );
-}
+        .container { max-width: 1280px; margin: 0 auto; padding: 0 32px; }
 
-/* =====================================================
-   COMPARE — trimmed to the rows that actually win deals.
-   No duplicate CTA at bottom.
-   ===================================================== */
-function Compare() {
-  // Category-level differentiators, not specific features (those
-  // live in the Features section below — repeating them here was
-  // the duplication problem). One row per "thing you'd ask in a
-  // buying meeting."
-  const rows = [
-    { label:'Setup time',                          values:['None',   '4–8 hrs',     '10 min'] },
-    { label:'Monthly cost',                        values:['$0',     '$99–$300',    '$39–$159'] },
-    { label:'Lead → Paid in one app',              values:['no',     'yes',         'yes'] },
-    { label:'Mobile-first PWA',                    values:['no',     'partial',     'yes'] },
-    { label:'Direct deposits, no platform cut',    values:['no',     'partial',     'yes'] },
-    { label:'Switch from your old platform',       values:['no',     'partial',     '10 min import'] },
-    { label:'Tax + accountant-ready exports',      values:['no',     'Add-on $$',   'yes'] },
-    { label:'Auto-bills + chases overdue invoices', values:['no',     'partial',     'yes'] },
-    { label:'AI business coach',                   values:['no',     'no',          'yes'], ai:true },
-    { label:'Live demo',                           values:['N/A',    'Sales call',  'One tap'] },
-  ];
-  const cols      = ['Texts & sheets', 'Jobber / HCP', 'MyForeman'];
-  const colsShort = ['Texts',          'Old-school',   'MyForeman'];
-
-  return (
-    <section className="section alt">
-      <div className="section-inner">
-        <h2 className="section-headline" style={{textAlign:'center',maxWidth:780,margin:'0 auto 10px'}}>
-          The way it should have always been.
-        </h2>
-        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 32px',maxWidth:620}}>
-          Your work is professional. Your tools should be too.
-        </p>
-
-        <div className="compare-table">
-          <div className="compare-row compare-header">
-            <div className="compare-feature">&nbsp;</div>
-            {cols.map((c, i) => (
-              <div key={c} className={'compare-col ' + (i === 2 ? 'compare-us' : '')}>
-                {i === 2 && <span style={{color:'#fbbf24',marginRight:4}}>⚡</span>}
-                <span className="compare-col-full">{c.toUpperCase()}</span>
-                <span className="compare-col-short">{colsShort[i].toUpperCase()}</span>
-              </div>
-            ))}
-          </div>
-          {rows.map((row) => (
-            <div key={row.label} className={'compare-row ' + (row.ai ? 'compare-ai' : '')}>
-              <div className="compare-feature">{row.label}{row.ai && <span className="compare-tag">AI</span>}</div>
-              {row.values.map((v, ci) => (
-                <div key={ci} className={'compare-col ' + (ci === 2 ? 'compare-us' : '')}>
-                  <CompareCell value={v} isUs={ci === 2}/>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <style jsx>{`
-        .compare-table {
-          background: #111827; border: 1px solid #2e3f60; border-radius: 14px;
-          overflow: hidden; max-width: 880px; margin: 0 auto;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-        }
-        .compare-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; align-items: stretch; }
-        .compare-header { border-bottom: 1px solid #2e3f60; background: #0d1726; }
-        .compare-header .compare-col {
+        .h1-hero {
           font-family: 'Bebas Neue', Impact, sans-serif;
-          letter-spacing: .06em; color: #7a8db0;
+          font-size: clamp(56px, 7vw, 104px);
+          line-height: .88; letter-spacing: .04em;
+          color: #fff; margin: 0 0 14px;
+          text-shadow: 0 0 80px rgba(79,158,255,0.12);
+        }
+        .h1-hero .blue  { color: ${C.blue}; }
+        .h1-hero .green { color: ${C.green}; }
+
+        .h2-problem {
+          font-size: clamp(28px, 3.4vw, 48px);
+          font-weight: 900; line-height: 1.1; letter-spacing: -.02em;
+          color: ${C.text}; margin: 0 0 20px;
+        }
+        .struck {
+          color: ${C.dark};
+          text-decoration: line-through;
+          text-decoration-color: ${C.red};
+          text-decoration-thickness: 3px;
+        }
+        .red-text { color: ${C.red}; }
+
+        .eyebrow {
+          display: inline-flex; align-items: center; gap: 10px;
+          font-size: 11px; font-weight: 800; letter-spacing: .22em;
+          text-transform: uppercase;
+        }
+        .eyebrow::before {
+          content: ''; display: block; width: 32px; height: 2px;
+          background: currentColor;
+        }
+
+        .btn-primary {
+          background: linear-gradient(135deg, ${C.blue}, ${C.blueDeep});
+          color: #fff; font-weight: 800; letter-spacing: .06em;
+          text-transform: uppercase; border: none; border-radius: 12px;
+          box-shadow: 0 8px 32px rgba(79,158,255,0.4);
+          padding: 16px 32px; font-size: 15px;
+        }
+        .btn-primary:hover { transform: translateY(-1px); }
+
+        .btn-ghost {
+          background: rgba(255,255,255,0.03);
+          color: ${C.subtext}; font-weight: 700;
+          border: 1px solid ${C.borderHi}; border-radius: 12px;
+          padding: 16px 24px; font-size: 14px;
+        }
+
+        .section-label {
           text-align: center;
+          font-size: 11px; font-weight: 800;
+          letter-spacing: .2em; text-transform: uppercase;
+          color: ${C.muted};
           display: flex; align-items: center; justify-content: center;
+          gap: 16px; margin: 0 0 48px;
         }
-        .compare-header .compare-us {
-          background: linear-gradient(180deg,rgba(79,158,255,0.20),rgba(79,158,255,0.06));
-          color: #f0f4ff; font-weight: 700;
-          border-left: 1px solid rgba(79,158,255,0.35);
-          border-right: 1px solid rgba(79,158,255,0.35);
+        .section-label::before, .section-label::after {
+          content: ''; flex: 1; height: 1px;
+          background: ${C.border}; max-width: 220px;
         }
-        .compare-row + .compare-row { border-top: 1px solid #1f2a40; }
-        .compare-row:nth-child(odd) { background: rgba(255,255,255,0.012); }
-        .compare-feature { color: #c8d4ee; font-weight: 500; display: flex; align-items: center; }
-        .compare-col { text-align: center; color: #c8d4ee; display: flex; align-items: center; justify-content: center; }
-        .compare-us {
-          background: rgba(79,158,255,0.06);
-          border-left: 1px solid rgba(79,158,255,0.35);
-          border-right: 1px solid rgba(79,158,255,0.35);
-          color: #f0f4ff;
+
+        /* Hero phone */
+        .phone-wrap { position: relative; }
+        .phone {
+          width: 300px; height: 620px; border-radius: 48px;
+          border: 2.5px solid rgba(255,255,255,0.14);
+          overflow: hidden; position: relative; background: #000;
+          box-shadow:
+            0 0 0 1px rgba(0,0,0,0.5),
+            0 40px 120px rgba(0,0,0,0.8),
+            0 0 80px rgba(79,158,255,0.2);
         }
-        .compare-ai .compare-feature { color: #fbbf24; }
-        .compare-ai .compare-us { background: rgba(251,191,36,0.08); }
-        .compare-tag {
-          background: rgba(251,191,36,0.15); color: #fbbf24;
-          border: 1px solid rgba(251,191,36,0.4); border-radius: 999px;
-          padding: 1px 7px; font-size: 9px; font-weight: 700; letter-spacing: .08em; margin-left: 6px;
+        .phone img {
+          width: 100%; height: 100%;
+          object-fit: cover; object-position: top center; display: block;
         }
-        .compare-col-short { display: inline; }
-        .compare-col-full  { display: none; }
-        @media (min-width: 768px) {
-          .compare-col-short { display: none; }
-          .compare-col-full  { display: inline; }
+        .phone-notch {
+          position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+          width: 120px; height: 32px; background: #000;
+          border-radius: 0 0 22px 22px; z-index: 10;
         }
-        .compare-header .compare-col { font-size: 11px; padding: 12px 6px; }
-        .compare-feature              { padding: 10px 10px; font-size: 12px; line-height: 1.25; }
-        .compare-col                  { padding: 10px 6px; font-size: 12px; }
-        @media (min-width: 768px) {
-          .compare-row { grid-template-columns: 1.6fr 1fr 1fr 1fr; }
-          .compare-header .compare-col { font-size: 13px; letter-spacing: .08em; padding: 16px 14px; }
-          .compare-feature              { padding: 13px 18px; font-size: 14px; }
-          .compare-col                  { padding: 13px; font-size: 14px; }
+        .phone-glow {
+          position: absolute; bottom: -60px; left: 50%; transform: translateX(-50%);
+          width: 300px; height: 120px;
+          background: radial-gradient(ellipse, rgba(79,158,255,0.35) 0%, transparent 70%);
+          z-index: 0; pointer-events: none;
+        }
+        .badge-float {
+          position: absolute; z-index: 20;
+          background: ${C.card};
+          border: 1px solid ${C.borderHi};
+          border-radius: 12px;
+          padding: 10px 14px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+          display: flex; align-items: center; gap: 10px;
+          white-space: nowrap;
+        }
+
+        .feat-card {
+          background: ${C.card};
+          border: 1px solid ${C.border};
+          border-radius: 14px;
+          padding: 24px 20px;
+          position: relative; overflow: hidden;
+          display: flex; flex-direction: column; gap: 8px;
+        }
+        .feat-top-bar {
+          position: absolute; top: 0; left: 0; right: 0; height: 3px;
+        }
+
+        @media (max-width: 980px) {
+          .hero-grid { grid-template-columns: 1fr !important; gap: 60px !important; }
+          .phone { width: 260px; height: 540px; }
+          .badge-float.left  { left: -10px !important; top: 70px !important; }
+          .badge-float.right { right: -10px !important; top: 220px !important; }
+          .feat-grid { grid-template-columns: 1fr 1fr !important; }
+          .price-grid { grid-template-columns: 1fr 1fr !important; }
+          .all-features { grid-template-columns: 1fr 1fr !important; }
+          .compare-grid { grid-template-columns: 1fr !important; }
+          .container { padding: 0 20px; }
+          .nav-links { display: none !important; }
+          .wf-arrow { display: none !important; }
+          .wf-steps { flex-wrap: wrap !important; justify-content: center !important; gap: 12px !important; }
+        }
+        @media (max-width: 560px) {
+          .feat-grid { grid-template-columns: 1fr !important; }
+          .price-grid { grid-template-columns: 1fr !important; }
+          .all-features { grid-template-columns: 1fr !important; }
+          .hero-ctas { flex-direction: column; align-items: stretch !important; }
+          .hero-ctas button { width: 100%; }
+          .social-proof { flex-wrap: wrap; gap: 16px !important; }
         }
       `}</style>
-    </section>
+    </div>
   );
-}
-
-function CompareCell({ value, isUs }) {
-  if (value === 'yes') return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={isUs ? '#2edf87' : '#7a8db0'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{display:'inline-block',verticalAlign:'middle'}}>
-      <polyline points="20 6 9 17 4 12"/>
-    </svg>
-  );
-  if (value === 'no') return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f26060" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{display:'inline-block',verticalAlign:'middle',opacity:0.75}}>
-      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-    </svg>
-  );
-  if (value === 'partial') return <span style={{color:'#fbbf24',fontWeight:600}}>Partial</span>;
-  return <span style={{color:isUs?'#f0f4ff':'#c8d4ee',fontWeight:isUs?700:500,lineHeight:1.25}}>{value}</span>;
 }
 
 /* =====================================================
-   WORKFLOW — five steps, tight copy.
+   NAV
    ===================================================== */
-function Workflow() {
-  // Workflow is the chronological story (lead to paid). Features
-  // section below is the by-feature deep dive. To avoid duplication,
-  // each stage gets a short value sentence, not a full feature pitch.
-  const steps = [
-    { label:'Lead',     color:'#54d4f8', icon:<PhoneIcon/>,  desc:'Booking link, quote form, QR code on the truck. Every channel lands in one pipeline, tagged by source.' },
-    { label:'Quote',    color:'#b197fc', icon:<ScrollIcon/>, desc:'Build line-item quotes from your price book. Customers approve on their phone. Job is auto-created.' },
-    { label:'Work',     color:'#4f9eff', icon:<WrenchIcon/>, desc:'On the way emails the customer. Time clock and mileage auto-track. Customer signs off on the screen.' },
-    { label:'Invoice',  color:'#fbbf24', icon:<DocIcon/>,    desc:'Bill fires the second a job completes. Pay Now link in the email. Card, Venmo, Zelle, Cash App.' },
-    { label:'Paid',     color:'#2edf87', icon:<CheckIcon/>,  desc:'Money lands in your Stripe. Review request goes out. Books update for tax season.' },
-  ];
+function Nav({ router }) {
   return (
-    <section className="section">
-      <div className="section-inner">
-        <h2 className="section-headline" style={{textAlign:'center'}}>One app. The whole job.</h2>
-        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 32px'}}>
-          Every step of the funnel, in one place. Nothing falls through the cracks.
-        </p>
-        <div className="workflow-grid">
-          {steps.map((s, i) => (
-            <div key={s.label} style={{background:'#1e2a42',border:'1.5px solid #2e3f60',borderRadius:14,padding:'18px 16px',display:'flex',flexDirection:'column',gap:10,alignItems:'flex-start',textAlign:'left',position:'relative'}}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',width:'100%'}}>
-                <div style={{width:44,height:44,borderRadius:10,background:s.color+'22',border:'1px solid '+s.color+'66',display:'flex',alignItems:'center',justifyContent:'center',color:s.color}}>
-                  {s.icon}
-                </div>
-                <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:14,color:'#7a8db0',letterSpacing:'.08em'}}>0{i+1}</div>
-              </div>
-              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.06em',color:s.color}}>
-                {s.label.toUpperCase()}
-              </div>
-              <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.5}}>{s.desc}</div>
+    <nav style={{
+      position:'fixed', top:0, left:0, right:0, zIndex:100,
+      background:'rgba(10,15,26,0.85)',
+      backdropFilter:'blur(20px)',
+      WebkitBackdropFilter:'blur(20px)',
+      borderBottom:`1px solid ${C.border}`,
+      height:68,
+      display:'flex', alignItems:'center', justifyContent:'space-between',
+      padding:'0 32px',
+    }}>
+      <Link href="/" style={{display:'flex',alignItems:'center',gap:12}}>
+        <div style={{
+          width:38, height:38,
+          background:`linear-gradient(135deg, ${C.blue}, ${C.blueDeep})`,
+          borderRadius:10,
+          display:'flex', alignItems:'center', justifyContent:'center',
+          boxShadow:'0 0 16px rgba(79,158,255,0.4)',
+        }}>
+          <HardHatIcon/>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',lineHeight:1}}>
+          <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.1em',color:'#fff'}}>MY</span>
+          <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.1em',color:C.blue,marginTop:-2}}>FOREMAN</span>
+        </div>
+      </Link>
+      <div className="nav-links" style={{display:'flex',alignItems:'center',gap:32}}>
+        <a href="#features" style={{fontSize:14,fontWeight:600,color:C.muted}}>Features</a>
+        <a href="#pricing" style={{fontSize:14,fontWeight:600,color:C.muted}}>Pricing</a>
+        <a href="#demo" style={{fontSize:14,fontWeight:600,color:C.muted}}>Demo</a>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <button onClick={() => router.push('/login')} style={{
+          fontSize:13, fontWeight:700, color:C.subtext,
+          padding:'9px 18px', borderRadius:8,
+          border:`1px solid ${C.borderHi}`, background:'transparent',
+          letterSpacing:'.02em',
+        }}>
+          Sign In
+        </button>
+        <button onClick={() => router.push('/signup')} style={{
+          fontSize:13, fontWeight:800, color:'#fff',
+          padding:'10px 20px', borderRadius:8,
+          background:`linear-gradient(135deg, ${C.blue}, ${C.blueDeep})`,
+          border:'none',
+          letterSpacing:'.04em', textTransform:'uppercase',
+          boxShadow:'0 4px 16px rgba(79,158,255,0.35)',
+        }}>
+          Start Free Trial
+        </button>
+      </div>
+    </nav>
+  );
+}
+
+/* =====================================================
+   HERO
+   Problem-first hero: pain points + struck-through headline,
+   then "ONE APP. LEAD TO PAID." with the phone screenshot on
+   the right and two floating activity badges around it.
+   ===================================================== */
+function Hero({ router, launchDemo }) {
+  return (
+    <section style={{
+      position:'relative', overflow:'hidden',
+      paddingTop:68,
+      display:'flex', alignItems:'center',
+      minHeight:'100vh',
+    }}>
+      {/* Background effects */}
+      <div style={{position:'absolute',inset:0,zIndex:0}}>
+        <div style={{
+          position:'absolute',inset:0,
+          backgroundImage:'radial-gradient(circle, rgba(79,158,255,0.12) 1px, transparent 1px)',
+          backgroundSize:'48px 48px',
+          maskImage:'radial-gradient(ellipse 70% 60% at 50% 40%, rgba(0,0,0,0.4) 0%, transparent 100%)',
+          WebkitMaskImage:'radial-gradient(ellipse 70% 60% at 50% 40%, rgba(0,0,0,0.4) 0%, transparent 100%)',
+          opacity:0.5,
+        }}/>
+        <div style={{
+          position:'absolute',top:'-20%',right:'-10%',
+          width:'70vw',height:'70vw',
+          background:'radial-gradient(circle, rgba(79,158,255,0.14) 0%, transparent 60%)',
+        }}/>
+        <div style={{
+          position:'absolute',bottom:'-20%',left:'-10%',
+          width:'60vw',height:'60vw',
+          background:'radial-gradient(circle, rgba(46,223,135,0.09) 0%, transparent 60%)',
+        }}/>
+      </div>
+
+      <div className="container" style={{position:'relative',zIndex:10,padding:'80px 32px',width:'100%'}}>
+        <div className="hero-grid" style={{
+          display:'grid',
+          gridTemplateColumns:'1fr 420px',
+          gap:80,
+          alignItems:'center',
+        }}>
+          {/* Left: problem then solution */}
+          <div>
+            <div className="eyebrow" style={{color:C.red,marginBottom:24}}>
+              <span>Sound Familiar?</span>
             </div>
-          ))}
+
+            <h1 className="h2-problem">
+              You&apos;re great at your trade.<br/>
+              Your <span className="struck">tools</span> are <span className="red-text">failing you.</span>
+            </h1>
+
+            <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:28}}>
+              {[
+                'Chasing unpaid invoices by text message',
+                'Paying $150 a month and still hitting feature paywalls',
+                'Leads falling through the cracks while you are on the job',
+                'Juggling three different apps just to run one business',
+              ].map(t => <PainItem key={t} text={t}/>)}
+            </div>
+
+            <div style={{display:'flex',alignItems:'center',gap:16,margin:'4px 0 24px'}}>
+              <div style={{flex:1,height:1,background:`linear-gradient(90deg, ${C.borderHi}, transparent)`}}/>
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:16,letterSpacing:'.16em',color:C.blue,whiteSpace:'nowrap'}}>
+                THERE IS A BETTER WAY
+              </div>
+              <div style={{flex:1,height:1,background:`linear-gradient(270deg, ${C.borderHi}, transparent)`}}/>
+            </div>
+
+            <div className="eyebrow" style={{color:C.blue,marginBottom:16}}>
+              <span>Introducing MyForeman</span>
+            </div>
+
+            <h2 className="h1-hero">
+              ONE APP.<br/>
+              <span className="blue">LEAD</span> TO <span className="green">PAID.</span>
+            </h2>
+
+            <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:18}}>
+              <span style={{fontSize:18,fontWeight:800,fontStyle:'italic',color:C.subtext,whiteSpace:'nowrap'}}>
+                &ldquo;The last app you&apos;ll ever need.&rdquo;
+              </span>
+              <div style={{flex:1,height:1,background:`linear-gradient(90deg, rgba(79,158,255,0.5), transparent)`}}/>
+            </div>
+
+            <p style={{fontSize:16,color:C.muted,lineHeight:1.7,marginBottom:36,maxWidth:560}}>
+              <strong style={{color:C.subtext,fontWeight:700}}>Stop chasing. Stop juggling. Stop overpaying.</strong> MyForeman automates your entire field service business, from the moment a lead comes in to the second you get paid. Built for the job site, not the office.
+            </p>
+
+            <div className="hero-ctas" style={{display:'flex',alignItems:'center',gap:14,marginBottom:36}}>
+              <button className="btn-primary" onClick={() => router.push('/signup')} style={{padding:'16px 36px',fontSize:16}}>
+                Start Free Trial
+              </button>
+              <button className="btn-ghost" onClick={launchDemo} style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{color:C.green}}>▶</span> See Live Demo
+              </button>
+            </div>
+
+            <div style={{fontSize:12,color:C.muted,display:'flex',alignItems:'center',gap:8,marginBottom:24}}>
+              <span style={{width:6,height:6,borderRadius:'50%',background:C.green,boxShadow:'0 0 6px rgba(46,223,135,0.6)'}}/>
+              No credit card required · Setup in 10 minutes · Cancel anytime
+            </div>
+
+            <div className="social-proof" style={{display:'flex',alignItems:'center',gap:20,paddingTop:24,borderTop:`1px solid ${C.border}`}}>
+              <ProofItem num="14" label="Day Free Trial"/>
+              <div style={{width:1,height:40,background:C.borderHi}}/>
+              <ProofItem num="$39" label="Starting Price"/>
+              <div style={{width:1,height:40,background:C.borderHi}}/>
+              <ProofItem num="10 MIN" label="Setup Time"/>
+              <div style={{width:1,height:40,background:C.borderHi}}/>
+              <ProofItem num="0" label="Feature Gates"/>
+            </div>
+          </div>
+
+          {/* Right: phone */}
+          <div style={{display:'flex',justifyContent:'center'}}>
+            <div className="phone-wrap">
+              <div className="phone-glow"/>
+              <div className="phone">
+                <img src="/hero-app-screenshot.png" alt="MyForeman app screenshot"/>
+                <div className="phone-notch"/>
+              </div>
+
+              <div className="badge-float left" style={{left:-120,top:100}}>
+                <div style={{width:8,height:8,borderRadius:'50%',background:C.green,boxShadow:'0 0 6px rgba(46,223,135,0.6)',flexShrink:0}}/>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:C.subtext}}>Invoice Auto-Sent</div>
+                  <div style={{fontSize:12,fontWeight:800,color:C.green}}>Job Complete ✓</div>
+                </div>
+              </div>
+
+              <div className="badge-float right" style={{right:-110,top:260}}>
+                <div style={{width:8,height:8,borderRadius:'50%',background:C.blue,boxShadow:'0 0 6px rgba(79,158,255,0.6)',flexShrink:0}}/>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:C.subtext}}>New Lead</div>
+                  <div style={{fontSize:12,fontWeight:800,color:C.blue}}>AI Chat → Booked</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
   );
 }
 
+function PainItem({ text }) {
+  return (
+    <div style={{
+      display:'flex', alignItems:'center', gap:12,
+      background:'rgba(242,96,96,0.07)',
+      border:'1px solid rgba(242,96,96,0.18)',
+      borderRadius:10,
+      padding:'12px 16px',
+    }}>
+      <div style={{
+        width:24,height:24,borderRadius:'50%',
+        background:'rgba(242,96,96,0.2)',
+        color:C.red,
+        fontSize:12,fontWeight:900,
+        display:'flex',alignItems:'center',justifyContent:'center',
+        flexShrink:0,
+      }}>✕</div>
+      <span style={{fontSize:14,fontWeight:700,color:C.subtext}}>{text}</span>
+    </div>
+  );
+}
+
+function ProofItem({ num, label }) {
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:2}}>
+      <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:28,letterSpacing:'.04em',color:C.green}}>{num}</div>
+      <div style={{fontSize:11,fontWeight:600,color:C.muted,letterSpacing:'.06em',textTransform:'uppercase'}}>{label}</div>
+    </div>
+  );
+}
+
 /* =====================================================
-   FEATURES — six cards that lead with the new stuff.
-   Drops the noisy 9-card grid that turned mobile into a scroll.
+   COMPARE — Before MyForeman vs After
+   ===================================================== */
+function Compare() {
+  const before = [
+    'Chasing payments with texts for weeks',
+    '$150 a month software with endless feature paywalls',
+    'Losing leads because you were busy on a job',
+    'No idea which jobs are actually profitable',
+  ];
+  const after = [
+    'Invoice sent automatically when the job is done',
+    'Everything included from $39 a month, no paywalls ever',
+    'AI chat captures and books leads 24/7 for you',
+    'AI Coach shows exactly where you make money',
+  ];
+  return (
+    <section style={{background:C.surface,padding:'80px 0',borderTop:`1px solid ${C.border}`}}>
+      <div className="container">
+        <div className="section-label">The Way It Should Have Always Been</div>
+
+        <div className="compare-grid" style={{
+          maxWidth:1000, margin:'0 auto',
+          display:'grid', gridTemplateColumns:'1fr 1fr', gap:16,
+        }}>
+          <div>
+            <div style={{fontSize:11,fontWeight:800,letterSpacing:'.18em',textTransform:'uppercase',color:C.red,marginBottom:12}}>
+              Before MyForeman
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {before.map(t => <CmpRow key={t} bad text={t}/>)}
+            </div>
+          </div>
+          <div>
+            <div style={{fontSize:11,fontWeight:800,letterSpacing:'.18em',textTransform:'uppercase',color:C.green,marginBottom:12}}>
+              After MyForeman
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {after.map(t => <CmpRow key={t} text={t}/>)}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CmpRow({ bad, text }) {
+  const color = bad ? C.red : C.green;
+  return (
+    <div style={{
+      display:'flex',alignItems:'center',gap:10,
+      borderRadius:10,padding:'14px 16px',
+      background: bad ? 'rgba(242,96,96,.07)' : 'rgba(46,223,135,.07)',
+      border: `1px solid ${bad ? 'rgba(242,96,96,.16)' : 'rgba(46,223,135,.16)'}`,
+    }}>
+      <div style={{
+        width:24,height:24,borderRadius:'50%',
+        display:'flex',alignItems:'center',justifyContent:'center',
+        fontSize:12,fontWeight:900,flexShrink:0,
+        background: bad ? 'rgba(242,96,96,.2)' : 'rgba(46,223,135,.2)',
+        color,
+      }}>
+        {bad ? '✕' : '✓'}
+      </div>
+      <span style={{fontSize:14,fontWeight:700,color:C.subtext}}>{text}</span>
+    </div>
+  );
+}
+
+/* =====================================================
+   FEATURES — 6 cards in 3x2
+   No icons. Stat + small label + name + description.
    ===================================================== */
 function Features() {
   const cards = [
-    {
-      icon: <LinkIcon/>,
-      title: 'Leads from everywhere',
-      body: "Booking link customers fill out themselves. Quote-request link for fast pricing. QR code for yard signs, trucks, business cards. Phone, walk-in, and referral get tagged by source so you know what's actually working.",
-    },
-    {
-      icon: <DownloadIcon/>,
-      title: 'Switch in 10 minutes',
-      body: 'Bring your customers, quotes, jobs, invoices, expenses, and mileage from Jobber, Housecall Pro, QuickBooks, or any spreadsheet. One pass, validate-first preview, missing customers auto-create as you go. Nothing lost.',
-    },
-    {
-      icon: <TruckIcon/>,
-      title: '"On my way" auto-tracks',
-      body: 'One tap emails the customer their crew name and ETA, starts the time clock, and starts the GPS trip. Mark the job complete and mileage logs itself with real driving distance.',
-    },
-    {
-      icon: <SignIcon/>,
-      title: 'Customer signs off',
-      body: "Finger on the screen at completion. Signature lands on the invoice, emailed receipt, and the customer portal. Disputes don't happen when the receipt has their name on it.",
-    },
-    {
-      icon: <BoltIcon/>,
-      title: 'Auto-invoice, chase, review',
-      body: 'Job marked complete: invoice fires with a Pay Now link. One week past due: friendly reminder. Two weeks: firmer one. A month: final notice. Once they pay, a review request goes out. You stop chasing checks.',
-    },
-    {
-      icon: <CardIcon/>,
-      title: 'Cards + Venmo + Zelle + Cash App',
-      body: 'Customers pay any way they want. Cards run through your own Stripe (we take no cut). Cash App, Venmo, Zelle, PayPal, and check info land on the invoice with tap-to-pay deeplinks.',
-    },
-    {
-      icon: <CycleIcon/>,
-      title: 'Recurring + multi-day + portal',
-      body: 'Set a maintenance plan once, jobs materialize on cadence. Multi-day jobs span the calendar correctly. Customer portal shows quotes, scheduled visits, and unpaid invoices. No login needed.',
-    },
-    {
-      icon: <ChartIcon/>,
-      title: 'Tax + accountant exports',
-      body: 'Quarterly tax estimates that account for income, expenses, and IRS mileage. Accountant CSV and QuickBooks Online CSV exports at year-end. Your books, ready when they ask.',
-    },
+    { stat:'24/7',      label:'Always On',                       name:'Lead Capture',       color:C.blue,
+      desc:'QR code + AI chat captures and books leads while you sleep. Share your link anywhere. Facebook, Google, job sites.' },
+    { stat:'1 tap',     label:'Customer Approval',               name:'Smart Quotes',       color:C.green,
+      desc:'Build a professional quote in minutes. The customer approves from their phone. The job gets created automatically.' },
+    { stat:'Real time', label:'Live Tracking',                   name:'Job Management',     color:C.yellow,
+      desc:'Dispatch crew, track job progress live, and document everything with before / after photos from the job site.' },
+    { stat:'3 roles',   label:'Foreman · Supervisor · Crew',     name:'Crew Control',       color:C.orange,
+      desc:'Role-based access, expense approvals, GPS mileage tracking, and crew dispatch all built in.' },
+    { stat:'$0 chased', label:'Auto-Sent on Completion',         name:'Auto Invoicing',     color:C.cyan,
+      desc:'Job marked done, invoice sent to your customer automatically. No more chasing payments by text.' },
+    { stat:'Monthly',   label:'Business Analysis',               name:'AI Business Coach',  color:C.purple,
+      desc:'Your AI coach analyzes revenue, expenses, and job profitability every month with specific recommendations to grow.' },
   ];
-
   return (
-    <section className="section alt">
-      <div className="section-inner">
-        <h2 className="section-headline" style={{textAlign:'center',maxWidth:740,margin:'0 auto 10px'}}>
-          Built to run itself.
-        </h2>
-        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 32px',maxWidth:620}}>
-          Automation that quietly handles the busywork so you can spend the day on the job, not the laptop.
-        </p>
-
-        <div className="feature-grid">
-          {cards.map((c, i) => (
-            <div key={i} className={'feature-card ' + (c.ai ? 'feature-card-ai' : '')}>
-              {c.ai && <span className="feature-ai-tag">AI</span>}
-              <div className={'feature-icon ' + (c.ai ? 'feature-icon-ai' : '')}>{c.icon}</div>
-              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.04em',color:'#f0f4ff',marginTop:4,marginBottom:6}}>
-                {c.title.toUpperCase()}
+    <section id="features" style={{background:C.surface,padding:'40px 0 80px'}}>
+      <div className="container">
+        <div className="section-label">Everything Built In. Nothing Extra To Buy.</div>
+        <div className="feat-grid" style={{
+          maxWidth:1100, margin:'0 auto',
+          display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:14,
+        }}>
+          {cards.map(c => (
+            <div key={c.name} className="feat-card">
+              <div className="feat-top-bar" style={{background:c.color}}/>
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,lineHeight:1,letterSpacing:'.04em',color:c.color,marginBottom:2}}>
+                {c.stat}
               </div>
-              <div style={{fontSize:13.5,lineHeight:1.55,color:'#c8d4ee'}}>{c.body}</div>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:'.12em',textTransform:'uppercase',color:c.color,opacity:.7,marginBottom:8}}>
+                {c.label}
+              </div>
+              <div style={{fontSize:15,fontWeight:800,color:C.text}}>{c.name}</div>
+              <div style={{fontSize:13,color:C.muted,lineHeight:1.6}}>{c.desc}</div>
             </div>
           ))}
         </div>
       </div>
-
-      <style jsx>{`
-        .feature-card {
-          background: #1e2a42;
-          border: 1px solid #2e3f60;
-          border-radius: 14px;
-          padding: 22px 20px;
-          position: relative;
-          transition: border-color .2s, transform .2s;
-        }
-        .feature-card:hover { border-color: #4f9eff; transform: translateY(-2px); }
-        .feature-card-ai {
-          background: linear-gradient(160deg, rgba(251,191,36,0.06) 0%, #1e2a42 55%);
-          border-color: rgba(251,191,36,0.35);
-        }
-        .feature-card-ai:hover { border-color: rgba(251,191,36,0.7); }
-        .feature-ai-tag {
-          position: absolute; top: 14px; right: 14px;
-          background: rgba(251,191,36,0.15); color: #fbbf24;
-          border: 1px solid rgba(251,191,36,0.45);
-          border-radius: 999px; padding: 2px 9px;
-          font-size: 10px; font-weight: 700; letter-spacing: .1em;
-        }
-        .feature-icon {
-          width: 42px; height: 42px; border-radius: 10px;
-          background: rgba(79,158,255,0.12);
-          border: 1px solid rgba(79,158,255,0.35);
-          color: #4f9eff;
-          display: flex; align-items: center; justify-content: center;
-        }
-        .feature-icon-ai {
-          background: rgba(251,191,36,0.12);
-          border-color: rgba(251,191,36,0.45);
-          color: #fbbf24;
-        }
-      `}</style>
     </section>
   );
 }
 
 /* =====================================================
-   AI SHOWCASE — real example insights so "AI business coach"
-   isn't vaporware copy. Each card looks like a real chat bubble
-   from the in-app insights feed. Numbers are illustrative but
-   formatted exactly the way the live AI ships them.
+   WORKFLOW STRIP
    ===================================================== */
-function AIShowcase({ router }) {
-  // Four AI capabilities, four insight examples to back up the coach.
-  const tools = [
-    {
-      title: 'AI Receptionist',
-      sub: 'On your booking link',
-      body: 'Customers chat with an AI to book a service. It asks the right qualifying questions, picks a date, and drops the lead in your queue.',
-    },
-    {
-      title: 'In-app Assistant',
-      sub: '✨ One tap, every page',
-      body: 'Tap the sparkle button. Type "log $40 fuel" or "what\'s my net this month." It runs the action or answers from your data.',
-    },
-    {
-      title: 'Invoice Import',
-      sub: 'Snap a photo',
-      body: 'Take a picture of a vendor bill or contractor PDF. AI pulls the customer, total, dates, and line items in seconds. No retyping.',
-    },
-    {
-      title: 'Monthly Business Coach',
-      sub: 'Reads your books',
-      body: 'Once a month, MyForeman reads your revenue, jobs, customers, and expenses and ships 4 to 5 specific plays with dollar figures attached. See examples below.',
-    },
-  ];
-  const insights = [
-    {
-      tag: 'Pricing',
-      tagColor: '#2edf87',
-      title: "You're underpriced on lawn care.",
-      body: "Your average lawn-care job in your area runs $187. Competitors are charging $215+. A $199 price point won't lose customers and adds about $340/mo across your 25 active accounts.",
-      impact: '+$4,080/yr',
-    },
-    {
-      tag: 'Retention',
-      tagColor: '#4f9eff',
-      title: '8 customers ghosted you this year.',
-      body: "8 customers who used you in 2024 haven't booked again. 6 of them left 5-star reviews. Send the \"haven't seen you in a while\" nudge. Historical conversion on that template is ~30%.",
-      impact: '~$1,200 win-back',
-    },
-    {
-      tag: 'Profitability',
-      tagColor: '#fbbf24',
-      title: 'Spring cleanups are losing you money.',
-      body: 'Your spring cleanups have an effective hourly rate of $42/hr after labor and materials. Your gutter cleanings hit $148/hr. Raise spring cleanup pricing or move those bodies to gutters in March.',
-      impact: '3.5x margin gap',
-    },
-    {
-      tag: 'Cash flow',
-      tagColor: '#f26060',
-      title: '$2,847 sitting in unpaid invoices.',
-      body: 'Six invoices (#1042-1047) are an average of 19 days old. Auto-reminders already went out at day 7. Worth a personal call on the two over $800. Those convert ~3x better than another email.',
-      impact: 'Collect this week',
-    },
-  ];
+function Workflow() {
+  const steps = ['Lead','Quote','Approved','Job','Done','Invoice','Paid','Review'];
   return (
-    <section className="section ai-showcase">
-      <div className="section-inner">
-        <div style={{textAlign:'center',marginBottom:8}}>
-          <span style={{display:'inline-block',padding:'6px 14px',background:'rgba(251,191,36,0.12)',border:'1px solid rgba(251,191,36,0.45)',borderRadius:999,fontSize:11,letterSpacing:'.12em',fontWeight:700,color:'#fbbf24',textTransform:'uppercase'}}>
-            ⚡ AI built for the trades
-          </span>
-        </div>
-        <h2 className="section-headline" style={{textAlign:'center',maxWidth:780,margin:'12px auto 10px'}}>
-          Four AI tools that actually do the work.
-        </h2>
-        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 28px',maxWidth:640}}>
-          Not chatbots that talk. Tools that book leads, log your expenses, read vendor bills, and tell you where the money is.
-        </p>
-
-        <div className="ai-tools-grid">
-          {tools.map((t, i) => (
-            <div key={i} className="ai-tool-card">
-              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.04em',color:'#fbbf24',marginBottom:2}}>
-                {t.title.toUpperCase()}
-              </div>
-              <div style={{fontSize:11,color:'#fbbf24',letterSpacing:'.06em',fontWeight:700,textTransform:'uppercase',marginBottom:8,opacity:0.7}}>
-                {t.sub}
-              </div>
-              <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55}}>{t.body}</div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{marginTop:36,marginBottom:14,textAlign:'center',fontSize:11,letterSpacing:'.14em',fontWeight:700,color:'#fbbf24',textTransform:'uppercase'}}>
-          The monthly coach in action
-        </div>
-        <div className="insight-grid">
-          {insights.map((it, i) => (
-            <div key={i} className="insight-card">
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,gap:8}}>
-                <span style={{background:it.tagColor+'1f',color:it.tagColor,border:`1px solid ${it.tagColor}66`,borderRadius:999,padding:'3px 10px',fontSize:10,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',whiteSpace:'nowrap'}}>
-                  {it.tag}
-                </span>
-                <span style={{fontSize:11,color:it.tagColor,fontWeight:700,letterSpacing:'.04em'}}>{it.impact}</span>
-              </div>
-              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:20,letterSpacing:'.03em',color:'#f0f4ff',lineHeight:1.15,marginBottom:8}}>
-                {it.title}
-              </div>
-              <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55}}>{it.body}</div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{textAlign:'center',marginTop:28,fontSize:12,color:'#7a8db0'}}>
-          Sample output. Your actual recommendations come from your books, not these.
-        </div>
-      </div>
-
-      <style jsx>{`
-        .ai-showcase {
-          background:
-            radial-gradient(ellipse 60% 50% at 50% 0%, rgba(251,191,36,0.08), transparent 70%),
-            #0d1726;
-          border-top: 1px solid #1f2a40;
-          border-bottom: 1px solid #1f2a40;
-        }
-        .ai-tools-grid { display: grid; grid-template-columns: 1fr; gap: 12px; max-width: 960px; margin: 0 auto; }
-        @media (min-width: 760px) { .ai-tools-grid { grid-template-columns: 1fr 1fr; gap: 14px; } }
-        @media (min-width: 1024px) { .ai-tools-grid { grid-template-columns: repeat(4, 1fr); } }
-        .ai-tool-card {
-          background: linear-gradient(160deg, rgba(251,191,36,0.08) 0%, #1e2a42 60%);
-          border: 1px solid rgba(251,191,36,0.45);
-          border-radius: 12px; padding: 16px;
-        }
-        .insight-grid { display: grid; grid-template-columns: 1fr; gap: 14px; max-width: 920px; margin: 0 auto; }
-        @media (min-width: 760px) { .insight-grid { grid-template-columns: 1fr 1fr; gap: 18px; } }
-        .insight-card {
-          background: linear-gradient(160deg, rgba(251,191,36,0.05) 0%, #1e2a42 60%);
-          border: 1px solid rgba(251,191,36,0.30);
-          border-radius: 14px; padding: 18px;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.25);
-        }
-      `}</style>
-    </section>
-  );
-}
-
-/* =====================================================
-   PRICING — three plans. Annual is 11x monthly (1 mo free).
-   ===================================================== */
-function Pricing({ billing, setBilling, router }) {
-  const plans = [
-    { name:'Solo',     monthly:39,  users:'1 user',          subtitle:'For owner-operators' },
-    { name:'Crew',     monthly:69,  users:'Up to 10 users',  subtitle:'For service crews', popular:true },
-    { name:'Business', monthly:159, users:'Up to 25 users',  subtitle:'For multi-crew shops' },
-  ];
-  return (
-    <section className="section">
-      <div className="section-inner">
-        <h2 className="section-headline" style={{textAlign:'center'}}>Simple pricing. Every feature.</h2>
-        <p className="section-lede" style={{textAlign:'center',margin:'0 auto 22px'}}>
-          One plan per crew size. No feature gates. No add-on tier for the stuff you actually need.
-        </p>
-
-        <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>
-          <div style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:999,padding:4,display:'flex',gap:4}}>
-            <button onClick={() => setBilling('monthly')}
-              style={{background:billing==='monthly'?'#4f9eff':'transparent',border:'none',borderRadius:999,color:billing==='monthly'?'#fff':'#7a8db0',padding:'8px 20px',cursor:'pointer',fontSize:12,fontWeight:700,letterSpacing:'.06em'}}>
-              MONTHLY
-            </button>
-            <button onClick={() => setBilling('annual')}
-              style={{background:billing==='annual'?'#4f9eff':'transparent',border:'none',borderRadius:999,color:billing==='annual'?'#fff':'#7a8db0',padding:'8px 20px',cursor:'pointer',fontSize:12,fontWeight:700,letterSpacing:'.06em'}}>
-              ANNUAL
-            </button>
+    <section style={{background:C.surface,padding:'0 0 80px'}}>
+      <div className="container">
+        <div style={{
+          maxWidth:1000, margin:'0 auto',
+          background:'linear-gradient(135deg, rgba(79,158,255,.08), rgba(46,223,135,.04))',
+          border:'1px solid rgba(79,158,255,.22)',
+          borderRadius:16, padding:'28px 40px',
+        }}>
+          <div style={{
+            fontSize:11,fontWeight:800,letterSpacing:'.18em',textTransform:'uppercase',color:C.blue,
+            marginBottom:20,display:'flex',alignItems:'center',gap:8,
+          }}>
+            ⚡ Fully Automated Workflow
+          </div>
+          <div className="wf-steps" style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            {steps.map((s, i) => (
+              <span key={s} style={{display:'flex',alignItems:'center',gap:14}}>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
+                  <div style={{
+                    width:14,height:14,borderRadius:'50%',
+                    background: i === steps.length - 1 ? C.green : C.blue,
+                    boxShadow: i === steps.length - 1 ? '0 0 12px rgba(46,223,135,.5)' : '0 0 12px rgba(79,158,255,.5)',
+                  }}/>
+                  <div style={{
+                    fontSize:12,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',
+                    color: i === steps.length - 1 ? C.green : C.subtext,
+                  }}>
+                    {s}{i === steps.length - 1 ? ' ✓' : ''}
+                  </div>
+                </div>
+                {i < steps.length - 1 && (
+                  <div className="wf-arrow" style={{color:C.borderHi,fontSize:20,marginBottom:18}}>→</div>
+                )}
+              </span>
+            ))}
           </div>
         </div>
-        <div style={{textAlign:'center',height:16,fontSize:11,fontWeight:700,letterSpacing:'.12em',color:'#2edf87'}}>
-          {billing === 'annual' ? '1 MONTH FREE' : ' '}
-        </div>
-
-        <div className="pricing-grid">
-          {plans.map(p => <PricingCard key={p.name} plan={p} billing={billing} router={router}/>)}
-        </div>
-
-        <p style={{textAlign:'center',fontSize:13,color:'#7a8db0',marginTop:22}}>
-          14-day free trial. Full product. Import your existing customers + jobs from Jobber, HCP, or QuickBooks in minutes.
-        </p>
       </div>
     </section>
   );
 }
 
-function PricingCard({ plan, billing, router }) {
-  const isAnnual = billing === 'annual';
-  const annualTotal = plan.monthly * 11;
-  const displayPrice = isAnnual ? Math.round(annualTotal / 12) : plan.monthly;
-  const popular = plan.popular;
+/* =====================================================
+   PRICING — 4 cards + toggle + all-features grid
+   ===================================================== */
+function Pricing({ billing, setBilling, router }) {
+  const annual = billing === 'annual';
+  const plans = [
+    {
+      name:'Solo', monthly:39, annual:429, users:'1 User', sub:'Owner only',
+      desc:'Perfect for the solo operator running every job yourself.',
+      featured:false,
+    },
+    {
+      name:'Crew', monthly:69, annual:759, users:'Up to 10 Users', sub:'Owner + crew members',
+      desc:'For small crews ready to run a tighter operation.',
+      featured:false,
+    },
+    {
+      name:'Business', monthly:159, annual:1749, users:'Up to 25 Users', sub:'Owner + supervisors + crew',
+      desc:'For established contractors running a real operation.',
+      featured:true,
+    },
+    {
+      name:'Enterprise', monthly:null, annual:null, users:'25+ Users', sub:'Built around your crew size',
+      desc:'For larger operations. We will build a plan around your crew size and budget.',
+      featured:false,
+    },
+  ];
+  const allFeatures = [
+    'Lead capture & AI chat',
+    'Smart quotes & approvals',
+    'Job management',
+    'Auto invoicing',
+    'Crew management & roles',
+    'Expense tracking',
+    'GPS mileage tracking',
+    'Tax center',
+    'AI Business Coach',
+    'Change orders',
+    'Customer signatures',
+    'Customer self-booking',
+    'Google review automation',
+    'Data import',
+    'Photo documentation',
+    'Multi-day jobs',
+  ];
 
   return (
+    <section id="pricing" style={{background:C.surface,padding:'80px 0',borderTop:`1px solid ${C.border}`}}>
+      <div className="container">
+        <div className="section-label">Pricing</div>
+
+        <div style={{textAlign:'center',marginBottom:24}}>
+          <div style={{
+            display:'inline-flex',alignItems:'center',gap:8,
+            background:'rgba(46,223,135,0.08)',
+            border:'1px solid rgba(46,223,135,0.25)',
+            borderRadius:99, padding:'8px 20px',
+          }}>
+            <div style={{width:7,height:7,borderRadius:'50%',background:C.green,boxShadow:'0 0 6px rgba(46,223,135,0.6)'}}/>
+            <span style={{fontSize:12,fontWeight:800,letterSpacing:'.12em',textTransform:'uppercase',color:C.green}}>
+              Every plan includes all features. You only pay for your crew size.
+            </span>
+          </div>
+        </div>
+
+        <div style={{textAlign:'center',marginBottom:28}}>
+          <div style={{display:'inline-flex',alignItems:'center',gap:12}}>
+            <span
+              onClick={() => setBilling('monthly')}
+              style={{fontSize:13,fontWeight:annual?600:800,color:annual?C.muted:C.text,cursor:'pointer'}}>
+              Monthly
+            </span>
+            <div
+              onClick={() => setBilling(annual ? 'monthly' : 'annual')}
+              style={{
+                width:44,height:24,
+                background:'rgba(79,158,255,0.2)',
+                border:'1px solid rgba(79,158,255,0.4)',
+                borderRadius:99, position:'relative', cursor:'pointer',
+              }}>
+              <div style={{
+                width:18,height:18,
+                background:C.blue, borderRadius:'50%',
+                position:'absolute', top:2,
+                left: annual ? 'auto' : 3,
+                right: annual ? 3 : 'auto',
+                transition:'all .15s',
+              }}/>
+            </div>
+            <span
+              onClick={() => setBilling('annual')}
+              style={{fontSize:13,fontWeight:700,color:annual?C.blue:C.muted,cursor:'pointer'}}>
+              Annual
+              <span style={{
+                background:'rgba(46,223,135,0.15)',
+                border:'1px solid rgba(46,223,135,0.3)',
+                color:C.green,fontSize:11,padding:'2px 8px',
+                borderRadius:4,marginLeft:6,
+              }}>
+                1 Month Free
+              </span>
+            </span>
+          </div>
+        </div>
+
+        <div className="price-grid" style={{
+          display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:14, marginBottom:32,
+        }}>
+          {plans.map(p => <PlanCard key={p.name} plan={p} annual={annual} router={router}/>)}
+        </div>
+
+        <div style={{
+          background:'rgba(30,42,66,0.6)',
+          border:`1px solid ${C.borderHi}`,
+          borderRadius:14, padding:'28px 32px',
+          marginBottom:28,
+        }}>
+          <div style={{textAlign:'center',fontSize:11,fontWeight:800,letterSpacing:'.18em',textTransform:'uppercase',color:C.muted,marginBottom:20}}>
+            Every Plan Includes All of These Features
+          </div>
+          <div className="all-features" style={{display:'grid',gridTemplateColumns:'repeat(4, 1fr)',gap:12}}>
+            {allFeatures.map(f => (
+              <div key={f} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:C.subtext}}>
+                <span style={{color:C.green,fontWeight:900,fontSize:15}}>✓</span> {f}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{
+          textAlign:'center',fontSize:13,color:C.muted,
+          display:'flex',alignItems:'center',justifyContent:'center',
+          gap:24,flexWrap:'wrap',
+        }}>
+          <span>✓ 14-day free trial</span>
+          <span>·</span>
+          <span>✓ Cancel anytime</span>
+          <span>·</span>
+          <span>✓ Setup in 10 minutes</span>
+          <span>·</span>
+          <span>✓ All features on every plan</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PlanCard({ plan, annual, router }) {
+  const featured = plan.featured;
+  const price = annual && plan.annual ? Math.round(plan.annual / 12) : plan.monthly;
+  return (
     <div style={{
-      background: popular ? '#1e2a42' : '#111827',
-      border: popular ? '2px solid #4f9eff' : '1.5px solid #2e3f60',
-      borderRadius: 16,
-      padding: '26px 22px 22px',
-      position: 'relative',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 14,
-      transform: popular ? 'translateY(-4px)' : 'none',
-      boxShadow: popular ? '0 12px 32px rgba(79,158,255,0.15)' : 'none',
+      background: featured ? 'linear-gradient(145deg,#1a2a48,#152038)' : C.card,
+      border: featured ? '1.5px solid rgba(79,158,255,0.45)' : `1px solid ${C.borderHi}`,
+      borderRadius:16, padding:'28px 24px',
+      display:'flex', flexDirection:'column', gap:16,
+      position:'relative',
+      boxShadow: featured ? '0 0 40px rgba(79,158,255,0.12)' : 'none',
     }}>
-      {popular && (
-        <div style={{position:'absolute',top:-12,left:'50%',transform:'translateX(-50%)',background:'#4f9eff',color:'#fff',fontSize:10,fontWeight:700,letterSpacing:'.14em',padding:'4px 12px',borderRadius:999,whiteSpace:'nowrap'}}>
-          MOST POPULAR
+      {featured && (
+        <div style={{
+          position:'absolute', top:-14, left:'50%', transform:'translateX(-50%)',
+          background:`linear-gradient(135deg, ${C.blue}, ${C.blueDeep})`,
+          color:'#fff', fontSize:11, fontWeight:800,
+          letterSpacing:'.12em', textTransform:'uppercase',
+          padding:'6px 18px', borderRadius:99, whiteSpace:'nowrap',
+        }}>
+          Most Popular
         </div>
       )}
       <div>
-        <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:26,letterSpacing:'.06em',color:'#f0f4ff'}}>
-          {plan.name.toUpperCase()}
+        <div style={{
+          fontSize:11,fontWeight:800,letterSpacing:'.16em',textTransform:'uppercase',
+          color: featured ? C.blue : C.muted, marginBottom:8,
+        }}>
+          {plan.name}
         </div>
-        <div style={{fontSize:12,color:'#7a8db0',marginTop:2}}>{plan.subtitle}</div>
+        {plan.monthly == null ? (
+          <>
+            <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:40,lineHeight:1.1,color:C.text,letterSpacing:'.04em'}}>
+              Custom
+            </div>
+            <div style={{fontSize:12,color:C.muted,marginTop:4}}>Tailored to your operation</div>
+          </>
+        ) : (
+          <>
+            <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:52,lineHeight:1,color:C.text,letterSpacing:'.04em'}}>
+              ${price}
+              <span style={{fontSize:18,fontFamily:"'Inter',sans-serif",fontWeight:500,color:C.muted}}>/mo</span>
+            </div>
+            <div style={{fontSize:12,color:C.muted,marginTop:4}}>
+              {annual ? `Billed $${plan.annual}/yr, save 1 month` : 'Billed monthly'}
+            </div>
+          </>
+        )}
       </div>
-      <div>
-        <div style={{display:'flex',alignItems:'baseline',gap:6}}>
-          <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:52,color:'#f0f4ff',letterSpacing:'.02em',lineHeight:1}}>
-            ${displayPrice}
-          </span>
-          <span style={{fontSize:13,color:'#7a8db0'}}>/month</span>
-        </div>
-        <div style={{fontSize:11,color: isAnnual ? '#2edf87' : '#7a8db0',marginTop:6,fontWeight:isAnnual?700:400,letterSpacing:isAnnual?'.04em':0}}>
-          {isAnnual ? `$${annualTotal} billed annually` : 'Billed monthly'}
-        </div>
+
+      <div style={{
+        background: featured ? 'rgba(79,158,255,0.12)' : 'rgba(79,158,255,0.08)',
+        border: featured ? '1px solid rgba(79,158,255,0.3)' : '1px solid rgba(79,158,255,0.2)',
+        borderRadius:8, padding:'10px 14px', textAlign:'center',
+      }}>
+        <div style={{fontSize:plan.users.length > 14 ? 18 : 22,fontWeight:900,color:C.text}}>{plan.users}</div>
+        <div style={{fontSize:11,color:C.muted,marginTop:2}}>{plan.sub}</div>
       </div>
-      <div style={{fontSize:14,color:'#c8d4ee',fontWeight:600}}>{plan.users}</div>
-      <button onClick={() => router.push('/signup')}
-        style={{background: popular?'#4f9eff':'transparent',color: popular?'#fff':'#c8d4ee',border: popular?'none':'1px solid #2e3f60',borderRadius:10,padding:'13px 0',cursor:'pointer',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:15,letterSpacing:'.08em',fontWeight:700}}>
-        START FREE TRIAL
+
+      <div style={{fontSize:13,color:C.muted,lineHeight:1.5}}>{plan.desc}</div>
+
+      <button
+        onClick={() => router.push(plan.monthly == null ? '/contact' : '/signup')}
+        style={{
+          marginTop:'auto',
+          background: featured ? `linear-gradient(135deg, ${C.blue}, ${C.blueDeep})` : (plan.monthly == null ? 'rgba(46,223,135,0.1)' : 'rgba(79,158,255,0.12)'),
+          color: featured ? '#fff' : (plan.monthly == null ? C.green : C.blue),
+          border: featured ? 'none' : `1px solid ${plan.monthly == null ? 'rgba(46,223,135,0.3)' : 'rgba(79,158,255,0.35)'}`,
+          fontSize:14, fontWeight:800,
+          letterSpacing:'.06em', textTransform:'uppercase',
+          padding:14, borderRadius:10, width:'100%',
+          boxShadow: featured ? '0 6px 20px rgba(79,158,255,0.35)' : 'none',
+        }}>
+        {plan.monthly == null ? 'Get a Quote' : 'Start Free Trial'}
       </button>
-      <div style={{display:'flex',flexDirection:'column',gap:7,marginTop:4,paddingTop:14,borderTop:'1px solid #2e3f60'}}>
-        {[
-          'Every feature, no add-on tiers',
-          'Unlimited customers, jobs, invoices',
-          'Branded customer emails',
-          'PWA on iPhone + Android',
-          '14-day free trial',
-        ].map(f => (
-          <div key={f} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:'#c8d4ee'}}>
-            <span style={{color:'#2edf87',flexShrink:0,fontWeight:700}}>✓</span> {f}
-          </div>
-        ))}
-      </div>
     </div>
+  );
+}
+
+/* =====================================================
+   COMPETITOR COMPARISON
+   ===================================================== */
+function CompetitorTable() {
+  const competitors = ['MyForeman','Jobber','Housecall Pro','ServiceTitan'];
+  const rows = [
+    { label:'Starting price',     values:['$39 / mo','$49 / mo','$59 / mo','$398 / mo'] },
+    { label:'Setup time',         values:['10 minutes','Hours','Hours','Days + onboarding fee'] },
+    { label:'AI built in',        values:[true, false, false, false] },
+    { label:'All features included', values:[true, false, false, false] },
+    { label:'No per-user fees',   values:[true, false, false, false] },
+    { label:'Contractor focused', values:[true, true,  true,  false] },
+  ];
+  const cell = (v, isFm) => {
+    if (v === true)  return <span style={{color:C.green,fontWeight:900,fontSize:18}}>✓</span>;
+    if (v === false) return <span style={{color:C.red,fontWeight:900,fontSize:18}}>✕</span>;
+    return <span style={{color: isFm ? C.green : C.subtext,fontWeight: isFm ? 800 : 600,fontSize:13}}>{v}</span>;
+  };
+  return (
+    <section style={{background:C.surface,padding:'80px 0',borderTop:`1px solid ${C.border}`}}>
+      <div className="container">
+        <h2 style={{
+          fontFamily:"'Bebas Neue',Impact,sans-serif",
+          fontSize:'clamp(32px, 4vw, 56px)',
+          letterSpacing:'.04em', textAlign:'center',
+          color:C.text, margin:'0 0 12px',
+        }}>
+          The Way It Should Have Always Been
+        </h2>
+        <p style={{textAlign:'center',color:C.muted,fontSize:15,marginBottom:48,maxWidth:600,marginLeft:'auto',marginRight:'auto'}}>
+          One price for one app that does the whole job. No paywalls, no per-seat tax, no 90-day onboarding.
+        </p>
+
+        <div style={{
+          maxWidth:980,margin:'0 auto',
+          background:C.card, border:`1px solid ${C.borderHi}`,
+          borderRadius:14, overflow:'hidden',
+        }}>
+          <div style={{overflowX:'auto'}}>
+            <table style={{width:'100%',borderCollapse:'collapse',minWidth:640}}>
+              <thead>
+                <tr style={{background:'rgba(79,158,255,0.06)'}}>
+                  <th style={{textAlign:'left',padding:'18px 20px',fontSize:11,fontWeight:800,letterSpacing:'.14em',textTransform:'uppercase',color:C.muted}}></th>
+                  {competitors.map((c, i) => (
+                    <th key={c} style={{
+                      textAlign:'center',padding:'18px 12px',
+                      fontSize: i === 0 ? 14 : 12,
+                      fontWeight: i === 0 ? 900 : 700,
+                      color: i === 0 ? C.blue : C.subtext,
+                      letterSpacing:'.04em',
+                      borderLeft: i === 0 ? `1px solid ${C.borderHi}` : 'none',
+                      background: i === 0 ? 'rgba(79,158,255,0.08)' : 'transparent',
+                    }}>
+                      {c}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.label} style={{borderTop:`1px solid ${C.border}`}}>
+                    <td style={{padding:'16px 20px',fontSize:13,fontWeight:700,color:C.subtext}}>{r.label}</td>
+                    {r.values.map((v, i) => (
+                      <td key={i} style={{
+                        textAlign:'center',padding:'16px 12px',
+                        background: i === 0 ? 'rgba(79,158,255,0.05)' : 'transparent',
+                        borderLeft: i === 0 ? `1px solid ${C.borderHi}` : 'none',
+                      }}>
+                        {cell(v, i === 0)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* =====================================================
+   FINAL CTA
+   ===================================================== */
+function FinalCta({ router, launchDemo }) {
+  return (
+    <section id="demo" style={{
+      background:C.surface,padding:'96px 0',
+      borderTop:`1px solid ${C.border}`,
+      position:'relative', overflow:'hidden',
+    }}>
+      <div style={{
+        position:'absolute',inset:0,
+        background:'radial-gradient(ellipse 60% 60% at 50% 30%, rgba(79,158,255,0.12), transparent 70%)',
+        pointerEvents:'none',
+      }}/>
+      <div className="container" style={{position:'relative',zIndex:2,textAlign:'center'}}>
+        <h2 style={{
+          fontFamily:"'Bebas Neue',Impact,sans-serif",
+          fontSize:'clamp(44px, 6vw, 84px)',
+          letterSpacing:'.04em',color:'#fff',
+          margin:'0 0 16px',lineHeight:1,
+        }}>
+          The last app you&apos;ll ever need.
+        </h2>
+        <p style={{fontSize:17,color:C.muted,maxWidth:600,margin:'0 auto 36px',lineHeight:1.6}}>
+          Start your 14-day free trial today. No credit card required, no per-user fees, no feature gates. Set up in 10 minutes.
+        </p>
+        <div style={{display:'flex',gap:14,justifyContent:'center',flexWrap:'wrap',marginBottom:48}}>
+          <button className="btn-primary" onClick={() => router.push('/signup')} style={{padding:'18px 40px',fontSize:16}}>
+            Start Free Trial
+          </button>
+          <button className="btn-ghost" onClick={launchDemo} style={{display:'inline-flex',alignItems:'center',gap:8}}>
+            <span style={{color:C.green}}>▶</span> See Demo
+          </button>
+        </div>
+
+        <div style={{
+          display:'flex',justifyContent:'center',gap:32,flexWrap:'wrap',
+          paddingTop:36, borderTop:`1px solid ${C.border}`,
+          maxWidth:780, margin:'0 auto',
+        }}>
+          {[
+            { label:'SOC 2', sub:'In progress' },
+            { label:'256-bit SSL', sub:'End to end' },
+            { label:'GDPR', sub:'Ready' },
+            { label:'99.9% Uptime', sub:'SLA target' },
+          ].map(b => (
+            <div key={b.label} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+              <div style={{fontSize:14,fontWeight:800,color:C.subtext,letterSpacing:'.04em'}}>{b.label}</div>
+              <div style={{fontSize:11,color:C.muted,letterSpacing:'.08em',textTransform:'uppercase'}}>{b.sub}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
 /* =====================================================
    FOOTER
    ===================================================== */
-function FooterSection() {
+function Footer() {
   return (
-    <footer style={{padding:'40px 20px 32px',borderTop:'1px solid #1f2a40'}}>
-      <div className="footer-row" style={{maxWidth:1080,margin:'0 auto'}}>
-        <div>
-          <HorizontalLogo height={32}/>
-          <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.16em',marginTop:8,fontWeight:600,textTransform:'uppercase'}}>
-            From lead to paid
+    <footer style={{padding:'40px 32px 32px',borderTop:`1px solid ${C.border}`,background:C.bg}}>
+      <div style={{
+        maxWidth:1280,margin:'0 auto',
+        display:'flex',justifyContent:'space-between',alignItems:'center',
+        gap:24,flexWrap:'wrap',
+      }}>
+        <Link href="/" style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{
+            width:32, height:32,
+            background:`linear-gradient(135deg, ${C.blue}, ${C.blueDeep})`,
+            borderRadius:8,
+            display:'flex',alignItems:'center',justifyContent:'center',
+          }}>
+            <HardHatIcon size={18}/>
           </div>
+          <div style={{display:'flex',flexDirection:'column',lineHeight:1}}>
+            <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:15,letterSpacing:'.1em',color:'#fff'}}>MY</span>
+            <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:15,letterSpacing:'.1em',color:C.blue,marginTop:-2}}>FOREMAN</span>
+          </div>
+        </Link>
+        <div style={{display:'flex',gap:24,fontSize:13,color:C.muted,flexWrap:'wrap'}}>
+          <a href="#features">Features</a>
+          <a href="#pricing">Pricing</a>
+          <Link href="/contact">Contact</Link>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
         </div>
-        <div style={{display:'flex',gap:24,fontSize:13,color:'#7a8db0',flexWrap:'wrap',justifyContent:'center'}}>
-          <a href="/contact" style={{color:'#7a8db0',textDecoration:'none'}}>Contact</a>
-          <a href="/privacy" style={{color:'#7a8db0',textDecoration:'none'}}>Privacy</a>
-          <a href="/terms"   style={{color:'#7a8db0',textDecoration:'none'}}>Terms</a>
-        </div>
-        <div style={{fontSize:11,color:'#7a8db0',textAlign:'center'}}>
-          <a href="mailto:hello@myforemanhq.com" style={{color:'#7a8db0',textDecoration:'none'}}>hello@myforemanhq.com</a>
+        <div style={{fontSize:11,color:C.muted,textAlign:'right'}}>
+          <a href="mailto:hello@myforemanhq.com">hello@myforemanhq.com</a>
           <div style={{marginTop:6}}>© {new Date().getFullYear()} MyForeman</div>
         </div>
       </div>
@@ -768,91 +1039,12 @@ function FooterSection() {
 /* =====================================================
    ICONS
    ===================================================== */
-function PhoneIcon() { return (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-  </svg>
-);}
-function WrenchIcon() { return (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-  </svg>
-);}
-function ScrollIcon() { return (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-    <path d="M14 2v6h6"/>
-    <path d="M8 13h8M8 17h5"/>
-  </svg>
-);}
-function DocIcon() { return (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="18" height="18" rx="2"/>
-    <path d="M8 7h8M8 11h8M8 15h5"/>
-  </svg>
-);}
-function CheckIcon() { return (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 12l4 4 10-10"/>
-  </svg>
-);}
-function CoachIcon() { return (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="9"/>
-    <circle cx="12" cy="12" r="5"/>
-    <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
-  </svg>
-);}
-function BoltIcon() { return (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-  </svg>
-);}
-function TruckIcon() { return (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M1 16V4h13v12M14 8h5l3 4v4h-8"/>
-    <circle cx="6.5" cy="18" r="2"/>
-    <circle cx="17.5" cy="18" r="2"/>
-  </svg>
-);}
-function CardIcon() { return (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="5" width="20" height="14" rx="2"/>
-    <line x1="2" y1="10" x2="22" y2="10"/>
-    <line x1="6" y1="15" x2="10" y2="15"/>
-  </svg>
-);}
-function LinkIcon() { return (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1 1"/>
-    <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1-1"/>
-  </svg>
-);}
-function SignIcon() { return (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/>
-    <path d="M14.06 6.19l3.75 3.75"/>
-  </svg>
-);}
-function DownloadIcon() { return (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-    <polyline points="7 10 12 15 17 10"/>
-    <line x1="12" y1="15" x2="12" y2="3"/>
-  </svg>
-);}
-function CycleIcon() { return (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="23 4 23 10 17 10"/>
-    <polyline points="1 20 1 14 7 14"/>
-    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/>
-    <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
-  </svg>
-);}
-function ChartIcon() { return (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="12" y1="20" x2="12" y2="10"/>
-    <line x1="18" y1="20" x2="18" y2="4"/>
-    <line x1="6"  y1="20" x2="6"  y2="14"/>
-  </svg>
-);}
+function HardHatIcon({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <path d="M16 3C9.5 3 4.5 8 4 14H28C27.5 8 22.5 3 16 3Z" fill="white"/>
+      <rect x="3" y="14" width="26" height="5" rx="2.5" fill="white"/>
+      <rect x="6" y="12" width="20" height="4" rx="1" fill="#4f9eff"/>
+    </svg>
+  );
+}
