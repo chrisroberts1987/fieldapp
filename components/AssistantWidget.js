@@ -66,6 +66,7 @@ export default function AssistantWidget({ user, orgId }) {
   return (
     <>
       <button
+        data-tour="ai-assistant"
         onClick={() => setOpen(o => !o)}
         aria-label={open ? 'Close assistant' : 'Open assistant'}
         style={{

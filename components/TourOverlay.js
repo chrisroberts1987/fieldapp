@@ -20,7 +20,7 @@ const DEMO_EMAIL   = 'demo@myforemanhq.com';
 const TOUR_ROUTES = new Set([
   '/dashboard', '/leads', '/quotes', '/services', '/jobs', '/invoices',
   '/insights', '/customers', '/expenses', '/mileage', '/crew',
-  '/approvals', '/tax', '/reviews', '/settings',
+  '/approvals', '/tax', '/settings',
 ]);
 
 export default function TourOverlay() {
