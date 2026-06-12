@@ -76,8 +76,8 @@ export default function Home() {
       <Compare/>
       <Features/>
       <Workflow/>
-      <Pricing billing={billing} setBilling={setBilling} router={router}/>
       <CompareTable/>
+      <Pricing billing={billing} setBilling={setBilling} router={router}/>
       <FinalCta router={router} launchDemo={launchDemo}/>
       <Footer/>
 
@@ -1050,31 +1050,13 @@ function FinalCta({ router, launchDemo }) {
         <p style={{fontSize:17,color:C.muted,maxWidth:600,margin:'0 auto 36px',lineHeight:1.6}}>
           Start your 14-day free trial today. No credit card required, no per-user fees, no feature gates. Set up in 10 minutes.
         </p>
-        <div style={{display:'flex',gap:14,justifyContent:'center',flexWrap:'wrap',marginBottom:48}}>
+        <div style={{display:'flex',gap:14,justifyContent:'center',flexWrap:'wrap'}}>
           <button className="btn-primary" onClick={() => router.push('/signup')} style={{padding:'18px 40px',fontSize:16}}>
             Start Free Trial
           </button>
           <button className="btn-ghost" onClick={launchDemo} style={{display:'inline-flex',alignItems:'center',gap:8}}>
             <span style={{color:C.green}}>▶</span> See Demo
           </button>
-        </div>
-
-        <div style={{
-          display:'flex',justifyContent:'center',gap:32,flexWrap:'wrap',
-          paddingTop:36, borderTop:`1px solid ${C.border}`,
-          maxWidth:780, margin:'0 auto',
-        }}>
-          {[
-            { label:'SOC 2', sub:'In progress' },
-            { label:'256-bit SSL', sub:'End to end' },
-            { label:'GDPR', sub:'Ready' },
-            { label:'99.9% Uptime', sub:'SLA target' },
-          ].map(b => (
-            <div key={b.label} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
-              <div style={{fontSize:14,fontWeight:800,color:C.subtext,letterSpacing:'.04em'}}>{b.label}</div>
-              <div style={{fontSize:11,color:C.muted,letterSpacing:'.08em',textTransform:'uppercase'}}>{b.sub}</div>
-            </div>
-          ))}
         </div>
       </div>
     </section>
