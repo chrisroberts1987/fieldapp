@@ -874,8 +874,8 @@ function CompareTable() {
     { label:'AI business coach',                    values:['no',     'no',           'yes'], ai:true },
     { label:'Live demo',                            values:['N/A',    'Sales call',   'One tap'] },
   ];
-  const cols      = ['Texts & sheets', 'Old-school CRM', 'MyForeman'];
-  const colsShort = ['Texts',          'Old-school',     'MyForeman'];
+  const cols      = ['Texts & sheets', 'Other apps', 'MyForeman'];
+  const colsShort = ['Texts',          'Other apps', 'MyForeman'];
 
   return (
     <section style={{background:C.surface,padding:'80px 0',borderTop:`1px solid ${C.border}`}}>
