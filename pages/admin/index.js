@@ -141,6 +141,8 @@ function OverviewSection({ onGoTo }) {
 
   return (
     <>
+      <MarketingQrPanel/>
+
       <SectionHeading title="Platform Overview"/>
       <div style={kpiGrid}>
         <Kpi label="Total Businesses"   value={data.totalBusinesses}    color="#4f9eff" onClick={() => onGoTo('businesses')}/>
@@ -179,6 +181,52 @@ function OverviewSection({ onGoTo }) {
         />
       )}
     </>
+  );
+}
+
+function MarketingQrPanel() {
+  const PRINT_PNG = '/myforeman-marketing-qr.png';
+  const PREVIEW = 'https://api.qrserver.com/v1/create-qr-code/?data=https%3A%2F%2Fmyforemanhq.com&size=300x300&margin=12&qzone=2&format=png&ecc=H';
+  const [copied, setCopied] = useState(false);
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText('https://myforemanhq.com');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {}
+  };
+  return (
+    <div style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:14,padding:18,marginBottom:18,display:'flex',gap:18,flexWrap:'wrap',alignItems:'center'}}>
+      <div style={{background:'#ffffff',padding:10,borderRadius:10,flexShrink:0}}>
+        <img src={PREVIEW} alt="MyForeman marketing QR code" width="180" height="180" style={{display:'block',width:180,height:180}}/>
+      </div>
+      <div style={{flex:'1 1 280px',minWidth:240}}>
+        <div style={{fontSize:11,color:'#fbbf24',letterSpacing:'.12em',textTransform:'uppercase',fontWeight:700,marginBottom:6}}>Marketing QR Code</div>
+        <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:26,letterSpacing:'.02em',color:'#f0f4ff',lineHeight:1.1,marginBottom:6}}>
+          Points to myforemanhq.com
+        </div>
+        <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55,marginBottom:12}}>
+          For print flyers, business cards, and physical drops (barbershops, supply houses). Cold scans land on the full landing page so visitors see features, pricing, and the demo before deciding to sign up. Not the signup form, not a booking page.
+        </div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <a href={PRINT_PNG} download="myforeman-marketing-qr.png"
+            style={{background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'10px 16px',fontWeight:700,fontSize:12,letterSpacing:'.06em',textDecoration:'none',display:'inline-block',fontFamily:'inherit'}}>
+            DOWNLOAD HI-RES (1500×1500)
+          </a>
+          <a href={PRINT_PNG} target="_blank" rel="noopener noreferrer"
+            style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:10,color:'#c8d4ee',padding:'10px 14px',fontWeight:700,fontSize:12,letterSpacing:'.06em',textDecoration:'none',display:'inline-block',fontFamily:'inherit'}}>
+            PREVIEW PNG
+          </a>
+          <button onClick={copyLink}
+            style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:10,color:copied ? '#2edf87' : '#c8d4ee',padding:'10px 14px',fontWeight:700,fontSize:12,letterSpacing:'.06em',cursor:'pointer',fontFamily:'inherit'}}>
+            {copied ? 'COPIED' : 'COPY URL'}
+          </button>
+        </div>
+        <div style={{fontSize:11,color:'#7a8db0',marginTop:10}}>
+          Print spec: 1500×1500, error correction H (30% damage tolerance). Reprints cleanly at any size from business card to poster.
+        </div>
+      </div>
+    </div>
   );
 }
 
