@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../lib/supabase';
+import { HorizontalLogo } from '../components/Logo';
 
 // Color tokens kept inline-readable so designer + dev are working off the
 // same palette as the source mockup at design/myforeman-landing-mockup_8.html.
@@ -229,20 +230,8 @@ function Nav({ router }) {
       display:'flex', alignItems:'center', justifyContent:'space-between',
       padding:'0 32px',
     }}>
-      <Link href="/" style={{display:'flex',alignItems:'center',gap:12}}>
-        <div style={{
-          width:38, height:38,
-          background:`linear-gradient(135deg, ${C.blue}, ${C.blueDeep})`,
-          borderRadius:10,
-          display:'flex', alignItems:'center', justifyContent:'center',
-          boxShadow:'0 0 16px rgba(79,158,255,0.4)',
-        }}>
-          <HardHatIcon/>
-        </div>
-        <div style={{display:'flex',flexDirection:'column',lineHeight:1}}>
-          <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.1em',color:'#fff'}}>MY</span>
-          <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.1em',color:C.blue,marginTop:-2}}>FOREMAN</span>
-        </div>
+      <Link href="/" aria-label="MyForeman home" style={{display:'inline-flex',alignItems:'center'}}>
+        <HorizontalLogo height={40}/>
       </Link>
       <div className="nav-links" style={{display:'flex',alignItems:'center',gap:32}}>
         <a href="#features" style={{fontSize:14,fontWeight:600,color:C.muted}}>Features</a>
@@ -1045,19 +1034,8 @@ function Footer() {
         display:'flex',justifyContent:'space-between',alignItems:'center',
         gap:24,flexWrap:'wrap',
       }}>
-        <Link href="/" style={{display:'flex',alignItems:'center',gap:10}}>
-          <div style={{
-            width:32, height:32,
-            background:`linear-gradient(135deg, ${C.blue}, ${C.blueDeep})`,
-            borderRadius:8,
-            display:'flex',alignItems:'center',justifyContent:'center',
-          }}>
-            <HardHatIcon size={18}/>
-          </div>
-          <div style={{display:'flex',flexDirection:'column',lineHeight:1}}>
-            <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:15,letterSpacing:'.1em',color:'#fff'}}>MY</span>
-            <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:15,letterSpacing:'.1em',color:C.blue,marginTop:-2}}>FOREMAN</span>
-          </div>
+        <Link href="/" aria-label="MyForeman home" style={{display:'inline-flex',alignItems:'center'}}>
+          <HorizontalLogo height={32}/>
         </Link>
         <div style={{display:'flex',gap:24,fontSize:13,color:C.muted,flexWrap:'wrap'}}>
           <a href="#features">Features</a>
@@ -1075,15 +1053,3 @@ function Footer() {
   );
 }
 
-/* =====================================================
-   ICONS
-   ===================================================== */
-function HardHatIcon({ size = 22 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <path d="M16 3C9.5 3 4.5 8 4 14H28C27.5 8 22.5 3 16 3Z" fill="white"/>
-      <rect x="3" y="14" width="26" height="5" rx="2.5" fill="white"/>
-      <rect x="6" y="12" width="20" height="4" rx="1" fill="#4f9eff"/>
-    </svg>
-  );
-}
