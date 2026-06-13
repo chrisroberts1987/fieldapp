@@ -190,6 +190,9 @@ export default function Home() {
           position: absolute; top: 0; left: 0; right: 0; height: 3px;
         }
 
+        @media (max-width: 1100px) {
+          .nav-links { display: none !important; }
+        }
         @media (max-width: 980px) {
           .hero-grid { grid-template-columns: 1fr !important; gap: 60px !important; }
           .phone { width: 260px; height: 540px; }
@@ -198,7 +201,6 @@ export default function Home() {
           .all-features { grid-template-columns: 1fr 1fr !important; }
           .compare-grid { grid-template-columns: 1fr !important; }
           .container { padding: 0 20px; }
-          .nav-links { display: none !important; }
           .wf-arrow { display: none !important; }
           .wf-steps { flex-wrap: wrap !important; justify-content: center !important; gap: 12px !important; }
         }
@@ -226,34 +228,36 @@ function Nav({ router }) {
       backdropFilter:'blur(20px)',
       WebkitBackdropFilter:'blur(20px)',
       borderBottom:`1px solid ${C.border}`,
-      height:68,
+      height:64,
       display:'flex', alignItems:'center', justifyContent:'space-between',
-      padding:'0 32px',
+      padding:'0 20px',
+      gap:12,
     }}>
-      <Link href="/" aria-label="MyForeman home" style={{display:'inline-flex',alignItems:'center'}}>
-        <HorizontalLogo height={40}/>
+      <Link href="/" aria-label="MyForeman home" style={{display:'inline-flex',alignItems:'center',flexShrink:0}}>
+        <HorizontalLogo height={32}/>
       </Link>
-      <div className="nav-links" style={{display:'flex',alignItems:'center',gap:32}}>
+      <div className="nav-links" style={{display:'flex',alignItems:'center',gap:24}}>
         <a href="#features" style={{fontSize:14,fontWeight:600,color:C.muted}}>Features</a>
         <a href="#pricing" style={{fontSize:14,fontWeight:600,color:C.muted}}>Pricing</a>
         <a href="#demo" style={{fontSize:14,fontWeight:600,color:C.muted}}>Demo</a>
       </div>
-      <div style={{display:'flex',alignItems:'center',gap:10}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
         <button onClick={() => router.push('/login')} style={{
-          fontSize:13, fontWeight:700, color:C.subtext,
-          padding:'9px 18px', borderRadius:8,
-          border:`1px solid ${C.borderHi}`, background:'transparent',
-          letterSpacing:'.02em',
+          fontSize:13, fontWeight:600, color:C.subtext,
+          padding:'8px 14px', borderRadius:8,
+          background:'transparent', border:'none',
+          letterSpacing:'.02em', cursor:'pointer',
         }}>
           Sign In
         </button>
         <button onClick={() => router.push('/signup')} style={{
-          fontSize:13, fontWeight:800, color:'#fff',
-          padding:'10px 20px', borderRadius:8,
+          fontSize:12, fontWeight:800, color:'#fff',
+          padding:'9px 16px', borderRadius:8,
           background:`linear-gradient(135deg, ${C.blue}, ${C.blueDeep})`,
           border:'none',
           letterSpacing:'.04em', textTransform:'uppercase',
           boxShadow:'0 4px 16px rgba(79,158,255,0.35)',
+          whiteSpace:'nowrap',
         }}>
           Start Free Trial
         </button>
@@ -272,7 +276,7 @@ function Hero({ router, launchDemo }) {
   return (
     <section style={{
       position:'relative', overflow:'hidden',
-      paddingTop:68,
+      paddingTop:64,
       display:'flex', alignItems:'center',
       minHeight:'100vh',
     }}>
