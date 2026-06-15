@@ -21,6 +21,18 @@ export default function Dashboard() {
   const [weekJobs, setWeekJobs] = useState([]);    // jobs in the next 7 days for the WeekStrip
   const [recurring, setRecurring] = useState([]);  // active recurring plans for ghost previews
   const [customersIndex, setCustomersIndex] = useState({});
+  const [showAppBanner, setShowAppBanner] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (localStorage.getItem('myforeman_app_banner_dismissed') === '1') return;
+    setShowAppBanner(true);
+  }, []);
+
+  const dismissAppBanner = () => {
+    try { localStorage.setItem('myforeman_app_banner_dismissed', '1'); } catch {}
+    setShowAppBanner(false);
+  };
 
   const loadStats = async (oid) => {
     const now = new Date();
@@ -303,7 +315,8 @@ export default function Dashboard() {
 
   // Crew / Supervisor get a slimmed dashboard. No revenue, no tax estimates.
   if (!isForeman(role)) {
-    return <SimpleDashboard role={role} user={user} org={org} crewData={crewData} router={router}/>;
+    return <SimpleDashboard role={role} user={user} org={org} crewData={crewData} router={router}
+      showAppBanner={showAppBanner} onDismissAppBanner={dismissAppBanner}/>;
   }
 
   const taxRate    = Number(org?.income_tax_rate || 25);
@@ -320,6 +333,8 @@ export default function Dashboard() {
       <TopNav active="/dashboard"/>
 
       <main style={{maxWidth:1280,margin:'0 auto',padding:'28px 20px 0'}}>
+
+        <AppBanner show={showAppBanner} onDismiss={dismissAppBanner}/>
 
         <div style={{marginBottom:28}}>
           <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase'}}>Overview</div>
@@ -418,7 +433,7 @@ export default function Dashboard() {
   );
 }
 
-function SimpleDashboard({ role, user, org, crewData, router }) {
+function SimpleDashboard({ role, user, org, crewData, router, showAppBanner, onDismissAppBanner }) {
   const supervisor = isSupervisor(role);
   const greeting = supervisor ? 'Supervisor view' : 'Your day';
 
@@ -427,6 +442,7 @@ function SimpleDashboard({ role, user, org, crewData, router }) {
       <TopNav active="/dashboard"/>
 
       <main style={{maxWidth:1080,margin:'0 auto',padding:'28px 20px 0'}}>
+        <AppBanner show={showAppBanner} onDismiss={onDismissAppBanner}/>
         <div style={{marginBottom:24}}>
           <div style={{fontSize:12,color:'#7a8db0',letterSpacing:'.16em',fontWeight:600,textTransform:'uppercase'}}>{greeting}</div>
           <h1 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,letterSpacing:'.04em',margin:'4px 0 0',color:'#f0f4ff'}}>
@@ -499,6 +515,31 @@ function ActionTile({ label, onClick, color }) {
       onMouseOver={e => e.currentTarget.style.borderColor = color}
       onMouseOut={e => e.currentTarget.style.borderColor = '#2e3f60'}>
       <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.06em',color}}>{label.toUpperCase()}</div>
+    </div>
+  );
+}
+
+function AppBanner({ show, onDismiss }) {
+  if (!show) return null;
+  return (
+    <div style={{background:'#1e2a42',border:'1.5px solid #4f9eff66',borderRadius:14,padding:'16px 16px 14px',marginBottom:20,color:'#f0f4ff',position:'relative'}}>
+      <button onClick={onDismiss} aria-label="Dismiss"
+        style={{position:'absolute',top:10,right:10,background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#7a8db0',width:26,height:26,cursor:'pointer',fontSize:13,padding:0,lineHeight:1,fontFamily:'inherit'}}>
+        ✕
+      </button>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,paddingRight:32}}>
+        <div style={{width:28,height:28,borderRadius:14,background:'#2edf8722',border:'1px solid #2edf8766',color:'#2edf87',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:16,fontWeight:700,lineHeight:1}}>✓</div>
+        <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.04em',color:'#f0f4ff',lineHeight:1}}>
+          SETUP COMPLETE!
+        </div>
+      </div>
+      <div style={{fontSize:13,color:'#c8d4ee',lineHeight:1.55,marginBottom:12}}>
+        If you downloaded the MyForeman app, open it now to get started.
+      </div>
+      <a href="myforeman://"
+        style={{display:'block',width:'100%',background:'#4f9eff',color:'#fff',border:'none',borderRadius:10,padding:'12px 0',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:16,letterSpacing:'.06em',textAlign:'center',textDecoration:'none',cursor:'pointer'}}>
+        OPEN THE APP
+      </a>
     </div>
   );
 }
