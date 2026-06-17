@@ -58,6 +58,14 @@ const nextConfig: NextConfig = {
       { source: "/manifest.json",headers: manifestHeaders },
     ];
   },
+  async redirects() {
+    return [
+      // App reviewers expect /account to land somewhere coherent.
+      // Until we build a dedicated account page, point it at /billing —
+      // that's where subscription, plan, and payment management live.
+      { source: "/account", destination: "/billing", permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;
