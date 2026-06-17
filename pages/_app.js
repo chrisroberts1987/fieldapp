@@ -10,7 +10,7 @@ import { ToastHost } from '../components/Toast';
 import { supabase } from '../lib/supabase';
 import { useOrg } from '../lib/org';
 
-const META_PIXEL_ID = '995217706762921';
+const META_PIXEL_ID = '2115883415642593';
 
 // Routes where the floating AI assistant should NOT show. Marketing
 // pages, public links (invoice, portal, booking, quote), and the

@@ -58,7 +58,7 @@ export default function Document() {
       <body>
         <noscript>
           <img height="1" width="1" style={{display:'none'}}
-            src="https://www.facebook.com/tr?id=995217706762921&ev=PageView&noscript=1"
+            src="https://www.facebook.com/tr?id=2115883415642593&ev=PageView&noscript=1"
             alt=""/>
         </noscript>
         <Main />
