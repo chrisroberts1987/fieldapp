@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import Script from 'next/script';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import TourOverlay from '../components/TourOverlay';
@@ -8,6 +9,8 @@ import AssistantWidget from '../components/AssistantWidget';
 import { ToastHost } from '../components/Toast';
 import { supabase } from '../lib/supabase';
 import { useOrg } from '../lib/org';
+
+const META_PIXEL_ID = '995217706762921';
 
 // Routes where the floating AI assistant should NOT show. Marketing
 // pages, public links (invoice, portal, booking, quote), and the
@@ -52,8 +55,37 @@ export default function MyApp({ Component, pageProps }) {
     });
   }, []);
 
+  // Meta Pixel: refire PageView on client-side route changes. The
+  // initial hit is sent by the inline script in the <Script> tag
+  // below; this handles every subsequent SPA navigation.
+  useEffect(() => {
+    const onRouteChange = () => {
+      if (typeof window !== 'undefined' && window.fbq) window.fbq('track', 'PageView');
+    };
+    router.events.on('routeChangeComplete', onRouteChange);
+    return () => router.events.off('routeChangeComplete', onRouteChange);
+  }, [router.events]);
+
   return (
     <>
+      <Script
+        id="meta-pixel"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: `
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '${META_PIXEL_ID}');
+fbq('track', 'PageView');
+          `.trim(),
+        }}
+      />
       <Head>
         <title>MyForeman — From lead to paid</title>
         <meta name="description" content="Run your field service business from first call to final payment, with AI insights that help you grow." />
