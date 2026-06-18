@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -109,6 +110,9 @@ export default function BlogPost({ post, related }) {
             {post.blocks.map((block, i) => renderBlock(block, i))}
           </div>
 
+          {/* Share row */}
+          <ShareRow url={canonical} title={post.title}/>
+
           {/* MyForeman CTA */}
           <div style={{
             marginTop:50,padding:'28px 24px',
@@ -170,6 +174,112 @@ export default function BlogPost({ post, related }) {
         </section>
       )}
     </BlogLayout>
+  );
+}
+
+function ShareRow({ url, title }) {
+  const [copied, setCopied] = useState(false);
+  const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(title)}`;
+
+  const copy = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        // Older Safari fallback.
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard blocked. Stay silent rather than throwing in the user's face.
+    }
+  };
+
+  const btnBase = {
+    display:'inline-flex', alignItems:'center', gap:8,
+    background: 'rgba(79,158,255,0.08)',
+    border: `1px solid ${C.borderHi}`,
+    color: C.text,
+    borderRadius: 10,
+    padding: '10px 16px',
+    fontSize: 14,
+    fontWeight: 600,
+    letterSpacing: '.02em',
+    textDecoration: 'none',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'border-color .15s, background .15s, color .15s',
+  };
+
+  return (
+    <div style={{
+      marginTop: 40,
+      paddingTop: 24,
+      borderTop: `1px solid ${C.border}`,
+    }}>
+      <div style={{
+        fontSize: 11, fontWeight: 800, letterSpacing: '.22em',
+        textTransform: 'uppercase', color: C.muted, marginBottom: 12,
+      }}>
+        Share this article
+      </div>
+      <div style={{display:'flex', gap:10, flexWrap:'wrap'}}>
+        <a
+          href={fbUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={btnBase}
+          aria-label="Share on Facebook"
+        >
+          <FacebookIcon/> Share on Facebook
+        </a>
+        <button
+          type="button"
+          onClick={copy}
+          style={{
+            ...btnBase,
+            background: copied ? 'rgba(46,223,135,0.12)' : btnBase.background,
+            borderColor: copied ? C.green : C.borderHi,
+            color: copied ? C.green : C.text,
+          }}
+          aria-label="Copy article link"
+        >
+          {copied ? <CheckIcon/> : <LinkIcon/>}
+          {copied ? 'Copied' : 'Copy link'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FacebookIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M13.5 21v-7.5h2.5l.4-3h-2.9V8.7c0-.9.3-1.5 1.6-1.5H16.5V4.6c-.3 0-1.2-.1-2.3-.1-2.3 0-3.8 1.4-3.8 3.9v2.1H8v3h2.4V21h3.1z"/>
+    </svg>
+  );
+}
+
+function LinkIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/>
+      <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/>
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
   );
 }
 
