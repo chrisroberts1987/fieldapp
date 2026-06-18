@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import Head from 'next/head';
 import Link from 'next/link';
 import { supabase } from '../lib/supabase';
 import { HorizontalLogo } from '../components/Logo';
@@ -72,6 +73,12 @@ export default function Home() {
 
   return (
     <div style={{background:C.bg,color:C.text,fontFamily:"'Inter',system-ui,sans-serif",overflowX:'hidden'}}>
+      <Head>
+        <title>MyForeman | Contractor Invoicing, Scheduling & AI Business Software</title>
+        <meta name="description" content="MyForeman helps contractors, handymen, HVAC, plumbing, electrical, and service businesses manage leads, estimates, jobs, invoices, and AI-powered business insights."/>
+        <meta property="og:title" content="MyForeman | Contractor Invoicing, Scheduling & AI Business Software"/>
+        <meta property="og:description" content="MyForeman helps contractors, handymen, HVAC, plumbing, electrical, and service businesses manage leads, estimates, jobs, invoices, and AI-powered business insights."/>
+      </Head>
       <Nav router={router}/>
       <Hero router={router} launchDemo={launchDemo}/>
       <Compare/>
