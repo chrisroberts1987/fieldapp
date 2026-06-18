@@ -41,7 +41,7 @@ export default function BlogIndex() {
             The MyForeman Blog
           </div>
           <h1 className="blog-h1" style={{fontSize:'clamp(40px, 5.5vw, 64px)'}}>
-            Practical advice for contractors who run the trucks.
+            Honest advice on pricing, operations, and growth.
           </h1>
           <p className="blog-p" style={{maxWidth:600,margin:'14px auto 0',fontSize:18}}>
             Pricing math, operations tips, and growth playbooks for handymen, HVAC, plumbing, electrical, and every field service trade. No fluff, no jargon, no twenty-paragraph intros.
