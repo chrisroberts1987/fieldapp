@@ -88,8 +88,6 @@ export default function BlogPost({ post, related }) {
 
           {/* Meta row */}
           <div style={{display:'flex',gap:14,alignItems:'center',marginBottom:30,fontSize:13,color:C.muted,flexWrap:'wrap'}}>
-            <span>{formatDate(post.publishedAt)}</span>
-            <span style={{color:C.borderHi}}>·</span>
             <span>{post.readingTime}</span>
           </div>
 
@@ -300,7 +298,3 @@ function renderBlock(block, key) {
   return null;
 }
 
-function formatDate(iso) {
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-}

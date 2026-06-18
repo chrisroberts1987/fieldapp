@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { HorizontalLogo } from './Logo';
+import { HamburgerIcon, CloseIcon } from './NavIcons';
 
 // Shared layout for /blog/index and /blog/[slug]. Re-uses the same
 // dark theme + Bebas/Inter typography + nav and footer as the rest
@@ -76,7 +78,11 @@ export default function BlogLayout({ children }) {
         .blog-card:hover {
           border-color: ${C.borderHi};
         }
-        @media (max-width: 1100px) { .nav-links { display: none !important; } }
+        @media (max-width: 1100px) {
+          .nav-links { display: none !important; }
+          .nav-hamburger { display: inline-flex !important; }
+          .nav-signin { display: none !important; }
+        }
         @media (max-width: 720px) {
           .blog-container { padding: 0 18px; }
           .blog-grid { grid-template-columns: 1fr !important; }
@@ -88,42 +94,91 @@ export default function BlogLayout({ children }) {
 
 function Nav() {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const close = () => setOpen(false);
+
+  const links = [
+    { href:'/contractor-software', label:'Trades',  highlight:false },
+    { href:'/compare',             label:'Compare', highlight:false },
+    { href:'/blog',                label:'Blog',    highlight:true  },
+    { href:'/#pricing',            label:'Pricing', highlight:false },
+    { href:'/contact',             label:'Contact', highlight:false },
+  ];
+
   return (
-    <nav style={{
-      position:'fixed',top:0,left:0,right:0,zIndex:100,
-      background:'rgba(10,15,26,0.85)',
-      backdropFilter:'blur(20px)',
-      WebkitBackdropFilter:'blur(20px)',
-      borderBottom:`1px solid ${C.border}`,
-      height:64,display:'flex',alignItems:'center',
-      justifyContent:'space-between',padding:'0 20px',gap:12,
-    }}>
-      <Link href="/" aria-label="MyForeman home" style={{display:'inline-flex',alignItems:'center',flexShrink:0}}>
-        <HorizontalLogo height={32}/>
-      </Link>
-      <div className="nav-links" style={{display:'flex',alignItems:'center',gap:24}}>
-        <Link href="/contractor-software" style={{fontSize:14,fontWeight:600,color:C.muted}}>Trades</Link>
-        <Link href="/compare" style={{fontSize:14,fontWeight:600,color:C.muted}}>Compare</Link>
-        <Link href="/blog" style={{fontSize:14,fontWeight:600,color:C.blue}}>Blog</Link>
-        <Link href="/#pricing" style={{fontSize:14,fontWeight:600,color:C.muted}}>Pricing</Link>
-        <Link href="/contact" style={{fontSize:14,fontWeight:600,color:C.muted}}>Contact</Link>
-      </div>
-      <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
-        <button onClick={() => router.push('/login')} style={{
-          fontSize:13,fontWeight:600,color:C.subtext,
-          padding:'8px 14px',borderRadius:8,
-          background:'transparent',border:'none',
-          letterSpacing:'.02em',cursor:'pointer',
-        }}>Sign In</button>
-        <button onClick={() => router.push('/signup')} style={{
-          fontSize:12,fontWeight:800,color:'#fff',
-          padding:'9px 16px',borderRadius:8,
-          background:`linear-gradient(135deg, ${C.blue}, ${C.blueDeep})`,
-          border:'none',letterSpacing:'.04em',textTransform:'uppercase',
-          boxShadow:'0 4px 16px rgba(79,158,255,0.35)',whiteSpace:'nowrap',
-        }}>Start Free Trial</button>
-      </div>
-    </nav>
+    <>
+      <nav style={{
+        position:'fixed',top:0,left:0,right:0,zIndex:100,
+        background:'rgba(10,15,26,0.85)',
+        backdropFilter:'blur(20px)',
+        WebkitBackdropFilter:'blur(20px)',
+        borderBottom:`1px solid ${C.border}`,
+        height:64,display:'flex',alignItems:'center',
+        justifyContent:'space-between',padding:'0 20px',gap:12,
+      }}>
+        <Link href="/" aria-label="MyForeman home" onClick={close} style={{display:'inline-flex',alignItems:'center',flexShrink:0}}>
+          <HorizontalLogo height={32}/>
+        </Link>
+        <div className="nav-links" style={{display:'flex',alignItems:'center',gap:24}}>
+          {links.map(l => (
+            <Link key={l.label} href={l.href} style={{fontSize:14,fontWeight:600,color: l.highlight ? C.blue : C.muted}}>{l.label}</Link>
+          ))}
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+          <button className="nav-signin" onClick={() => router.push('/login')} style={{
+            fontSize:13,fontWeight:600,color:C.subtext,
+            padding:'8px 14px',borderRadius:8,
+            background:'transparent',border:'none',
+            letterSpacing:'.02em',cursor:'pointer',
+          }}>Sign In</button>
+          <button onClick={() => router.push('/signup')} style={{
+            fontSize:12,fontWeight:800,color:'#fff',
+            padding:'9px 16px',borderRadius:8,
+            background:`linear-gradient(135deg, ${C.blue}, ${C.blueDeep})`,
+            border:'none',letterSpacing:'.04em',textTransform:'uppercase',
+            boxShadow:'0 4px 16px rgba(79,158,255,0.35)',whiteSpace:'nowrap',
+          }}>Start Free Trial</button>
+          <button
+            className="nav-hamburger"
+            onClick={() => setOpen(o => !o)}
+            aria-label={open ? 'Close menu' : 'Open menu'}
+            aria-expanded={open}
+            style={{
+              background:'transparent', border:`1px solid ${C.borderHi}`,
+              borderRadius:8, color:C.text, width:38, height:38,
+              padding:0, cursor:'pointer', display:'none',
+              alignItems:'center', justifyContent:'center',
+            }}
+          >
+            {open ? <CloseIcon/> : <HamburgerIcon/>}
+          </button>
+        </div>
+      </nav>
+      {open && (
+        <div style={{
+          position:'fixed', top:64, left:0, right:0, zIndex:99,
+          background:'rgba(10,15,26,0.98)',
+          backdropFilter:'blur(20px)',
+          WebkitBackdropFilter:'blur(20px)',
+          borderBottom:`1px solid ${C.border}`,
+          padding:'18px 20px 22px',
+          display:'flex', flexDirection:'column', gap:4,
+        }}>
+          {links.map(l => (
+            <Link key={l.label} href={l.href} onClick={close}
+              style={{padding:'12px 8px',color: l.highlight ? C.blue : C.text,fontSize:16,fontWeight:600,borderRadius:8}}>
+              {l.label}
+            </Link>
+          ))}
+          <div style={{height:1, background:C.border, margin:'10px 0'}}/>
+          <button onClick={() => { close(); router.push('/login'); }} style={{
+            background:'transparent', border:`1px solid ${C.borderHi}`,
+            color:C.text, borderRadius:10, padding:'12px 14px',
+            fontSize:15, fontWeight:600, textAlign:'left', cursor:'pointer',
+          }}>Sign In</button>
+        </div>
+      )}
+    </>
   );
 }
 
