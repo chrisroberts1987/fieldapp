@@ -11,7 +11,7 @@ export default function FencingContractorSoftware() {
       h1Highlight="from quote to last post."
       heroSub="Wood, vinyl, chain-link, aluminum, gates and operators. Measure on site, quote by the foot, schedule the multi-day install, and bill once the last post is set."
       features={[
-        { title: 'Measure & quote on site', body: 'Linear feet, material, height, gate count, post hardware — priced and signed on the truck.' },
+        { title: 'Measure & quote on site', body: 'Linear feet, material, height, gate count, post hardware, priced and signed on the truck.' },
         { title: 'Multi-day crew scheduling', body: 'Drop a 3-day install on the calendar, assign your crew, and the customer gets the daily heads-up.' },
         { title: 'Permit & utility-locate tracking', body: 'Attach permit numbers, locate request IDs, and inspection results to each job so nothing slips at final.' },
         { title: 'Materials & job costing', body: 'Track posts, panels, concrete, and hardware against the quote. See real profit per job.' },

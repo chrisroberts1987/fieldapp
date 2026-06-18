@@ -9,7 +9,7 @@ export default function PlumbingSoftware() {
       heroEyebrow="Plumbing Software"
       h1="Plumbing software that"
       h1Highlight="works as hard as you do."
-      heroSub="Emergency calls, repipes, water heater installs, drain cleaning — every job priced, scheduled, and invoiced from your phone. No more clipboards or end-of-week paperwork."
+      heroSub="Emergency calls, repipes, water heater installs, drain cleaning. Every job priced, scheduled, and invoiced from your phone. No more clipboards or end-of-week paperwork."
       features={[
         { title: 'Service-call dispatch', body: 'Take a call, drop it on the schedule, and route the closest plumber. Customer gets an automated "On My Way" text with ETA.' },
         { title: 'On-site quoting', body: 'Price a repair or replacement on the truck. Customer signs and approves on your phone before you start the work.' },

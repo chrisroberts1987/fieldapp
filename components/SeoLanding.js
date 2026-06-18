@@ -44,6 +44,30 @@ export default function SeoLanding({
   const startTrial = () => router.push('/signup');
   const seeDemo    = () => router.push('/login');
 
+  const ogImage = `https://myforemanhq.com/api/og?title=${encodeURIComponent(h1 + (h1Highlight ? ' ' + h1Highlight : ''))}&eyebrow=${encodeURIComponent(heroEyebrow || 'Contractor Software')}`;
+  const canonical = canonicalPath ? `https://myforemanhq.com${canonicalPath}` : null;
+
+  const softwareLd = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'MyForeman',
+    operatingSystem: 'Web, iOS, Android',
+    applicationCategory: 'BusinessApplication',
+    offers: {
+      '@type': 'Offer',
+      price: '39.00',
+      priceCurrency: 'USD',
+      priceSpecification: {
+        '@type': 'UnitPriceSpecification',
+        price: '39.00',
+        priceCurrency: 'USD',
+        unitText: 'MONTH',
+      },
+    },
+    description,
+    url: canonical || 'https://myforemanhq.com',
+  };
+
   return (
     <div style={{background:C.bg,color:C.text,fontFamily:"'Inter',system-ui,sans-serif",overflowX:'hidden',minHeight:'100vh'}}>
       <Head>
@@ -52,7 +76,19 @@ export default function SeoLanding({
         <meta property="og:title" content={title}/>
         <meta property="og:description" content={description}/>
         <meta property="og:type" content="website"/>
-        {canonicalPath && <link rel="canonical" href={`https://myforemanhq.com${canonicalPath}`}/>}
+        <meta property="og:image" content={ogImage}/>
+        <meta property="og:image:width" content="1200"/>
+        <meta property="og:image:height" content="630"/>
+        {canonical && <meta property="og:url" content={canonical}/>}
+        <meta name="twitter:card" content="summary_large_image"/>
+        <meta name="twitter:title" content={title}/>
+        <meta name="twitter:description" content={description}/>
+        <meta name="twitter:image" content={ogImage}/>
+        {canonical && <link rel="canonical" href={canonical}/>}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareLd) }}
+        />
       </Head>
 
       <Nav/>
@@ -329,7 +365,7 @@ function Pricing({ onStart }) {
         <div className="eyebrow" style={{color:C.green,marginBottom:14}}>Simple pricing</div>
         <h2 className="seo-h2">One flat price. Every feature.</h2>
         <p style={{fontSize:15,color:C.subtext,maxWidth:560,margin:'12px auto 32px',lineHeight:1.6}}>
-          No tiered feature paywalls. AI insights, scheduling, invoicing, payments, customer portal — all included.
+          No tiered feature paywalls. AI insights, scheduling, invoicing, payments, and customer portal all included.
         </p>
         <div style={{
           maxWidth:420,margin:'0 auto',

@@ -12,7 +12,7 @@ export default function GarageDoorSoftware() {
       heroSub="Broken springs, panel replacements, opener installs, smart-home upgrades. Take the call, dispatch the truck, quote on site, invoice on completion."
       features={[
         { title: 'Service-call dispatch', body: 'Customer calls about a broken spring, you drop the job on the schedule, and the tech gets an automated heads-up with the address and details.' },
-        { title: 'On-site quoting', body: 'Build a quote on the truck — springs, panels, openers, smart hubs — send for digital signature before you swap a part.' },
+        { title: 'On-site quoting', body: 'Build a quote on the truck for springs, panels, openers, or smart hubs. Send for digital signature before you swap a part.' },
         { title: 'Parts & opener catalog', body: 'Reusable line items for the parts you sell most. Quote in under a minute.' },
         { title: 'Same-day invoicing', body: 'Send the invoice before you leave the driveway. Card payments through Stripe auto-mark paid the moment the funds land.' },
         { title: 'Photos & warranty docs', body: 'Document the install with photos, attach to the customer record, and warranty calls a year later actually go smoothly.' },

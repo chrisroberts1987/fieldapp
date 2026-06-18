@@ -4,12 +4,12 @@ export default function FieldPulseAlternative() {
   return (
     <SeoLanding
       title="FieldPulse Alternative for Contractors | MyForeman"
-      description="A FieldPulse alternative with simpler pricing and AI insights included from $39/mo. Scheduling, quotes, invoicing, online payments, and customer portal — all in one app. Free 14-day trial."
+      description="A FieldPulse alternative with simpler pricing and AI insights included from $39/mo. Scheduling, quotes, invoicing, online payments, and customer portal, all in one app. Free 14-day trial."
       canonicalPath="/fieldpulse-alternative"
       heroEyebrow="FieldPulse Alternative"
       h1="A focused alternative"
       h1Highlight="to FieldPulse."
-      heroSub="Same kind of field-service workflow — scheduling, quotes, jobs, invoicing — with a cleaner mobile experience, AI insights included, and straightforward pricing from $39/mo."
+      heroSub="Same kind of field-service workflow, including scheduling, quotes, jobs, and invoicing, with a cleaner mobile experience, AI insights included, and straightforward pricing from $39/mo."
       features={[
         { title: 'AI insights, included', body: 'Plain-English answers about your business. Which jobs make money, where your revenue is leaking, who to follow up with.' },
         { title: 'Built mobile-first', body: 'Designed for contractors running the business from a phone. Every feature works on the truck without feeling like a desktop app squeezed onto a screen.' },

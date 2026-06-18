@@ -9,7 +9,7 @@ export default function PaintingContractorSoftware() {
       heroEyebrow="Painting Contractor Software"
       h1="Painting software"
       h1Highlight="from estimate to walkthrough."
-      heroSub="Interior, exterior, cabinet refinishing, deck staining. Quote the job, schedule the crew, document the prep work, and close the invoice — all from your phone."
+      heroSub="Interior, exterior, cabinet refinishing, deck staining. Quote the job, schedule the crew, document the prep work, and close the invoice, all from your phone."
       features={[
         { title: 'Room-by-room estimates', body: 'Line-item by room or surface. Add prep, primer, paint, and labor. Send for digital signature in two taps.' },
         { title: 'Crew scheduling', body: 'Multi-day jobs handled. Assign painters, drop the job on the calendar, and the customer gets the daily heads-up.' },

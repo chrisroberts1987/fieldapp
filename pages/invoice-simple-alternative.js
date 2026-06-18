@@ -11,7 +11,7 @@ export default function InvoiceSimpleAlternative() {
       h1Highlight="Run the whole business."
       heroSub="Invoice Simple is great for sending an invoice. But if you also need to schedule the job, track the customer, send the quote, and see what's making you money, MyForeman is the upgrade."
       features={[
-        { title: 'Invoicing, but more', body: 'Send invoices like you do today, plus quoting, scheduling, jobs, customers, and payments — in one app.' },
+        { title: 'Invoicing, but more', body: 'Send invoices like you do today, plus quoting, scheduling, jobs, customers, and payments, in one app.' },
         { title: 'Online card payments', body: 'Stripe-powered card payments at standard rates. Customer pays online, invoice auto-marks paid.' },
         { title: 'Customer database', body: 'Every customer\'s job history, invoices, and payments live in one timeline. No spreadsheets to maintain.' },
         { title: 'Quotes & estimates', body: 'Build a quote in two minutes, send for digital signature, convert to a job with one tap.' },

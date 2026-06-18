@@ -9,7 +9,7 @@ export default function JobberAlternative() {
       heroEyebrow="Jobber Alternative"
       h1="A simpler alternative"
       h1Highlight="to Jobber."
-      heroSub="Most of what contractors love about Jobber — scheduling, quoting, invoicing — without the tiered pricing where the features you actually need sit two plans up. MyForeman includes every feature from the entry plan."
+      heroSub="Most of what contractors love about Jobber, like scheduling, quoting, and invoicing, without the tiered pricing where the features you actually need sit two plans up. MyForeman includes every feature from the entry plan."
       features={[
         { title: 'All features, all plans', body: 'AI insights, customer portal, online payments, quotes, and scheduling are all included from $39/mo. Nothing locked behind upgrades.' },
         { title: 'Designed for mobile-first', body: 'Built for contractors who run the business from a phone, not a back office. Every feature works on the truck.' },

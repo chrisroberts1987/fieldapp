@@ -15,7 +15,7 @@ export default function PestControlSoftware() {
         { title: 'Route-day scheduling', body: 'Lay out your stops for the day. Customer gets an automated heads-up the morning of and an "On My Way" text when you depart.' },
         { title: 'Treatment & product log', body: 'Log every product applied with quantity, location, and notes. Stays attached to the customer history for compliance and follow-ups.' },
         { title: 'Customer history at a glance', body: 'Open the customer record and see every visit, every treatment, and every invoice in one timeline.' },
-        { title: 'Invoicing & auto-billing', body: 'Card-on-file recurring billing through Stripe — invoices auto-mark paid. Check and digital wallets supported too.' },
+        { title: 'Invoicing & auto-billing', body: 'Card-on-file recurring billing through Stripe. Invoices auto-mark paid. Check and digital wallets supported too.' },
         { title: 'AI business insights', body: 'See your most profitable service plans, customers due for renewal, and accounts behind on payment.' },
       ]}
     />

@@ -9,7 +9,7 @@ export default function RazorSyncAlternative() {
       heroEyebrow="RazorSync Alternative"
       h1="A modern alternative"
       h1Highlight="to RazorSync."
-      heroSub="The field-service workflow you'd expect — dispatch, schedule, quote, invoice, get paid — with a phone-first interface, AI insights included, and no minimum-user commitments."
+      heroSub="The field-service workflow you'd expect, from dispatch to schedule to quote to invoice to get paid, with a phone-first interface, AI insights included, and no minimum-user commitments."
       features={[
         { title: 'Self-serve signup', body: 'Start the 14-day trial in minutes. No demo call required.' },
         { title: 'No minimum seats', body: 'Solo plan from $39/mo. Add Crew or Business plans as you grow. No "minimum 3 users" gotchas.' },

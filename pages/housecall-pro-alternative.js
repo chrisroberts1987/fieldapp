@@ -15,7 +15,7 @@ export default function HousecallProAlternative() {
         { title: 'Built for solo & small crew', body: 'Doesn\'t assume you have an office manager. The whole app works from your phone, in the truck.' },
         { title: 'AI business insights', body: 'Plain-English answers about your business. Which jobs make money, which customers pay late, what to focus on.' },
         { title: 'Card payments included', body: 'Stripe-powered payments at standard card-processing rates. Customer pays, invoice auto-marks paid. No upcharge for the feature itself.' },
-        { title: 'Multi-trade ready', body: 'HVAC, plumbing, electrical, handyman, landscaping, roofing — the workflow adapts to your trade without configuration.' },
+        { title: 'Multi-trade ready', body: 'HVAC, plumbing, electrical, handyman, landscaping, roofing. The workflow adapts to your trade without configuration.' },
         { title: 'Straightforward signup', body: 'Self-serve. No demo call required. Free 14-day trial, cancel from settings anytime.' },
       ]}
       comparison={{

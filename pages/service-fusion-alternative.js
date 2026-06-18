@@ -13,7 +13,7 @@ export default function ServiceFusionAlternative() {
       features={[
         { title: 'Month-to-month pricing', body: 'No annual contracts, no minimum commitments. Cancel from settings anytime.' },
         { title: 'Self-serve signup', body: 'Start the trial in minutes. No demo gate.' },
-        { title: 'AI business insights', body: 'Plain-English answers about your business — included on every plan.' },
+        { title: 'AI business insights', body: 'Plain-English answers about your business, included on every plan.' },
         { title: 'Stripe-powered card payments', body: 'Invoices auto-mark paid when funds land. Venmo, Zelle, Cash App, and check supported too.' },
         { title: 'Mobile-first workflow', body: 'Designed for contractors running the business from a phone.' },
         { title: 'Same-day migration', body: 'CSV-import customers and jobs during signup. Be live by tomorrow.' },

@@ -9,7 +9,7 @@ export default function ElectricalContractorSoftware() {
       heroEyebrow="Electrical Contractor Software"
       h1="Built for electrical contractors,"
       h1Highlight="from service to new build."
-      heroSub="Panel upgrades, EV charger installs, troubleshoots, and rough-in. Every job ticketed, every quote tracked, every invoice paid — without an office manager."
+      heroSub="Panel upgrades, EV charger installs, troubleshoots, and rough-in. Every job ticketed, every quote tracked, every invoice paid, without an office manager."
       features={[
         { title: 'Crew scheduling', body: 'Assign electricians by license level, drag jobs across the week, and see who is overbooked before the customer is.' },
         { title: 'Quotes & change orders', body: 'Build a quote with line-itemed materials and labor, send for digital signature, and track approved change orders against the original scope.' },

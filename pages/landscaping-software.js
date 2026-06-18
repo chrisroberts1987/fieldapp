@@ -9,7 +9,7 @@ export default function LandscapingSoftware() {
       heroEyebrow="Landscaping Software"
       h1="Landscaping software"
       h1Highlight="built for the season."
-      heroSub="From weekly mows to spring cleanups and full installs. Route your crews, send the quotes, bill the recurring customers — without losing a Sunday to admin."
+      heroSub="From weekly mows to spring cleanups and full installs. Route your crews, send the quotes, bill the recurring customers, without losing a Sunday to admin."
       features={[
         { title: 'Recurring job plans', body: 'Set up weekly, bi-weekly, or monthly maintenance schedules once. The system creates the work orders, sends the reminders, and invoices on the cadence you set.' },
         { title: 'Route-friendly scheduling', body: 'See the whole week on one calendar. Move a job, the customer gets the updated ETA automatically.' },

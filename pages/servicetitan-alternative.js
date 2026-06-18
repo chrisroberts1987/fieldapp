@@ -9,7 +9,7 @@ export default function ServiceTitanAlternative() {
       heroEyebrow="ServiceTitan Alternative"
       h1="A small-business alternative"
       h1Highlight="to ServiceTitan."
-      heroSub="ServiceTitan is built for the enterprise field-service company with a dispatch desk and a CFO. MyForeman is built for the contractor running the business from a truck — same workflow concepts, none of the overhead."
+      heroSub="ServiceTitan is built for the enterprise field-service company with a dispatch desk and a CFO. MyForeman is built for the contractor running the business from a truck. Same workflow concepts, none of the overhead."
       features={[
         { title: 'No annual contract', body: 'Month-to-month. Cancel from settings. No minimum-seat commitments, no enterprise sales process.' },
         { title: 'Transparent self-serve pricing', body: 'See the price online. Sign up, start the trial, decide for yourself. No "request a quote" gate.' },

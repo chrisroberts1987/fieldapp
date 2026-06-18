@@ -11,11 +11,11 @@ export default function JoistAlternative() {
       h1Highlight="Run the whole business."
       heroSub="Joist is great for sending a quick estimate. But if you also need to schedule the job, track the customer, send the invoice, and see what's making you money, MyForeman is the upgrade."
       features={[
-        { title: 'Estimates + everything else', body: 'Send quotes like you do today, plus jobs, customers, scheduling, invoicing, and payments — all in one app.' },
+        { title: 'Estimates + everything else', body: 'Send quotes like you do today, plus jobs, customers, scheduling, invoicing, and payments, all in one app.' },
         { title: 'Online card payments', body: 'Stripe-powered card payments at standard rates. Customer pays online, invoice auto-marks paid.' },
         { title: 'Scheduling calendar', body: 'Drag-and-drop jobs across the week. Multi-day jobs and recurring service handled.' },
-        { title: 'Customer database', body: 'Every customer\'s history — quotes, jobs, invoices, payments — in one timeline.' },
-        { title: 'AI business insights', body: 'Plain-English answers about your numbers — which jobs make money, which customers pay late.' },
+        { title: 'Customer database', body: 'Every customer\'s history, including quotes, jobs, invoices, and payments, in one timeline.' },
+        { title: 'AI business insights', body: 'Plain-English answers about your numbers. Which jobs make money, which customers pay late.' },
         { title: 'Mobile-first design', body: 'Built for the truck. Every feature works on a phone without compromise.' },
       ]}
       comparison={{

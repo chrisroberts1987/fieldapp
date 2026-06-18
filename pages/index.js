@@ -78,6 +78,38 @@ export default function Home() {
         <meta name="description" content="MyForeman helps contractors, handymen, HVAC, plumbing, electrical, and service businesses manage leads, estimates, jobs, invoices, and AI-powered business insights."/>
         <meta property="og:title" content="MyForeman | Contractor Invoicing, Scheduling & AI Business Software"/>
         <meta property="og:description" content="MyForeman helps contractors, handymen, HVAC, plumbing, electrical, and service businesses manage leads, estimates, jobs, invoices, and AI-powered business insights."/>
+        <meta property="og:url" content="https://myforemanhq.com/"/>
+        <meta property="og:image" content="https://myforemanhq.com/api/og?title=One+App.+Lead+To+Paid.&eyebrow=Contractor+Business+OS"/>
+        <meta property="og:image:width" content="1200"/>
+        <meta property="og:image:height" content="630"/>
+        <meta name="twitter:card" content="summary_large_image"/>
+        <meta name="twitter:title" content="MyForeman | Contractor Invoicing, Scheduling & AI Business Software"/>
+        <meta name="twitter:description" content="MyForeman helps contractors, handymen, HVAC, plumbing, electrical, and service businesses manage leads, estimates, jobs, invoices, and AI-powered business insights."/>
+        <meta name="twitter:image" content="https://myforemanhq.com/api/og?title=One+App.+Lead+To+Paid.&eyebrow=Contractor+Business+OS"/>
+        <link rel="canonical" href="https://myforemanhq.com/"/>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'SoftwareApplication',
+            name: 'MyForeman',
+            operatingSystem: 'Web, iOS, Android',
+            applicationCategory: 'BusinessApplication',
+            offers: {
+              '@type': 'Offer',
+              price: '39.00',
+              priceCurrency: 'USD',
+              priceSpecification: {
+                '@type': 'UnitPriceSpecification',
+                price: '39.00',
+                priceCurrency: 'USD',
+                unitText: 'MONTH',
+              },
+            },
+            description: 'MyForeman helps contractors, handymen, HVAC, plumbing, electrical, and service businesses manage leads, estimates, jobs, invoices, and AI-powered business insights.',
+            url: 'https://myforemanhq.com',
+          }) }}
+        />
       </Head>
       <Nav router={router}/>
       <Hero router={router} launchDemo={launchDemo}/>

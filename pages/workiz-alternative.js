@@ -9,12 +9,12 @@ export default function WorkizAlternative() {
       heroEyebrow="Workiz Alternative"
       h1="A cleaner alternative"
       h1Highlight="to Workiz."
-      heroSub="Same core field-service workflow — call inbox, scheduling, quoting, invoicing, payments — with flatter pricing, AI insights included, and a self-serve signup that doesn't require a sales call."
+      heroSub="Same core field-service workflow, including the call inbox, scheduling, quoting, invoicing, and payments, with flatter pricing, AI insights included, and a self-serve signup that doesn't require a sales call."
       features={[
         { title: 'Self-serve signup', body: 'Sign up, start the 14-day trial, decide for yourself. No demo gate, no quote request.' },
         { title: 'All features, all plans', body: 'AI insights, customer portal, recurring jobs, and online payments are all included from $39/mo. Nothing locked behind enterprise tiers.' },
         { title: 'Mobile-first workflow', body: 'Built for contractors running the business from a truck. Every feature works on a phone, not just a downsized desktop layout.' },
-        { title: 'AI business insights', body: 'Plain-English answers about your numbers — which jobs make money, which customers pay late, where your revenue is leaking.' },
+        { title: 'AI business insights', body: 'Plain-English answers about your numbers. Which jobs make money, which customers pay late, where your revenue is leaking.' },
         { title: 'Stripe-powered payments', body: 'Card payments at standard processing rates. Invoices auto-mark paid. Venmo, Zelle, Cash App, and check supported too.' },
         { title: 'Fast onboarding', body: 'CSV-import customers and jobs during signup. Be running the business by tomorrow.' },
       ]}
