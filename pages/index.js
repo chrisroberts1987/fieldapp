@@ -278,6 +278,7 @@ function Nav({ router }) {
       <div className="nav-links" style={{display:'flex',alignItems:'center',gap:24}}>
         <Link href="/contractor-software" style={{fontSize:14,fontWeight:600,color:C.muted}}>Trades</Link>
         <Link href="/compare" style={{fontSize:14,fontWeight:600,color:C.muted}}>Compare</Link>
+        <Link href="/blog" style={{fontSize:14,fontWeight:600,color:C.muted}}>Blog</Link>
         <a href="#features" style={{fontSize:14,fontWeight:600,color:C.muted}}>Features</a>
         <a href="#pricing" style={{fontSize:14,fontWeight:600,color:C.muted}}>Pricing</a>
       </div>
@@ -1084,6 +1085,7 @@ function Footer() {
         <div style={{display:'flex',gap:24,fontSize:13,color:C.muted,flexWrap:'wrap'}}>
           <Link href="/contractor-software">Trades</Link>
           <Link href="/compare">Compare</Link>
+          <Link href="/blog">Blog</Link>
           <a href="#features">Features</a>
           <a href="#pricing">Pricing</a>
           <Link href="/contact">Contact</Link>

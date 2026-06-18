@@ -1,3 +1,5 @@
+import { BLOG_POSTS } from '../lib/blog-posts';
+
 // Dynamic sitemap generated on request. Lists every public,
 // indexable marketing route. Authenticated app routes
 // (/dashboard, /jobs, /invoices, etc.), guest-token routes
@@ -45,17 +47,30 @@ const PAGES = [
   { path: '/service-fusion-alternative',        priority: '0.8', changefreq: 'monthly' },
   { path: '/joist-alternative',                 priority: '0.8', changefreq: 'monthly' },
 
+  // Blog
+  { path: '/blog',                              priority: '0.9', changefreq: 'weekly' },
+
   // Supporting marketing pages
   { path: '/contact',                           priority: '0.5', changefreq: 'yearly' },
   { path: '/privacy',                           priority: '0.3', changefreq: 'yearly' },
   { path: '/terms',                             priority: '0.3', changefreq: 'yearly' },
 ];
 
+// Blog posts auto-included from the post data module so adding a new
+// post to lib/blog-posts.js automatically lands in the sitemap.
+const BLOG_PAGES = BLOG_POSTS.map(p => ({
+  path: `/blog/${p.slug}`,
+  priority: '0.7',
+  changefreq: 'monthly',
+  lastmod: p.publishedAt,
+}));
+
 function buildXml(today) {
-  const urls = PAGES.map(p => (
+  const all = [...PAGES, ...BLOG_PAGES];
+  const urls = all.map(p => (
     `  <url>\n` +
     `    <loc>${BASE}${p.path}</loc>\n` +
-    `    <lastmod>${today}</lastmod>\n` +
+    `    <lastmod>${p.lastmod || today}</lastmod>\n` +
     `    <changefreq>${p.changefreq}</changefreq>\n` +
     `    <priority>${p.priority}</priority>\n` +
     `  </url>`
