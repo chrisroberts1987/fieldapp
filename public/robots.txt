@@ -1,0 +1,54 @@
+# Robots policy for myforemanhq.com
+# Public marketing routes are crawlable. App routes that require
+# authentication or hold customer-token URLs are blocked from indexing.
+
+User-agent: *
+Allow: /
+
+# Authenticated app — pages render a login redirect for guests, but
+# disallow to keep them out of search results regardless.
+Disallow: /dashboard
+Disallow: /jobs
+Disallow: /jobs/*
+Disallow: /invoices
+Disallow: /invoices/*
+Disallow: /quotes
+Disallow: /quotes/*
+Disallow: /customers
+Disallow: /customers/*
+Disallow: /leads
+Disallow: /leads/*
+Disallow: /schedule
+Disallow: /services
+Disallow: /expenses
+Disallow: /mileage
+Disallow: /reviews
+Disallow: /tax
+Disallow: /insights
+Disallow: /import
+Disallow: /approvals
+Disallow: /feedback
+Disallow: /crew
+Disallow: /co
+Disallow: /book
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /settings
+Disallow: /billing
+Disallow: /account
+Disallow: /onboarding
+Disallow: /login
+Disallow: /signup
+Disallow: /reset
+
+# Guest-token URLs — single-customer document links, never index.
+Disallow: /portal/
+Disallow: /inv/
+Disallow: /q/
+Disallow: /quote/
+Disallow: /invite/
+
+# API endpoints.
+Disallow: /api/
+
+Sitemap: https://myforemanhq.com/sitemap.xml
