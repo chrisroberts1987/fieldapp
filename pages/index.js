@@ -244,9 +244,10 @@ function Nav({ router }) {
         <HorizontalLogo height={32}/>
       </Link>
       <div className="nav-links" style={{display:'flex',alignItems:'center',gap:24}}>
+        <Link href="/contractor-software" style={{fontSize:14,fontWeight:600,color:C.muted}}>Trades</Link>
+        <Link href="/compare" style={{fontSize:14,fontWeight:600,color:C.muted}}>Compare</Link>
         <a href="#features" style={{fontSize:14,fontWeight:600,color:C.muted}}>Features</a>
         <a href="#pricing" style={{fontSize:14,fontWeight:600,color:C.muted}}>Pricing</a>
-        <a href="#demo" style={{fontSize:14,fontWeight:600,color:C.muted}}>Demo</a>
       </div>
       <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
         <button onClick={() => router.push('/login')} style={{
@@ -1049,6 +1050,8 @@ function Footer() {
           <HorizontalLogo height={32}/>
         </Link>
         <div style={{display:'flex',gap:24,fontSize:13,color:C.muted,flexWrap:'wrap'}}>
+          <Link href="/contractor-software">Trades</Link>
+          <Link href="/compare">Compare</Link>
           <a href="#features">Features</a>
           <a href="#pricing">Pricing</a>
           <Link href="/contact">Contact</Link>

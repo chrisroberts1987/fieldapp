@@ -154,6 +154,7 @@ function Nav() {
       </Link>
       <div className="nav-links" style={{display:'flex',alignItems:'center',gap:24}}>
         <Link href="/contractor-software" style={{fontSize:14,fontWeight:600,color:C.muted}}>Trades</Link>
+        <Link href="/compare" style={{fontSize:14,fontWeight:600,color:C.muted}}>Compare</Link>
         <Link href="/#pricing" style={{fontSize:14,fontWeight:600,color:C.muted}}>Pricing</Link>
         <Link href="/contact" style={{fontSize:14,fontWeight:600,color:C.muted}}>Contact</Link>
       </div>
@@ -382,6 +383,7 @@ function Footer() {
         </Link>
         <div style={{display:'flex',gap:24,fontSize:13,color:C.muted,flexWrap:'wrap'}}>
           <Link href="/contractor-software">Trades</Link>
+          <Link href="/compare">Compare</Link>
           <Link href="/#pricing">Pricing</Link>
           <Link href="/contact">Contact</Link>
           <Link href="/privacy">Privacy</Link>
