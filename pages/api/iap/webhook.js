@@ -129,8 +129,13 @@ export default async function handler(req, res) {
       console.warn('[iap webhook] refusing Stripe to Apple migration', {
         orgId, userId, type, productId,
       });
-      // TODO: alert (email / Slack / Sentry) so the Apple charge can
-      // be refunded out of band via App Store Connect.
+      // Alert so the Apple charge can be refunded out of band via
+      // App Store Connect → Customer Support, or Apple's refund API.
+      await alertSlack({
+        orgId, userId, type, productId,
+        stripeSubscriptionId: org.stripe_subscription_id || null,
+        eventId,
+      });
       return res.status(200).json({ ignored: 'stripe subscription exists' });
     }
   }
@@ -185,4 +190,59 @@ export default async function handler(req, res) {
   }
 
   return res.status(200).json({ ok: true });
+}
+
+// Fire-and-forget Slack alert for a Stripe → Apple migration refusal.
+// Configured via SLACK_IAP_ALERT_WEBHOOK_URL (an Incoming Webhook URL
+// from a Slack app). If the env var is unset we skip silently so
+// local dev and preview deploys do not error. Failures here are
+// swallowed: we still want the 200 ack to RevenueCat to go out even
+// if Slack is unreachable.
+async function alertSlack({ orgId, userId, type, productId, stripeSubscriptionId, eventId }) {
+  const url = process.env.SLACK_IAP_ALERT_WEBHOOK_URL;
+  if (!url) return;
+
+  const payload = {
+    text: `IAP / Stripe collision — Apple charge needs refunding (org ${orgId})`,
+    blocks: [
+      {
+        type: 'header',
+        text: { type: 'plain_text', text: 'IAP / Stripe collision' },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: 'An Apple subscription event arrived for an org that is already paying through Stripe. The webhook acked RevenueCat but did NOT touch the org row. *The Apple charge needs to be refunded manually.*',
+        },
+      },
+      {
+        type: 'section',
+        fields: [
+          { type: 'mrkdwn', text: `*Org:*\n\`${orgId}\`` },
+          { type: 'mrkdwn', text: `*User:*\n\`${userId}\`` },
+          { type: 'mrkdwn', text: `*Event type:*\n${type}` },
+          { type: 'mrkdwn', text: `*Product:*\n${productId || '(none)'}` },
+          { type: 'mrkdwn', text: `*Stripe sub:*\n\`${stripeSubscriptionId || '(none)'}\`` },
+          { type: 'mrkdwn', text: `*RevenueCat event:*\n\`${eventId}\`` },
+        ],
+      },
+      {
+        type: 'context',
+        elements: [
+          { type: 'mrkdwn', text: 'Refund the Apple charge via App Store Connect → Customer Support, or Apple Refund API.' },
+        ],
+      },
+    ],
+  };
+
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
+    console.error('[iap webhook] slack alert failed', e?.message || e);
+  }
 }
