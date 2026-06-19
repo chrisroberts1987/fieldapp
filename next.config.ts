@@ -58,6 +58,16 @@ const nextConfig: NextConfig = {
       { source: "/manifest.json",headers: manifestHeaders },
     ];
   },
+  async redirects() {
+    return [
+      // Retired trade pages. permanent: true emits a 308 so Google
+      // transfers any indexing equity to the hub instead of 404'ing.
+      { source: "/chimney-sweep-software",   destination: "/contractor-software", permanent: true },
+      { source: "/window-cleaning-software", destination: "/contractor-software", permanent: true },
+      { source: "/carpet-cleaning-software", destination: "/contractor-software", permanent: true },
+      { source: "/pressure-washing-software",destination: "/contractor-software", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;
