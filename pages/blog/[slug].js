@@ -78,7 +78,7 @@ export default function BlogPost({ post, related }) {
         <div className="blog-container">
           {/* Breadcrumb */}
           <div style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:C.muted,marginBottom:20}}>
-            <Link href="/blog" style={{color:C.muted}}>Blog</Link>
+            <Link href="/blog" style={{color:C.muted}}>The Foremans Report</Link>
             <span>/</span>
             <span style={{color:cat.color,fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',fontSize:11}}>{cat.label}</span>
           </div>
