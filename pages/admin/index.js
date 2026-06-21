@@ -78,7 +78,7 @@ export default function Admin() {
         WebkitOverflowScrolling:'touch',
         scrollbarWidth:'none',
       }}>
-        {['overview','finances','reach','businesses','usage','ai','support','integrations'].map(k => (
+        {['overview','finances','reach','businesses','usage','ai','support','integrations','broadcast'].map(k => (
           <button key={k} onClick={() => setTab(k)}
             style={{
               background:'transparent', border:'none',
@@ -103,6 +103,7 @@ export default function Admin() {
         {tab === 'ai'         && <AiUsageSection />}
         {tab === 'support'    && <SupportSection />}
         {tab === 'integrations' && <IntegrationsSection />}
+        {tab === 'broadcast'    && <BroadcastSection />}
       </main>
     </div>
   );
@@ -1391,6 +1392,332 @@ const miniGrid = { display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(
 const listLine = { display:'flex', justifyContent:'space-between', gap:8, fontSize:11, color:'#c8d4ee', padding:'3px 0', minWidth:0 };
 const listText = { overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', minWidth:0 };
 const listEmpty = { fontSize:11, color:'#7a8db0', fontStyle:'italic', padding:'4px 0' };
+
+// =============================================================
+// Broadcast (email blast to active orgs)
+// =============================================================
+const TIER_OPTIONS = [
+  { key:'all',      label:'All tiers' },
+  { key:'solo',     label:'Solo' },
+  { key:'crew',     label:'Crew' },
+  { key:'business', label:'Business' },
+];
+
+function BroadcastSection() {
+  const [subject, setSubject] = useState('');
+  const [body, setBody]       = useState('');
+  const [tier, setTier]       = useState('all');
+
+  const [recipients, setRecipients] = useState(null); // { total, byTier }
+  const [history, setHistory]       = useState(null); // { broadcasts, todayCount, maxPerDay, lastSentAt }
+  const [previewHtml, setPreviewHtml] = useState(null); // html string when preview open
+  const [confirmStage, setConfirmStage] = useState(null); // null | 'first' | 'large'
+  const [sending, setSending]   = useState(false);
+  const [result, setResult]     = useState(null); // { sentCount, failedCount, recipientCount } | { error }
+
+  const loadRecipients = async () => {
+    const r = await adminFetch('/api/admin/broadcasts/recipients');
+    if (!r.error) setRecipients(r);
+  };
+  const loadHistory = async () => {
+    const r = await adminFetch('/api/admin/broadcasts/history');
+    if (!r.error) setHistory(r);
+  };
+  useEffect(() => { loadRecipients(); loadHistory(); }, []);
+
+  // Count for the currently-selected tier
+  const countForTier = useMemo(() => {
+    if (!recipients) return null;
+    if (tier === 'all') return recipients.total;
+    return (recipients.byTier?.[tier] || 0);
+  }, [recipients, tier]);
+
+  const rateLimitReached = history && history.todayCount >= history.maxPerDay;
+  const remaining        = history ? Math.max(history.maxPerDay - history.todayCount, 0) : null;
+
+  const canCompose = !!subject.trim() && !!body.trim() && countForTier > 0 && !rateLimitReached;
+
+  const openPreview = async () => {
+    setPreviewHtml('loading');
+    const r = await adminFetch('/api/admin/broadcasts/preview', {
+      method: 'POST',
+      body: JSON.stringify({ subject, body }),
+    });
+    if (r.error) { setPreviewHtml(null); toast(r.error); return; }
+    setPreviewHtml(r.html);
+  };
+
+  const startSend = () => {
+    if (!canCompose) return;
+    setResult(null);
+    setConfirmStage('first');
+  };
+
+  const doSend = async (confirmedLargeBatch = false) => {
+    setSending(true);
+    const r = await adminFetch('/api/admin/broadcasts/send', {
+      method: 'POST',
+      body: JSON.stringify({ subject, body, tier, confirmedLargeBatch }),
+    });
+    setSending(false);
+
+    // Surface a second confirm modal if the server says we need one.
+    if (r?.requiresLargeBatchConfirm) {
+      setConfirmStage('large');
+      return;
+    }
+    setConfirmStage(null);
+    if (r?.error) {
+      setResult({ error: r.error });
+      toast(r.error);
+      return;
+    }
+    setResult({
+      ok: true,
+      sentCount:      r.sentCount,
+      failedCount:    r.failedCount,
+      recipientCount: r.recipientCount,
+    });
+    setSubject('');
+    setBody('');
+    loadHistory();
+    toast(`Broadcast sent to ${r.sentCount} of ${r.recipientCount}.`);
+  };
+
+  return (
+    <>
+      <SectionHeading title="Broadcast" subtitle="Email every active or trialing organization."/>
+
+      {/* Top-row status: today usage, last sent, rate limit warning */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))',gap:10,marginBottom:18}}>
+        <Kpi label="Today's sends"
+             value={history ? `${history.todayCount} / ${history.maxPerDay}` : '…'}
+             color={rateLimitReached ? '#f26060' : '#4f9eff'}
+             sub={remaining !== null ? `${remaining} left today` : undefined}/>
+        <Kpi label="Last broadcast"
+             value={history?.lastSentAt ? fmtRelative(history.lastSentAt) : '—'}
+             color="#f0f4ff"
+             sub={history?.lastSentAt ? new Date(history.lastSentAt).toLocaleString() : 'No history'}/>
+        <Kpi label="Active recipients"
+             value={recipients ? recipients.total.toLocaleString() : '…'}
+             color="#2edf87"
+             sub="active + trialing orgs with email"/>
+      </div>
+
+      {rateLimitReached && (
+        <div style={{padding:'12px 14px',background:'rgba(242,96,96,.10)',border:'1px solid rgba(242,96,96,.35)',borderRadius:10,color:'#f26060',fontSize:13,marginBottom:14}}>
+          Daily limit reached ({history.maxPerDay} broadcasts). Try again after UTC midnight.
+        </div>
+      )}
+
+      {/* Compose form */}
+      <div style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:12,padding:18,marginBottom:24}}>
+        <Subhead>Compose</Subhead>
+
+        <label style={fieldLabel}>Tier filter</label>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
+          {TIER_OPTIONS.map(t => {
+            const active = tier === t.key;
+            const cnt = recipients ? (t.key === 'all' ? recipients.total : (recipients.byTier?.[t.key] || 0)) : null;
+            return (
+              <button key={t.key} onClick={() => setTier(t.key)}
+                style={{
+                  background: active ? '#4f9eff' : 'transparent',
+                  border:`1px solid ${active ? '#4f9eff' : '#2e3f60'}`,
+                  borderRadius:8, color: active ? '#fff' : '#c8d4ee',
+                  padding:'8px 14px', fontSize:12, fontWeight:600,
+                  letterSpacing:'.04em', cursor:'pointer', fontFamily:'inherit',
+                }}>
+                {t.label}{cnt !== null && <span style={{opacity:.7,marginLeft:6}}>· {cnt.toLocaleString()}</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        <label style={fieldLabel}>Subject</label>
+        <input value={subject} onChange={e => setSubject(e.target.value)} maxLength={200}
+          placeholder="e.g. New feature: AI invoice extraction"
+          style={textInput}/>
+
+        <label style={fieldLabel}>Message</label>
+        <div style={{fontSize:11,color:'#7a8db0',marginBottom:6}}>
+          Plain text. Blank lines become paragraph breaks. URLs auto-link.
+        </div>
+        <textarea value={body} onChange={e => setBody(e.target.value)} maxLength={50000}
+          rows={10}
+          placeholder={`Hey,\n\nQuick update on what's new in MyForeman this week...\n\n— Chris`}
+          style={{...textInput, fontFamily:'ui-monospace,Menlo,monospace', lineHeight:1.55, resize:'vertical'}}/>
+
+        <div style={{display:'flex',alignItems:'center',gap:10,marginTop:14,flexWrap:'wrap'}}>
+          <button onClick={openPreview} disabled={!subject.trim() || !body.trim()}
+            style={{...btnGhost, opacity:(!subject.trim() || !body.trim()) ? .5 : 1, cursor:(!subject.trim() || !body.trim()) ? 'not-allowed' : 'pointer'}}>
+            Preview
+          </button>
+          <button onClick={startSend} disabled={!canCompose}
+            style={{
+              background: canCompose ? '#2edf87' : '#1e2a42',
+              border:'none', borderRadius:8, color:'#0d1726',
+              padding:'10px 18px', fontFamily:"'Bebas Neue',sans-serif",
+              fontSize:14, letterSpacing:'.06em', fontWeight:700,
+              cursor: canCompose ? 'pointer' : 'not-allowed',
+              opacity: canCompose ? 1 : .5,
+            }}>
+            SEND TO {countForTier !== null ? countForTier.toLocaleString() : '—'} {countForTier === 1 ? 'PERSON' : 'PEOPLE'}
+          </button>
+          {result?.ok && (
+            <span style={{fontSize:12,color:'#2edf87'}}>
+              ✓ Sent {result.sentCount}/{result.recipientCount}
+              {result.failedCount > 0 && <span style={{color:'#f26060',marginLeft:6}}>· {result.failedCount} failed</span>}
+            </span>
+          )}
+          {result?.error && (
+            <span style={{fontSize:12,color:'#f26060'}}>Error: {result.error}</span>
+          )}
+        </div>
+      </div>
+
+      {/* History */}
+      <Subhead>Broadcast history</Subhead>
+      {!history && <Loading/>}
+      {history && history.broadcasts.length === 0 && (
+        <div style={empty}>No broadcasts sent yet.</div>
+      )}
+      {history && history.broadcasts.length > 0 && (
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {history.broadcasts.map(b => (
+            <div key={b.id} style={{background:'#0d1726',border:'1px solid #2e3f60',borderRadius:8,padding:'10px 14px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:10,flexWrap:'wrap'}}>
+                <div style={{minWidth:0,flex:1}}>
+                  <div style={{fontSize:13,fontWeight:600,color:'#f0f4ff',marginBottom:2,overflow:'hidden',textOverflow:'ellipsis'}}>{b.subject}</div>
+                  <div style={{fontSize:11,color:'#7a8db0'}}>
+                    {b.tier_filter ? `${b.tier_filter} tier` : 'all tiers'} · {b.recipient_count.toLocaleString()} recipients · {b.sent_count.toLocaleString()} sent
+                    {b.failed_count > 0 && <span style={{color:'#f26060'}}> · {b.failed_count} failed</span>}
+                  </div>
+                </div>
+                <div style={{fontSize:11,color:'#7a8db0',textAlign:'right',whiteSpace:'nowrap'}}>
+                  <div>{new Date(b.sent_at).toLocaleString()}</div>
+                  <div style={{color:'#7a8db0',opacity:.7}}>{b.sent_by}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Preview modal */}
+      {previewHtml && (
+        <Modal onClose={() => setPreviewHtml(null)} title="Email preview">
+          {previewHtml === 'loading' ? (
+            <div style={{padding:40,textAlign:'center',color:'#7a8db0'}}>Loading preview…</div>
+          ) : (
+            <iframe
+              title="Broadcast preview"
+              srcDoc={previewHtml}
+              sandbox=""
+              style={{width:'100%',height:'70vh',border:'1px solid #2e3f60',borderRadius:8,background:'#fff'}}
+            />
+          )}
+        </Modal>
+      )}
+
+      {/* First confirm modal */}
+      {confirmStage === 'first' && (
+        <Modal onClose={() => setConfirmStage(null)} title="Send broadcast?">
+          <p style={{fontSize:14,color:'#c8d4ee',lineHeight:1.55,margin:'0 0 14px'}}>
+            You are about to send to <strong style={{color:'#f0f4ff'}}>{countForTier.toLocaleString()}</strong> {countForTier === 1 ? 'person' : 'people'}.
+            {history?.lastSentAt && (
+              <span style={{display:'block',marginTop:8,fontSize:12,color:'#7a8db0'}}>
+                Last broadcast went out {fmtRelative(history.lastSentAt)} — make sure this isn't a duplicate.
+              </span>
+            )}
+          </p>
+          <p style={{fontSize:13,color:'#c8d4ee',background:'#0d1726',border:'1px solid #2e3f60',borderRadius:8,padding:'10px 12px',margin:'0 0 16px'}}>
+            <strong style={{color:'#f0f4ff'}}>{subject}</strong>
+          </p>
+          <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+            <button onClick={() => setConfirmStage(null)} style={btnGhost} disabled={sending}>Cancel</button>
+            <button onClick={() => doSend(false)} disabled={sending}
+              style={{
+                background:'#2edf87', border:'none', borderRadius:8, color:'#0d1726',
+                padding:'10px 18px', fontFamily:"'Bebas Neue',sans-serif", fontSize:14,
+                letterSpacing:'.06em', fontWeight:700, cursor: sending ? 'wait' : 'pointer',
+              }}>
+              {sending ? 'SENDING…' : 'YES, SEND'}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Second confirm modal — only when server flags large batch */}
+      {confirmStage === 'large' && (
+        <Modal onClose={() => setConfirmStage(null)} title="Wait — large batch">
+          <p style={{fontSize:14,color:'#c8d4ee',lineHeight:1.55,margin:'0 0 14px'}}>
+            This will hit <strong style={{color:'#f26060'}}>more than 1,000 recipients</strong>. Confirm one more time to send.
+          </p>
+          <p style={{fontSize:12,color:'#7a8db0',margin:'0 0 16px'}}>
+            Subject: {subject}
+          </p>
+          <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+            <button onClick={() => setConfirmStage(null)} style={btnGhost} disabled={sending}>Cancel</button>
+            <button onClick={() => doSend(true)} disabled={sending}
+              style={{
+                background:'#f26060', border:'none', borderRadius:8, color:'#fff',
+                padding:'10px 18px', fontFamily:"'Bebas Neue',sans-serif", fontSize:14,
+                letterSpacing:'.06em', fontWeight:700, cursor: sending ? 'wait' : 'pointer',
+              }}>
+              {sending ? 'SENDING…' : 'I UNDERSTAND, SEND'}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </>
+  );
+}
+
+function Modal({ title, onClose, children }) {
+  return (
+    <div onClick={onClose}
+      style={{
+        position:'fixed', inset:0, background:'rgba(8,12,20,.7)', zIndex:200,
+        display:'flex', alignItems:'center', justifyContent:'center', padding:16,
+      }}>
+      <div onClick={e => e.stopPropagation()}
+        style={{
+          background:'#111827', border:'1px solid #2e3f60', borderRadius:14,
+          padding:'18px 20px', maxWidth:720, width:'100%', maxHeight:'90vh',
+          overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,.5)',
+        }}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:20,letterSpacing:'.06em',color:'#f0f4ff'}}>{title.toUpperCase()}</div>
+          <button onClick={onClose} style={{background:'transparent',border:'none',color:'#7a8db0',fontSize:18,cursor:'pointer',padding:4}}>×</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function fmtRelative(iso) {
+  if (!iso) return '—';
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 0) return 'in the future';
+  const s = Math.floor(ms / 1000);
+  if (s < 60)  return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60)  return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24)  return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30)  return `${d}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+const fieldLabel = { display:'block', fontSize:11, color:'#7a8db0', letterSpacing:'.1em', textTransform:'uppercase', fontWeight:700, marginBottom:6 };
+const textInput  = {
+  width:'100%', background:'#0d1726', border:'1px solid #2e3f60', borderRadius:8,
+  color:'#f0f4ff', padding:'10px 12px', fontSize:14, fontFamily:'inherit',
+  marginBottom:14, boxSizing:'border-box',
+};
 
 // =============================================================
 // UI primitives
