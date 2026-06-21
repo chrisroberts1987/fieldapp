@@ -78,7 +78,7 @@ export default function Admin() {
         WebkitOverflowScrolling:'touch',
         scrollbarWidth:'none',
       }}>
-        {['overview','finances','reach','businesses','usage','ai','support'].map(k => (
+        {['overview','finances','reach','businesses','usage','ai','support','integrations'].map(k => (
           <button key={k} onClick={() => setTab(k)}
             style={{
               background:'transparent', border:'none',
@@ -102,6 +102,7 @@ export default function Admin() {
         {tab === 'usage'      && <UsageSection />}
         {tab === 'ai'         && <AiUsageSection />}
         {tab === 'support'    && <SupportSection />}
+        {tab === 'integrations' && <IntegrationsSection />}
       </main>
     </div>
   );
@@ -1129,6 +1130,267 @@ function SupportSection() {
     </>
   );
 }
+
+// =============================================================
+// Integrations
+// =============================================================
+const INTEGRATIONS = [
+  { key:'stripe',         label:'Stripe',                endpoint:'/api/admin/integrations/stripe' },
+  { key:'revenuecat',     label:'RevenueCat · Apple IAP', endpoint:'/api/admin/integrations/revenuecat' },
+  { key:'facebookAds',    label:'Facebook Ads',          endpoint:'/api/admin/integrations/facebook-ads' },
+  { key:'searchConsole',  label:'Google Search Console', endpoint:'/api/admin/integrations/search-console' },
+  { key:'googleAds',      label:'Google Ads',            endpoint:'/api/admin/integrations/google-ads' },
+  { key:'twilio',         label:'Twilio SMS',            endpoint:'/api/admin/integrations/twilio' },
+];
+
+function IntegrationsSection() {
+  // Per-card state: pending | { ok, configured, data?, error?, lastUpdated, missingEnv? }
+  const empty = useMemo(() => Object.fromEntries(INTEGRATIONS.map(i => [i.key, null])), []);
+  const [cards, setCards]       = useState(empty);
+  const [refreshing, setRefresh] = useState(false);
+
+  const loadAll = async () => {
+    setRefresh(true);
+    setCards(empty); // show per-card spinners
+    await Promise.all(INTEGRATIONS.map(async (i) => {
+      const r = await adminFetch(i.endpoint);
+      // adminFetch returns either the body or { error }. Normalize so
+      // every card has the same shape downstream.
+      const normalized = r?.error
+        ? { ok:false, configured:true, error:r.error, lastUpdated:new Date().toISOString() }
+        : r;
+      setCards(prev => ({ ...prev, [i.key]: normalized }));
+    }));
+    setRefresh(false);
+  };
+
+  useEffect(() => { loadAll(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const stripe     = cards.stripe?.data;
+  const revenuecat = cards.revenuecat?.data;
+  const combinedMrr = (stripe?.mrr || 0) + (revenuecat?.mrr || 0);
+  const combinedReady = !!(cards.stripe?.ok || cards.revenuecat?.ok);
+
+  return (
+    <>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',gap:12,flexWrap:'wrap',marginBottom:18}}>
+        <SectionHeading title="Integrations" subtitle="Live data pulled from each external service."/>
+        <button onClick={loadAll} disabled={refreshing} style={{
+          background: refreshing ? '#1e2a42' : '#4f9eff',
+          border:'none', borderRadius:8, color:'#fff',
+          padding:'9px 16px', fontFamily:"'Bebas Neue',sans-serif",
+          fontSize:13, letterSpacing:'.06em',
+          cursor: refreshing ? 'wait' : 'pointer',
+        }}>{refreshing ? 'REFRESHING…' : 'REFRESH'}</button>
+      </div>
+
+      {/* Combined MRR hero */}
+      <div style={{
+        background:'linear-gradient(135deg, #1e2a42 0%, #243353 100%)',
+        border:'1px solid #2e3f60', borderRadius:14,
+        padding:'20px 22px', marginBottom:22,
+      }}>
+        <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.18em',textTransform:'uppercase',fontWeight:700}}>
+          Combined MRR · Stripe + Apple IAP
+        </div>
+        <div style={{
+          fontFamily:"'Bebas Neue',Impact,sans-serif",
+          fontSize:56, lineHeight:1.05, letterSpacing:'.02em',
+          color:'#2edf87', marginTop:6,
+        }}>
+          {combinedReady ? fmt$(combinedMrr) : '—'}
+        </div>
+        <div style={{fontSize:12,color:'#7a8db0',marginTop:6}}>
+          Stripe: {cards.stripe?.ok ? fmt$(stripe?.mrr || 0) : (cards.stripe ? 'n/a' : '…')}
+          {' · '}
+          Apple: {cards.revenuecat?.ok ? fmt$(revenuecat?.mrr || 0) : (cards.revenuecat ? 'n/a' : '…')}
+        </div>
+      </div>
+
+      {/* Cards grid */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(320px, 1fr))',gap:14}}>
+        {INTEGRATIONS.map(i => (
+          <IntegrationCard key={i.key} label={i.label} state={cards[i.key]} kind={i.key}/>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function IntegrationCard({ label, state, kind }) {
+  return (
+    <div style={{
+      background:'#1e2a42', border:'1px solid #2e3f60', borderRadius:12,
+      padding:'14px 16px', display:'flex', flexDirection:'column', gap:10,
+    }}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
+        <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.06em',color:'#f0f4ff'}}>
+          {label.toUpperCase()}
+        </div>
+        <StatusPill state={state}/>
+      </div>
+
+      <IntegrationBody kind={kind} state={state}/>
+
+      <div style={{fontSize:10,color:'#7a8db0',marginTop:'auto',paddingTop:8,borderTop:'1px dashed #2e3f60'}}>
+        Last updated: {state?.lastUpdated ? new Date(state.lastUpdated).toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit', second:'2-digit' }) : '—'}
+      </div>
+    </div>
+  );
+}
+
+function StatusPill({ state }) {
+  if (!state)              return <Pill color="#7a8db0" bg="#7a8db022">Loading</Pill>;
+  if (state.ok)            return <Pill color="#2edf87" bg="#2edf8722">Live</Pill>;
+  if (!state.configured)   return <Pill color="#fbbf24" bg="#fbbf2422">Not configured</Pill>;
+  return <Pill color="#f26060" bg="#f2606022">Error</Pill>;
+}
+function Pill({ color, bg, children }) {
+  return (
+    <span style={{
+      background:bg, color, border:`1px solid ${color}55`,
+      borderRadius:999, padding:'2px 9px', fontSize:10, fontWeight:700,
+      letterSpacing:'.1em', textTransform:'uppercase', whiteSpace:'nowrap',
+    }}>{children}</span>
+  );
+}
+
+function IntegrationBody({ kind, state }) {
+  if (!state) return <div style={{fontSize:12,color:'#7a8db0',padding:'6px 0'}}>Loading…</div>;
+
+  if (!state.ok && !state.configured) {
+    return (
+      <div style={{fontSize:12,color:'#c8d4ee',lineHeight:1.55}}>
+        <div style={{color:'#fbbf24',marginBottom:6,fontWeight:700,fontSize:11,letterSpacing:'.06em',textTransform:'uppercase'}}>
+          Missing env vars
+        </div>
+        {(state.missingEnv || []).map(v => (
+          <div key={v} style={{fontFamily:'ui-monospace,Menlo,monospace',fontSize:11,color:'#f0f4ff'}}>{v}</div>
+        ))}
+      </div>
+    );
+  }
+
+  if (!state.ok) {
+    return (
+      <div style={{
+        fontSize:12, color:'#f26060', lineHeight:1.5,
+        background:'rgba(242,96,96,.08)', border:'1px solid rgba(242,96,96,.3)',
+        borderRadius:8, padding:'8px 10px',
+      }}>{state.error || 'Request failed.'}</div>
+    );
+  }
+
+  const d = state.data || {};
+  switch (kind) {
+    case 'stripe':
+      return (
+        <div style={miniGrid}>
+          <MiniStat label="MRR"          value={fmt$(d.mrr)}                color="#2edf87"/>
+          <MiniStat label="Active subs"  value={(d.activeSubs ?? 0).toLocaleString()} color="#4f9eff"/>
+          <MiniStat label="New this mo." value={(d.newSubsThisMonth ?? 0).toLocaleString()} color="#f0f4ff"/>
+          <MiniStat label="Churned"      value={(d.churnedThisMonth ?? 0).toLocaleString()} color="#f26060"/>
+        </div>
+      );
+
+    case 'revenuecat':
+      return (
+        <div style={miniGrid}>
+          <MiniStat label="Apple MRR"    value={fmt$(d.mrr)}                color="#2edf87"/>
+          <MiniStat label="Active IAP"   value={(d.activeSubs ?? 0).toLocaleString()} color="#4f9eff"/>
+          <MiniStat label="New this mo." value={(d.newSubsThisMonth ?? 0).toLocaleString()} color="#f0f4ff"/>
+        </div>
+      );
+
+    case 'facebookAds':
+      return (
+        <>
+          <div style={miniGrid}>
+            <MiniStat label="Spend"      value={fmt$(d.spend || 0)}         color="#f0f4ff"/>
+            <MiniStat label="Link clicks" value={(d.linkClicks ?? 0).toLocaleString()} color="#4f9eff"/>
+            <MiniStat label="CPC"        value={fmt$(d.cpc || 0)}           color="#2edf87"/>
+          </div>
+          {d.bestAd && (
+            <div style={{fontSize:11,color:'#7a8db0',marginTop:4,lineHeight:1.5}}>
+              <span style={{color:'#7a8db0',letterSpacing:'.06em',textTransform:'uppercase',fontWeight:700,fontSize:10}}>Top ad · </span>
+              <span style={{color:'#f0f4ff',fontWeight:600}}>{d.bestAd.name}</span>
+              {' '}<span style={{color:'#7a8db0'}}>· {d.bestAd.linkClicks.toLocaleString()} clicks · {fmt$(d.bestAd.spend)}</span>
+            </div>
+          )}
+        </>
+      );
+
+    case 'searchConsole':
+      return (
+        <>
+          <div style={miniGrid}>
+            <MiniStat label="Clicks"      value={(d.clicks ?? 0).toLocaleString()}      color="#4f9eff"/>
+            <MiniStat label="Impressions" value={(d.impressions ?? 0).toLocaleString()} color="#f0f4ff"/>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:4}}>
+            <div>
+              <div style={{fontSize:10,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700,marginBottom:4}}>Top pages</div>
+              {(d.topPages || []).slice(0, 5).map(p => (
+                <div key={p.url} style={listLine} title={p.url}>
+                  <span style={listText}>{shortPath(p.url)}</span>
+                  <span style={{color:'#4f9eff',fontWeight:700}}>{p.clicks.toLocaleString()}</span>
+                </div>
+              ))}
+              {(!d.topPages || !d.topPages.length) && <div style={listEmpty}>No data</div>}
+            </div>
+            <div>
+              <div style={{fontSize:10,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700,marginBottom:4}}>Top queries</div>
+              {(d.topQueries || []).slice(0, 5).map(q => (
+                <div key={q.query} style={listLine}>
+                  <span style={listText}>{q.query}</span>
+                  <span style={{color:'#4f9eff',fontWeight:700}}>{q.clicks.toLocaleString()}</span>
+                </div>
+              ))}
+              {(!d.topQueries || !d.topQueries.length) && <div style={listEmpty}>No data</div>}
+            </div>
+          </div>
+        </>
+      );
+
+    case 'googleAds':
+      return (
+        <div style={miniGrid}>
+          <MiniStat label="Spend"  value={fmt$(d.spend || 0)}              color="#f0f4ff"/>
+          <MiniStat label="Clicks" value={(d.clicks ?? 0).toLocaleString()} color="#4f9eff"/>
+          <MiniStat label="CPC"    value={fmt$(d.cpc || 0)}                color="#2edf87"/>
+        </div>
+      );
+
+    case 'twilio':
+      return (
+        <div style={miniGrid}>
+          <MiniStat
+            label={d.capped ? 'SMS sent (5000+)' : 'SMS sent this month'}
+            value={(d.smsSentThisMonth ?? 0).toLocaleString()}
+            color="#4f9eff"
+          />
+        </div>
+      );
+
+    default:
+      return null;
+  }
+}
+
+function shortPath(url) {
+  try {
+    const u = new URL(url);
+    const p = (u.pathname + u.search).replace(/\/$/, '');
+    return p || u.hostname;
+  } catch {
+    return url;
+  }
+}
+
+const miniGrid = { display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(110px, 1fr))', gap:8 };
+const listLine = { display:'flex', justifyContent:'space-between', gap:8, fontSize:11, color:'#c8d4ee', padding:'3px 0', minWidth:0 };
+const listText = { overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', minWidth:0 };
+const listEmpty = { fontSize:11, color:'#7a8db0', fontStyle:'italic', padding:'4px 0' };
 
 // =============================================================
 // UI primitives
