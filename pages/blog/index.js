@@ -14,14 +14,14 @@ export default function BlogIndex() {
     posts: BLOG_POSTS.filter(p => p.category === key),
   }));
 
-  const ogImage = 'https://myforemanhq.com/api/og?title=MyForeman+Blog&eyebrow=Contractor+Advice';
+  const ogImage = 'https://myforemanhq.com/api/og?title=The+Foremans+Report&eyebrow=Contractor+Advice';
 
   return (
     <BlogLayout>
       <Head>
-        <title>MyForeman Blog | Practical Advice for Contractors</title>
+        <title>The Foremans Report | Practical Advice for Contractors</title>
         <meta name="description" content="Pricing guides, operations tips, and growth advice for contractors and field service businesses. Written for the people running the trucks."/>
-        <meta property="og:title" content="MyForeman Blog | Practical Advice for Contractors"/>
+        <meta property="og:title" content="The Foremans Report | Practical Advice for Contractors"/>
         <meta property="og:description" content="Pricing guides, operations tips, and growth advice for contractors and field service businesses."/>
         <meta property="og:type" content="website"/>
         <meta property="og:url" content="https://myforemanhq.com/blog"/>
@@ -29,7 +29,7 @@ export default function BlogIndex() {
         <meta property="og:image:width" content="1200"/>
         <meta property="og:image:height" content="630"/>
         <meta name="twitter:card" content="summary_large_image"/>
-        <meta name="twitter:title" content="MyForeman Blog | Practical Advice for Contractors"/>
+        <meta name="twitter:title" content="The Foremans Report | Practical Advice for Contractors"/>
         <meta name="twitter:description" content="Pricing guides, operations tips, and growth advice for contractors and field service businesses."/>
         <meta name="twitter:image" content={ogImage}/>
         <link rel="canonical" href="https://myforemanhq.com/blog"/>
@@ -38,7 +38,7 @@ export default function BlogIndex() {
       <section style={{paddingTop:120,paddingBottom:30,textAlign:'center'}}>
         <div className="blog-container">
           <div style={{fontSize:11,fontWeight:800,letterSpacing:'.22em',textTransform:'uppercase',color:C.blue,marginBottom:14}}>
-            The MyForeman Blog
+            The Foremans Report
           </div>
           <h1 className="blog-h1" style={{fontSize:'clamp(40px, 5.5vw, 64px)'}}>
             Honest advice on pricing, operations, and growth.

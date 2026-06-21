@@ -185,7 +185,7 @@ function Nav() {
   const links = [
     { href:'/contractor-software', label:'Trades' },
     { href:'/compare',             label:'Compare' },
-    { href:'/blog',                label:'Blog' },
+    { href:'/blog',                label:'The Foremans Report' },
     { href:'/#pricing',            label:'Pricing' },
     { href:'/contact',             label:'Contact' },
   ];
@@ -474,7 +474,7 @@ function Footer() {
         <div style={{display:'flex',gap:24,fontSize:13,color:C.muted,flexWrap:'wrap'}}>
           <Link href="/contractor-software">Trades</Link>
           <Link href="/compare">Compare</Link>
-          <Link href="/blog">Blog</Link>
+          <Link href="/blog">The Foremans Report</Link>
           <Link href="/#pricing">Pricing</Link>
           <Link href="/contact">Contact</Link>
           <Link href="/privacy">Privacy</Link>
