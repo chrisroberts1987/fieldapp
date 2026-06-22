@@ -40,7 +40,7 @@ export default function SeoLanding({
   comparison = null,
   trades = null,
   ctaTitle = 'Start your free 14-day trial',
-  ctaSub  = 'No credit card required. Cancel anytime.',
+  ctaSub  = 'Cancel anytime.',
 }) {
   const router = useRouter();
   const startTrial = () => router.push('/signup');
@@ -299,7 +299,7 @@ function Hero({ eyebrow, h1, h1Highlight, sub, onStart, onDemo }) {
               <span style={{color:C.green,marginRight:8}}>▶</span>See Demo
             </button>
             <span style={{fontSize:13,color:C.muted,marginLeft:8}}>
-              From <strong style={{color:C.text}}>$39/mo</strong> · 14-day free trial · No credit card
+              From <strong style={{color:C.text}}>$39/mo</strong> · 14-day free trial · Cancel anytime
             </span>
           </div>
         </div>

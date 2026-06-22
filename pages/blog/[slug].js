@@ -128,7 +128,7 @@ export default function BlogPost({ post, related }) {
               Manage your business with MyForeman.
             </h3>
             <p style={{fontSize:15,color:C.subtext,margin:'0 0 18px',lineHeight:1.55}}>
-              Try it free at <span style={{color:C.blue,fontWeight:700}}>myforemanhq.com</span>. 14-day trial, no credit card required.
+              Try it free at <span style={{color:C.blue,fontWeight:700}}>myforemanhq.com</span>. 14-day free trial, cancel anytime.
             </p>
             <button onClick={() => router.push('/signup')} style={{
               background:`linear-gradient(135deg, ${C.blue}, ${C.blueDeep})`,

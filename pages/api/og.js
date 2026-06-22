@@ -124,7 +124,7 @@ export default function handler(req) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 10, height: 10, borderRadius: 5, background: GREEN, display: 'flex' }}/>
-              <span style={{ fontSize: 18, color: SUBTEXT }}>No credit card</span>
+              <span style={{ fontSize: 18, color: SUBTEXT }}>Cancel anytime</span>
             </div>
           </div>
           <div style={{ fontSize: 18, color: MUTED }}>myforemanhq.com</div>
