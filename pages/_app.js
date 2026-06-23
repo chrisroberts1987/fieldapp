@@ -11,6 +11,7 @@ import { supabase } from '../lib/supabase';
 import { useOrg } from '../lib/org';
 
 const META_PIXEL_ID = '2115883415642593';
+const CLARITY_PROJECT_ID = 'x8znr59h3p';
 
 // Routes where the floating AI assistant should NOT show. Marketing
 // pages, public links (invoice, portal, booking, quote), and the
@@ -83,6 +84,19 @@ s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
 fbq('init', '${META_PIXEL_ID}');
 fbq('track', 'PageView');
+          `.trim(),
+        }}
+      />
+      <Script
+        id="ms-clarity"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: `
+(function(c,l,a,r,i,t,y){
+    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+})(window, document, "clarity", "script", "${CLARITY_PROJECT_ID}");
           `.trim(),
         }}
       />
