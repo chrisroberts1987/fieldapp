@@ -1383,13 +1383,18 @@ function IntegrationBody({ kind, state }) {
             <MiniStat label="Avg scroll"     value={`${(d.avgScrollDepth ?? 0).toFixed(0)}%`} color="#2edf87"/>
             <MiniStat label="Rage clicks"    value={(d.rageClicks ?? 0).toLocaleString()}    color="#f26060"/>
           </div>
-          {(d.botSessions > 0 || d.deadClicks > 0) && (
-            <div style={{fontSize:11,color:'#7a8db0',marginTop:4,lineHeight:1.5}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,marginTop:4,fontSize:11,color:'#7a8db0',lineHeight:1.5}}>
+            <div>
               {d.botSessions > 0 && <>Bots filtered: <span style={{color:'#f0f4ff',fontWeight:600}}>{d.botSessions.toLocaleString()}</span></>}
               {d.botSessions > 0 && d.deadClicks > 0 && ' · '}
               {d.deadClicks > 0 && <>Dead clicks: <span style={{color:'#f0f4ff',fontWeight:600}}>{d.deadClicks.toLocaleString()}</span></>}
             </div>
-          )}
+            <a href="https://clarity.microsoft.com/projects/view/x8znr59h3p/dashboard"
+               target="_blank" rel="noreferrer noopener"
+               style={{color:'#4f9eff',fontWeight:600,textDecoration:'none',whiteSpace:'nowrap'}}>
+              View in Clarity ↗
+            </a>
+          </div>
         </>
       );
 
