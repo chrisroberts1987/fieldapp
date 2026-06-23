@@ -8,6 +8,10 @@
           {
             "/": "/invite/*",
             "comment": "MyForeman crew invite deep link"
+          },
+          {
+            "/": "/auth/confirm*",
+            "comment": "Supabase email confirmation handoff to native app"
           }
         ]
       }
