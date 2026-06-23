@@ -1142,6 +1142,7 @@ const INTEGRATIONS = [
   { key:'searchConsole',  label:'Google Search Console', endpoint:'/api/admin/integrations/search-console' },
   { key:'googleAds',      label:'Google Ads',            endpoint:'/api/admin/integrations/google-ads' },
   { key:'twilio',         label:'Twilio SMS',            endpoint:'/api/admin/integrations/twilio' },
+  { key:'clarity',        label:'Microsoft Clarity',     endpoint:'/api/admin/integrations/clarity' },
 ];
 
 function IntegrationsSection() {
@@ -1371,6 +1372,25 @@ function IntegrationBody({ kind, state }) {
             color="#4f9eff"
           />
         </div>
+      );
+
+    case 'clarity':
+      return (
+        <>
+          <div style={miniGrid}>
+            <MiniStat label="Sessions (24h)" value={(d.sessions ?? 0).toLocaleString()}      color="#4f9eff"/>
+            <MiniStat label="Users"          value={(d.users ?? 0).toLocaleString()}         color="#f0f4ff"/>
+            <MiniStat label="Avg scroll"     value={`${(d.avgScrollDepth ?? 0).toFixed(0)}%`} color="#2edf87"/>
+            <MiniStat label="Rage clicks"    value={(d.rageClicks ?? 0).toLocaleString()}    color="#f26060"/>
+          </div>
+          {(d.botSessions > 0 || d.deadClicks > 0) && (
+            <div style={{fontSize:11,color:'#7a8db0',marginTop:4,lineHeight:1.5}}>
+              {d.botSessions > 0 && <>Bots filtered: <span style={{color:'#f0f4ff',fontWeight:600}}>{d.botSessions.toLocaleString()}</span></>}
+              {d.botSessions > 0 && d.deadClicks > 0 && ' · '}
+              {d.deadClicks > 0 && <>Dead clicks: <span style={{color:'#f0f4ff',fontWeight:600}}>{d.deadClicks.toLocaleString()}</span></>}
+            </div>
+          )}
+        </>
       );
 
     default:
