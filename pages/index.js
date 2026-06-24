@@ -30,9 +30,15 @@ const C = {
 
 export default function Home() {
   const router = useRouter();
-  const [checking, setChecking] = useState(true);
   const [billing, setBilling] = useState('monthly');
 
+  // Render the marketing page unconditionally so Googlebot (and visitors
+  // on slow connections) get the full SSR'd HTML — h1, hero, features,
+  // canonical, structured data. The auth-aware redirect still runs on
+  // mount: signed-in web users get pushed to /dashboard after a brief
+  // flash, standalone PWA users get routed to the app shell. Gating the
+  // first render on a client-side session check used to ship "Loading…"
+  // as the SSR'd HTML, which killed homepage indexing.
   useEffect(() => {
     const standalone = typeof window !== 'undefined'
       && (window.matchMedia?.('(display-mode: standalone)')?.matches
@@ -45,19 +51,9 @@ export default function Home() {
       }
       if (session && session.user?.email !== 'demo@myforemanhq.com') {
         router.push('/dashboard');
-      } else {
-        setChecking(false);
       }
     });
   }, []);
-
-  if (checking) {
-    return (
-      <div style={{minHeight:'100vh',background:C.bg,display:'flex',alignItems:'center',justifyContent:'center',color:C.text,fontFamily:"'Inter',system-ui,sans-serif"}}>
-        Loading...
-      </div>
-    );
-  }
 
   const launchDemo = async () => {
     const { data, error } = await supabase.auth.signInWithPassword({
