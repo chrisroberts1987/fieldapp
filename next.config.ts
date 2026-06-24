@@ -14,11 +14,11 @@ const SUPABASE_HOST = "*.supabase.co";
 
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://connect.facebook.net",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://connect.facebook.net https://*.clarity.ms",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
-  `img-src 'self' data: blob: https://${SUPABASE_HOST} https://api.qrserver.com https://www.facebook.com`,
-  `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST} https://www.facebook.com https://connect.facebook.net`,
+  `img-src 'self' data: blob: https://${SUPABASE_HOST} https://api.qrserver.com https://www.facebook.com https://*.clarity.ms`,
+  `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST} https://www.facebook.com https://connect.facebook.net https://*.clarity.ms`,
   "worker-src 'self'",
   "manifest-src 'self'",
   "frame-ancestors 'none'",
