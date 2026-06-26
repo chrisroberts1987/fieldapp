@@ -56,7 +56,30 @@ export default function Privacy() {
             <p>Each provider is contractually required to handle data according to enterprise-grade privacy and security standards.</p>
           </Section>
 
-          <Section title="4. Your Rights">
+          <Section title="4. SMS / Text Messaging">
+            <p>
+              If you opt into SMS notifications, we send text messages to two distinct audiences:
+            </p>
+            <ul style={ulStyle}>
+              <li><strong style={hi}>Your business mobile number</strong> (if you provide one): account notifications such as trial reminders, payment confirmations, new lead alerts, and crew activity updates.</li>
+              <li><strong style={hi}>Your end customer's mobile number</strong> (when you, as the contractor, add them to MyForeman): service-related notifications such as appointment confirmations, on-the-way alerts, invoice reminders, and payment receipts. As the contractor, you are responsible for obtaining the customer's consent before adding their number to the platform.</li>
+            </ul>
+            <p>
+              <strong style={hi}>Consent.</strong> Contractor opt-in happens during signup at <a href="https://www.myforemanhq.com/signup" style={linkStyle}>myforemanhq.com/signup</a> and can be toggled at any time in Settings &rarr; Notifications. End customers consent through their contractor before being added.
+            </p>
+            <p>
+              <strong style={hi}>How phone numbers are used.</strong> Phone numbers and SMS content are processed by our SMS provider (Twilio) solely to deliver the messages you trigger. We <strong style={hi}>do not sell, rent, or share phone numbers</strong> with any third party for marketing purposes. The SMS provider is contractually disallowed from using phone numbers or message content for its own marketing.
+            </p>
+            <p>
+              <strong style={hi}>Opt-out.</strong> You can opt out of SMS at any time by replying <strong style={hi}>STOP</strong> to any message, or by turning off SMS notifications in Settings &rarr; Notifications. Reply <strong style={hi}>START</strong> to resubscribe, or <strong style={hi}>HELP</strong> for help. You may also email{' '}
+              <a href="mailto:privacy@myforemanhq.com" style={linkStyle}>privacy@myforemanhq.com</a> for any opt-out request.
+            </p>
+            <p>
+              <strong style={hi}>Costs.</strong> Standard message and data rates may apply, depending on your wireless plan.
+            </p>
+          </Section>
+
+          <Section title="5. Your Rights">
             <p>You always have the right to:</p>
             <ul style={ulStyle}>
               <li><strong style={hi}>Access</strong> your data. View it directly in MyForeman, or request an export.</li>
@@ -68,7 +91,7 @@ export default function Privacy() {
             </ul>
           </Section>
 
-          <Section title="5. GDPR (EU/UK Residents)">
+          <Section title="6. GDPR (EU/UK Residents)">
             <p>
               If you're in the European Union or United Kingdom, the General Data Protection Regulation gives you additional protections. We process your personal data on the legal bases of <strong style={hi}>contract</strong> (to provide the service you signed up for) and <strong style={hi}>legitimate interest</strong> (to secure the service and prevent abuse). You can exercise the rights in Section 4 at any time. To file a complaint, you may contact your local data protection authority.
             </p>
@@ -77,7 +100,7 @@ export default function Privacy() {
             </p>
           </Section>
 
-          <Section title="6. CCPA (California Residents)">
+          <Section title="7. CCPA (California Residents)">
             <p>
               If you're a California resident, the California Consumer Privacy Act gives you specific rights. You can request to know what personal information we have collected, to delete it, and to opt out of any "sale" of personal information. We <strong style={hi}>do not sell personal information</strong>, so the opt-out is automatic for everyone.
             </p>
@@ -87,7 +110,7 @@ export default function Privacy() {
             </p>
           </Section>
 
-          <Section title="7. Cookies and Local Storage">
+          <Section title="8. Cookies and Local Storage">
             <p>
               MyForeman uses cookies and browser local storage only for things essential to running the app:
             </p>
@@ -101,32 +124,32 @@ export default function Privacy() {
             </p>
           </Section>
 
-          <Section title="8. Data Retention">
+          <Section title="9. Data Retention">
             <p>
               We keep your data for as long as your account is active. After you delete your account, we remove your data from active systems within 30 days. Backups are retained for an additional 30 days and then expire. Some records (billing receipts, fraud-prevention logs) may be retained longer where required by law.
             </p>
           </Section>
 
-          <Section title="9. Children">
+          <Section title="10. Children">
             <p>
               MyForeman is not directed to children under 16, and we do not knowingly collect personal information from them. If you believe a child has signed up, contact{' '}
               <a href="mailto:privacy@myforemanhq.com" style={linkStyle}>privacy@myforemanhq.com</a> and we'll delete the account.
             </p>
           </Section>
 
-          <Section title="10. Security">
+          <Section title="11. Security">
             <p>
               We use industry-standard practices: encrypted connections (HTTPS) everywhere, encrypted-at-rest storage, row-level security policies in the database, rate limiting on sensitive endpoints, and access controls limiting who on our team can view production data. No system is ever fully secure, but we work hard to keep yours safe.
             </p>
           </Section>
 
-          <Section title="11. Changes to This Policy">
+          <Section title="12. Changes to This Policy">
             <p>
               We may update this policy from time to time. If we make material changes, we'll notify you in advance by email or by an in-app notice. Continued use after the effective date constitutes acceptance.
             </p>
           </Section>
 
-          <Section title="12. Contact">
+          <Section title="13. Contact">
             <p>
               Privacy questions or requests? Email{' '}
               <a href="mailto:privacy@myforemanhq.com" style={linkStyle}>privacy@myforemanhq.com</a>.
