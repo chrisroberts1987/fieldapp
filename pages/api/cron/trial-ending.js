@@ -76,7 +76,7 @@ export default async function handler(req, res) {
       if (ids.length > 0) {
         await sendPushToUsers(ids, {
           title: `Trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'} ⏰`,
-          body:  'Add a payment method to keep your tools, customers, and history.',
+          body:  'Your card on file will be charged. Cancel anytime in Billing.',
           url:   '/billing',
           tag:   `trial-${org.id}`,
         });
