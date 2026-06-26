@@ -21,6 +21,7 @@ export default async function handler(req, res) {
     .from('organizations')
     .select('id, business_email, subscription_status, subscription_tier')
     .in('subscription_status', ACTIVE_STATUSES)
+    .eq('is_test', false)
     .not('business_email', 'is', null)
     .limit(10000);
   if (error) return res.status(500).json({ error: error.message });

@@ -47,6 +47,7 @@ export default async function handler(req, res) {
       .from('organizations')
       .select('id, payment_source, subscription_status, subscription_tier')
       .eq('payment_source', 'apple')
+      .eq('is_test', false)
       .limit(5000);
     if (error) throw new Error(error.message);
 

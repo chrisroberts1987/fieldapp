@@ -23,6 +23,7 @@ export default async function handler(req, res) {
   const { data: orgs, error } = await sb
     .from('organizations')
     .select('id, name, owner_name, business_email, address, created_at, subscription_status, subscription_tier, suspended_at')
+    .eq('is_test', false)
     .order('created_at', { ascending: false })
     .limit(2000);
   if (error) return res.status(500).json({ error: error.message });

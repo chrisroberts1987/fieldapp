@@ -28,6 +28,7 @@ export default async function handler(req, res) {
   const { data: orgs, error: orgErr } = await sb
     .from('organizations')
     .select('id, subscription_status, subscription_tier, suspended_at, created_at')
+    .eq('is_test', false)
     .limit(2000);
   if (orgErr) return res.status(500).json({ error: orgErr.message });
 
