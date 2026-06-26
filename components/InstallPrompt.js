@@ -19,6 +19,7 @@ import { supabase } from '../lib/supabase';
 
 const LS_DISMISSED = 'myforeman_install_prompt_dismissed';
 const ALLOWED_PATHS = new Set(['/dashboard']);
+const APP_STORE_URL = 'https://apps.apple.com/us/app/myforeman/id6777598272';
 
 function detectPlatform() {
   if (typeof navigator === 'undefined') return null;
@@ -155,13 +156,13 @@ export default function InstallPrompt() {
         {platform === 'ios' && (
           <>
             <div style={{fontSize:14,color:'#c8d4ee',lineHeight:1.55,marginBottom:14}}>
-              Install MyForeman on your iPhone so it opens like a real app, full-screen and one tap away.
+              Get the native MyForeman iPhone app for offline jobs, push notifications, and a faster workflow on site.
             </div>
-            <Steps steps={[
-              { icon: <ShareIcon/>,   text: "Tap the Share button in Safari's toolbar." },
-              { icon: <PlusIcon/>,    text: "Scroll down and tap Add to Home Screen." },
-              { icon: <CheckIcon/>,   text: "Tap Add. The MyForeman icon appears on your home screen." },
-            ]}/>
+            <a href={APP_STORE_URL} target="_blank" rel="noreferrer noopener"
+              onClick={dismiss}
+              style={{display:'block',textAlign:'center',width:'100%',background:'#4f9eff',border:'none',borderRadius:10,color:'#fff',padding:'13px 0',fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:17,letterSpacing:'.06em',textDecoration:'none',marginBottom:10}}>
+              DOWNLOAD ON THE APP STORE
+            </a>
           </>
         )}
 
@@ -212,7 +213,6 @@ function Steps({ steps }) {
 function svg(d) {
   return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{d}</svg>;
 }
-function ShareIcon() { return svg(<><path d="M12 2v14"/><polyline points="7 7 12 2 17 7"/><path d="M5 21h14a2 2 0 0 0 2-2v-7"/><path d="M3 12v7a2 2 0 0 0 2 2"/></>); }
 function PlusIcon()  { return svg(<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>); }
 function CheckIcon() { return svg(<polyline points="20 6 9 17 4 12"/>); }
 function MenuIcon()  { return svg(<><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/></>); }
