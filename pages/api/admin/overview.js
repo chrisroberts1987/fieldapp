@@ -1,5 +1,6 @@
 import { verifyAdmin } from '../../../lib/adminAuth';
 import { PLANS } from '../../../lib/billing';
+import { stateFromAddress } from '../../../lib/admin/address';
 
 // Platform KPIs for the admin Overview tab. Now sources subscription
 // data from the real Stripe-synced columns (subscription_status,
@@ -94,7 +95,7 @@ export default async function handler(req, res) {
   // doesn't match goes in an "Unknown" bucket so it's countable.
   const byState = {};
   for (const o of orgs) {
-    const st = stateFrom(o.address);
+    const st = stateFromAddress(o.address);
     if (!st) { byState['??'] = (byState['??'] || 0) + 1; continue; }
     byState[st] = (byState[st] || 0) + 1;
   }
@@ -119,8 +120,3 @@ export default async function handler(req, res) {
   });
 }
 
-function stateFrom(addr) {
-  if (!addr || typeof addr !== 'string') return null;
-  const m = addr.match(/\b([A-Z]{2})\s+\d{5}(?:-\d{4})?\b/);
-  return m ? m[1].toUpperCase() : null;
-}

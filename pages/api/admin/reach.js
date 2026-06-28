@@ -1,4 +1,5 @@
 import { verifyAdmin } from '../../../lib/adminAuth';
+import { parseUSAddress } from '../../../lib/admin/address';
 
 // Geographic reach for the admin panel. Parses each org's address
 // (free-text) into a US state and city using a regex that requires
@@ -66,21 +67,6 @@ export default async function handler(req, res) {
   });
 }
 
-function parseUSAddress(addr) {
-  if (!addr || typeof addr !== 'string') return null;
-  // Anchor on "ST 12345" — almost every US shipping address has it.
-  // Capturing groups: 1=state, optional ZIP follows but isn't needed.
-  const m = addr.match(/(?:^|[,\s])([A-Z]{2})\s+\d{5}(?:-\d{4})?\b/);
-  if (!m) return null;
-  const state = m[1].toUpperCase();
-  // City is "best effort": everything between the last comma and the
-  // state code. Real-world addresses do this consistently.
-  // Strip newlines so a multi-line address still reads cleanly.
-  const flattened = addr.replace(/\n/g, ', ');
-  const cityMatch = flattened.match(/,\s*([^,]+?)[,\s]+[A-Z]{2}\s+\d{5}/);
-  const city = cityMatch ? cityMatch[1].trim() : null;
-  return { state, city };
-}
 
 function slim(o) {
   return {
