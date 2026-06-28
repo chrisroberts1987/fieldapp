@@ -452,28 +452,53 @@ const fmtMoney = (n) => '$' + (Number(n) || 0).toLocaleString(undefined, { maxim
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 function BooksSection() {
+  const [year, setYear]             = useState(new Date().getUTCFullYear());
   const [pnl, setPnl]               = useState(null);
   const [expenses, setExpenses]     = useState(null);
   const [payments, setPayments]     = useState(null);
+  const [quarterly, setQuarterly]   = useState(null);
+  const [vendors, setVendors]       = useState(null);
   const [loading, setLoading]       = useState(false);
-  const [adding, setAdding]         = useState(null); // 'expense' | 'tax' | null
+  const [adding, setAdding]         = useState(null); // 'expense' | 'tax' | 'vendor' | 'settings'
 
   const reload = async () => {
     setLoading(true);
-    const [p, e, t] = await Promise.all([
+    const [p, e, t, q, v] = await Promise.all([
       adminFetch('/api/admin/books/pnl'),
       adminFetch('/api/admin/books/expenses'),
       adminFetch('/api/admin/books/tax-payments'),
+      adminFetch(`/api/admin/books/quarterly?year=${year}`),
+      adminFetch(`/api/admin/books/vendors-1099?year=${year}`),
     ]);
     if (!p?.error) setPnl(p);
     if (!e?.error) setExpenses(e.expenses || []);
     if (!t?.error) setPayments(t.payments || []);
+    if (!q?.error) setQuarterly(q);
+    if (!v?.error) setVendors(v.vendors || []);
     setLoading(false);
   };
-  useEffect(() => { reload(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { reload(); }, [year]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!pnl && loading) return <Loading/>;
   if (!pnl) return <div style={{color:'#f26060',padding:20}}>Could not load books.</div>;
+
+  const downloadCsv = async (type) => {
+    // Can't use window.open — admin endpoints require a bearer token.
+    // Fetch with auth, then trigger a download via blob URL.
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { toast('Not signed in.'); return; }
+    const r = await fetch(`/api/admin/books/export?type=${type}&year=${year}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!r.ok) { toast(`Export failed (${r.status})`); return; }
+    const blob = await r.blob();
+    const filename = (r.headers.get('content-disposition') || '').match(/filename="([^"]+)"/)?.[1]
+      || `myforeman-${type}-${year}.csv`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+    a.remove(); URL.revokeObjectURL(url);
+  };
 
   const net = pnl.netAfterTax.ytd;
   const netColor = net >= 0 ? '#2edf87' : '#f26060';
@@ -481,12 +506,24 @@ function BooksSection() {
   return (
     <>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',gap:12,flexWrap:'wrap',marginBottom:18}}>
-        <SectionHeading title="Books" subtitle="Platform P&L, expense ledger, and tax payments. Manual entry today; auto-imports in Phase 2."/>
-        <button onClick={reload} disabled={loading} style={{
-          background: loading ? '#1e2a42' : '#4f9eff', border:'none', borderRadius:8, color:'#fff',
-          padding:'9px 16px', fontFamily:"'Bebas Neue',sans-serif", fontSize:13, letterSpacing:'.06em',
-          cursor: loading ? 'wait' : 'pointer',
-        }}>{loading ? 'REFRESHING…' : 'REFRESH'}</button>
+        <SectionHeading title="Books" subtitle="Platform P&L, expense ledger, tax payments, and 1099 directory. Stripe + Apple fees auto-import."/>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <select value={year} onChange={e => setYear(Number(e.target.value))}
+            style={{background:'#0d1726',border:'1px solid #2e3f60',borderRadius:8,color:'#f0f4ff',padding:'9px 11px',fontSize:13,fontFamily:'inherit'}}>
+            {Array.from({ length: 4 }, (_, i) => new Date().getUTCFullYear() - i).map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+          <button onClick={() => setAdding('settings')} style={{
+            background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',
+            padding:'9px 14px',fontSize:12,fontWeight:600,letterSpacing:'.04em',cursor:'pointer',fontFamily:'inherit',
+          }}>SETTINGS</button>
+          <button onClick={reload} disabled={loading} style={{
+            background: loading ? '#1e2a42' : '#4f9eff', border:'none', borderRadius:8, color:'#fff',
+            padding:'9px 16px', fontFamily:"'Bebas Neue',sans-serif", fontSize:13, letterSpacing:'.06em',
+            cursor: loading ? 'wait' : 'pointer',
+          }}>{loading ? 'REFRESHING…' : 'REFRESH'}</button>
+        </div>
       </div>
 
       {/* Hero net */}
@@ -531,10 +568,11 @@ function BooksSection() {
         title="Expenses"
         addLabel="+ Add expense"
         onAdd={() => setAdding('expense')}
+        onExport={() => downloadCsv('expenses')}
         byCategory={pnl.expenses.ytd.byCategory}
         rows={expenses || []}
         renderRow={(r) => (
-          <ExpenseRow key={r.id} row={r} onChanged={reload}/>
+          <ExpenseRow key={r.id} row={r} vendors={vendors || []} onChanged={reload}/>
         )}
         emptyText="No expenses logged yet."
       />
@@ -544,6 +582,7 @@ function BooksSection() {
         title="Tax payments"
         addLabel="+ Add payment"
         onAdd={() => setAdding('tax')}
+        onExport={() => downloadCsv('tax-payments')}
         rows={payments || []}
         renderRow={(r) => (
           <TaxPaymentRow key={r.id} row={r} onChanged={reload}/>
@@ -551,25 +590,217 @@ function BooksSection() {
         emptyText="No tax payments logged yet."
       />
 
+      {/* Quarterly tax breakdown */}
+      {quarterly && <QuarterlyPanel data={quarterly}/>}
+
+      {/* 1099 vendors */}
+      <BookTablePanel
+        title={`1099 Vendors · ${year}`}
+        addLabel="+ Add vendor"
+        onAdd={() => setAdding('vendor')}
+        onExport={() => downloadCsv('1099-summary')}
+        rows={vendors || []}
+        renderRow={(v) => (
+          <Vendor1099Row key={v.id} vendor={v} onChanged={reload}/>
+        )}
+        emptyText="No 1099 vendors yet. Add anyone you pay $600+ in a calendar year."
+      />
+
       {adding === 'expense' && (
-        <ExpenseEditorModal onClose={() => setAdding(null)} onSaved={() => { setAdding(null); reload(); }}/>
+        <ExpenseEditorModal vendors={vendors || []} onClose={() => setAdding(null)} onSaved={() => { setAdding(null); reload(); }}/>
       )}
       {adding === 'tax' && (
         <TaxPaymentEditorModal onClose={() => setAdding(null)} onSaved={() => { setAdding(null); reload(); }}/>
+      )}
+      {adding === 'vendor' && (
+        <Vendor1099EditorModal onClose={() => setAdding(null)} onSaved={() => { setAdding(null); reload(); }}/>
+      )}
+      {adding === 'settings' && (
+        <BooksSettingsModal current={quarterly?.config} onClose={() => setAdding(null)} onSaved={() => { setAdding(null); reload(); }}/>
       )}
     </>
   );
 }
 
-function BookTablePanel({ title, addLabel, onAdd, byCategory, rows, renderRow, emptyText }) {
+function QuarterlyPanel({ data }) {
+  const { quarters, year, yearTotals, config } = data;
+  const today = new Date().toISOString().slice(0, 10);
+  return (
+    <div style={{marginTop:18,marginBottom:18,background:'#0d1726',border:'1px solid #2e3f60',borderRadius:12,padding:14}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,marginBottom:10}}>
+        <Subhead>{`Quarterly · ${year}`}</Subhead>
+        <div style={{fontSize:11,color:'#7a8db0'}}>
+          {config.filing_state || 'No state'} · {Math.round(config.federal_income_rate * 100)}% federal · {Math.round(config.state_income_rate * 100)}% state
+        </div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))',gap:10}}>
+        {quarters.map(q => {
+          const overdue = q.balanceDue > 0 && today > q.dueOn;
+          const dueColor = overdue ? '#f26060' : (q.balanceDue === 0 ? '#2edf87' : '#fbbf24');
+          return (
+            <div key={q.quarter} style={{background:'#1e2a42',border:`1px solid ${dueColor}55`,borderRadius:10,padding:'12px 14px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
+                <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'.06em',color:'#f0f4ff'}}>{q.label.toUpperCase()}</div>
+                <div style={{fontSize:10,color:dueColor,letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700}}>{overdue ? 'Overdue' : `Due ${q.dueOn}`}</div>
+              </div>
+              <div style={{fontSize:11,color:'#7a8db0',marginTop:2}}>{q.window.start} → {q.window.end}</div>
+              <div style={{marginTop:10,display:'grid',gridTemplateColumns:'1fr auto',rowGap:4,fontSize:12,color:'#c8d4ee'}}>
+                <span>Net</span>                       <span style={{color:'#f0f4ff',fontWeight:600}}>{fmtMoney(q.netBeforeTax)}</span>
+                <span>SE tax</span>                    <span>{fmtMoney(q.tax.se)}</span>
+                <span>Federal</span>                   <span>{fmtMoney(q.tax.federal)}</span>
+                <span>State</span>                     <span>{fmtMoney(q.tax.state)}</span>
+                <span style={{paddingTop:6,borderTop:'1px solid #2e3f60'}}>Owed</span>
+                <span style={{paddingTop:6,borderTop:'1px solid #2e3f60',color:'#fbbf24',fontWeight:700}}>{fmtMoney(q.tax.total)}</span>
+                <span>Paid</span>                      <span style={{color:'#2edf87'}}>{fmtMoney(q.taxPaid)}</span>
+                <span style={{fontWeight:700}}>Balance</span>
+                <span style={{fontWeight:700,color:dueColor}}>{fmtMoney(q.balanceDue)}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))',gap:10,marginTop:12}}>
+        <MiniStat label="Year revenue"  value={fmtMoney(yearTotals.revenue)}      color="#f0f4ff"/>
+        <MiniStat label="Year expenses" value={fmtMoney(yearTotals.expenses)}     color="#f26060"/>
+        <MiniStat label="Net"           value={fmtMoney(yearTotals.netBeforeTax)} color={yearTotals.netBeforeTax >= 0 ? '#2edf87' : '#f26060'}/>
+        <MiniStat label="Tax owed YTD"  value={fmtMoney(yearTotals.taxOwed)}      color="#fbbf24"/>
+        <MiniStat label="Tax paid YTD"  value={fmtMoney(yearTotals.taxPaid)}      color="#2edf87"/>
+        <MiniStat label="Balance"       value={fmtMoney(yearTotals.balanceDue)}   color={yearTotals.balanceDue > 0 ? '#f26060' : '#2edf87'}/>
+      </div>
+    </div>
+  );
+}
+
+function Vendor1099Row({ vendor, onChanged }) {
+  const [editing, setEditing] = useState(false);
+  const del = async () => {
+    if (!confirm(`Archive 1099 vendor "${vendor.name}"? Existing expense links stay intact.`)) return;
+    const r = await adminFetch(`/api/admin/books/vendors-1099?id=${vendor.id}`, { method: 'DELETE' });
+    if (r?.error) { toast(r.error); return; }
+    onChanged();
+  };
+  const total = vendor.year_total || 0;
+  const flag = vendor.requires_1099;
+  return (
+    <>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 140px 100px auto',gap:10,alignItems:'center',padding:'8px 10px',background:'#1e2a42',border:`1px solid ${flag ? '#fbbf2455' : '#2e3f60'}`,borderRadius:8,fontSize:13,opacity: vendor.active ? 1 : 0.5}}>
+        <div style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+          <span style={{color:'#f0f4ff',fontWeight:600}}>{vendor.name}</span>
+          {vendor.business_name && <span style={{color:'#7a8db0',marginLeft:6,fontSize:12}}>· {vendor.business_name}</span>}
+          {vendor.tax_id && <span style={{color:'#7a8db0',marginLeft:6,fontSize:11}}>· TIN on file</span>}
+          {!vendor.active && <span style={{color:'#f26060',marginLeft:6,fontSize:11}}>· archived</span>}
+        </div>
+        <div style={{fontSize:11,color:'#7a8db0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{vendor.email || ''}</div>
+        <div style={{color:'#f0f4ff',fontWeight:700,textAlign:'right'}}>{fmtMoney(total)}</div>
+        <div style={{display:'flex',gap:4,alignItems:'center'}}>
+          {flag && <span title="≥ $600 paid: 1099-NEC required" style={{background:'#fbbf2422',color:'#fbbf24',padding:'2px 7px',borderRadius:999,fontSize:10,fontWeight:700,letterSpacing:'.06em'}}>1099</span>}
+          <button onClick={() => setEditing(true)} style={iconBtn}>✎</button>
+          {vendor.active && <button onClick={del} style={iconBtn}>✕</button>}
+        </div>
+      </div>
+      {editing && (
+        <Vendor1099EditorModal vendor={vendor} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); onChanged(); }}/>
+      )}
+    </>
+  );
+}
+
+function Vendor1099EditorModal({ vendor, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name:          vendor?.name          || '',
+    business_name: vendor?.business_name || '',
+    email:         vendor?.email         || '',
+    tax_id:        vendor?.tax_id        || '',
+    address:       vendor?.address       || '',
+    notes:         vendor?.notes         || '',
+  });
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    setSaving(true);
+    const body = { ...form };
+    const r = vendor?.id
+      ? await adminFetch(`/api/admin/books/vendors-1099?id=${vendor.id}`, { method: 'PUT', body: JSON.stringify(body) })
+      : await adminFetch('/api/admin/books/vendors-1099',                  { method: 'POST', body: JSON.stringify(body) });
+    setSaving(false);
+    if (r?.error) { toast(r.error); return; }
+    onSaved();
+  };
+  return (
+    <EditorShell title={vendor?.id ? 'Edit 1099 vendor' : 'Add 1099 vendor'} onClose={onClose} onSave={save} saving={saving}>
+      <FormRow label="Name (individual)"><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={inputStyle}/></FormRow>
+      <FormRow label="Business name (if different)"><input value={form.business_name} onChange={e => setForm({ ...form, business_name: e.target.value })} style={inputStyle}/></FormRow>
+      <FormRow label="Email"><input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} style={inputStyle}/></FormRow>
+      <FormRow label="Tax ID (SSN or EIN)"><input value={form.tax_id} onChange={e => setForm({ ...form, tax_id: e.target.value })} placeholder="XX-XXXXXXX or XXX-XX-XXXX" style={inputStyle}/></FormRow>
+      <FormRow label="Address"><input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Street, City, ST ZIP" style={inputStyle}/></FormRow>
+      <FormRow label="Notes"><textarea rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} style={{...inputStyle,fontFamily:'inherit',resize:'vertical'}}/></FormRow>
+    </EditorShell>
+  );
+}
+
+function BooksSettingsModal({ current, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    filing_state:        current?.filing_state || '',
+    filing_status:       current?.filing_status || 'single',
+    se_tax_rate:         current?.se_tax_rate ?? 0.153,
+    ss_wage_base:        current?.ss_wage_base ?? 168600,
+    federal_income_rate: current?.federal_income_rate ?? 0.18,
+    state_income_rate:   current?.state_income_rate ?? 0,
+  });
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    setSaving(true);
+    const body = {
+      ...form,
+      filing_state: form.filing_state || null,
+      se_tax_rate: Number(form.se_tax_rate),
+      ss_wage_base: Number(form.ss_wage_base),
+      federal_income_rate: Number(form.federal_income_rate),
+      state_income_rate: Number(form.state_income_rate),
+    };
+    const r = await adminFetch('/api/admin/books/config', { method: 'PUT', body: JSON.stringify(body) });
+    setSaving(false);
+    if (r?.error) { toast(r.error); return; }
+    onSaved();
+  };
+  return (
+    <EditorShell title="Tax settings" onClose={onClose} onSave={save} saving={saving}>
+      <FormRow label="Filing state (2-letter)"><input value={form.filing_state} onChange={e => setForm({ ...form, filing_state: e.target.value.toUpperCase().slice(0,2) })} placeholder="TX" style={inputStyle}/></FormRow>
+      <FormRow label="Filing status">
+        <select value={form.filing_status} onChange={e => setForm({ ...form, filing_status: e.target.value })} style={inputStyle}>
+          <option value="single">Single</option>
+          <option value="married_joint">Married · Joint</option>
+          <option value="married_separate">Married · Separate</option>
+          <option value="head_of_household">Head of Household</option>
+        </select>
+      </FormRow>
+      <FormRow label="Self-employment tax rate (decimal, e.g. 0.153)"><input type="number" step="0.0001" min="0" max="0.5" value={form.se_tax_rate} onChange={e => setForm({ ...form, se_tax_rate: e.target.value })} style={inputStyle}/></FormRow>
+      <FormRow label="Social Security wage base (USD)"><input type="number" step="100" min="0" value={form.ss_wage_base} onChange={e => setForm({ ...form, ss_wage_base: e.target.value })} style={inputStyle}/></FormRow>
+      <FormRow label="Federal income rate (effective, decimal e.g. 0.18)"><input type="number" step="0.01" min="0" max="0.5" value={form.federal_income_rate} onChange={e => setForm({ ...form, federal_income_rate: e.target.value })} style={inputStyle}/></FormRow>
+      <FormRow label="State income rate (effective, decimal e.g. 0.05)"><input type="number" step="0.01" min="0" max="0.2" value={form.state_income_rate} onChange={e => setForm({ ...form, state_income_rate: e.target.value })} style={inputStyle}/></FormRow>
+      <div style={{fontSize:11,color:'#7a8db0',marginTop:6,lineHeight:1.5}}>
+        Rates are estimates the quarterly view applies to your net income. Use your CPA's projected numbers for accuracy — these are not a tax filing.
+      </div>
+    </EditorShell>
+  );
+}
+
+function BookTablePanel({ title, addLabel, onAdd, onExport, byCategory, rows, renderRow, emptyText }) {
   return (
     <div style={{marginTop:18,marginBottom:18,background:'#0d1726',border:'1px solid #2e3f60',borderRadius:12,padding:14}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,marginBottom:10}}>
         <Subhead>{title}</Subhead>
-        <button onClick={onAdd} style={{
-          background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',
-          padding:'7px 12px',fontSize:12,fontWeight:700,letterSpacing:'.04em',cursor:'pointer',fontFamily:'inherit',
-        }}>{addLabel}</button>
+        <div style={{display:'flex',gap:6}}>
+          {onExport && (
+            <button onClick={onExport} title="Download CSV" style={{
+              background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',
+              padding:'7px 10px',fontSize:11,fontWeight:600,letterSpacing:'.06em',cursor:'pointer',fontFamily:'inherit',
+            }}>CSV ↓</button>
+          )}
+          <button onClick={onAdd} style={{
+            background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',
+            padding:'7px 12px',fontSize:12,fontWeight:700,letterSpacing:'.04em',cursor:'pointer',fontFamily:'inherit',
+          }}>{addLabel}</button>
+        </div>
       </div>
       {byCategory && Object.keys(byCategory).length > 0 && (
         <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:10}}>
@@ -587,7 +818,7 @@ function BookTablePanel({ title, addLabel, onAdd, byCategory, rows, renderRow, e
   );
 }
 
-function ExpenseRow({ row, onChanged }) {
+function ExpenseRow({ row, vendors = [], onChanged }) {
   const [editing, setEditing] = useState(false);
   const del = async () => {
     if (!confirm(`Delete ${row.category} expense for ${fmtMoney(row.amount)}?`)) return;
@@ -595,6 +826,7 @@ function ExpenseRow({ row, onChanged }) {
     if (r?.error) { toast(r.error); return; }
     onChanged();
   };
+  const linkedVendor = row.vendor_1099_id ? vendors.find(v => v.id === row.vendor_1099_id) : null;
   return (
     <>
       <div style={{display:'grid',gridTemplateColumns:'90px 110px 1fr 100px auto',gap:10,alignItems:'center',padding:'8px 10px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:8,fontSize:13}}>
@@ -603,6 +835,7 @@ function ExpenseRow({ row, onChanged }) {
         <div style={{color:'#f0f4ff',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
           {row.vendor || <span style={{color:'#7a8db0',fontStyle:'italic'}}>—</span>}
           {row.source !== 'manual' && <span style={{marginLeft:6,fontSize:10,padding:'1px 6px',borderRadius:999,background:'#2e3f60',color:'#c8d4ee'}}>{row.source}</span>}
+          {linkedVendor && <span style={{marginLeft:6,fontSize:10,padding:'1px 6px',borderRadius:999,background:'#fbbf2422',color:'#fbbf24'}}>1099 · {linkedVendor.name}</span>}
         </div>
         <div style={{color:'#f26060',fontWeight:700,textAlign:'right'}}>{fmtMoney(row.amount)}</div>
         <div style={{display:'flex',gap:4}}>
@@ -611,7 +844,7 @@ function ExpenseRow({ row, onChanged }) {
         </div>
       </div>
       {editing && (
-        <ExpenseEditorModal row={row} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); onChanged(); }}/>
+        <ExpenseEditorModal row={row} vendors={vendors} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); onChanged(); }}/>
       )}
     </>
   );
@@ -645,19 +878,28 @@ function TaxPaymentRow({ row, onChanged }) {
   );
 }
 
-function ExpenseEditorModal({ row, onClose, onSaved }) {
+function ExpenseEditorModal({ row, vendors = [], onClose, onSaved }) {
   const [form, setForm] = useState({
-    occurred_on: row?.occurred_on || todayIso(),
-    category:    row?.category    || 'hosting',
-    vendor:      row?.vendor      || '',
-    amount:      row?.amount      ?? '',
-    notes:       row?.notes       || '',
-    receipt_url: row?.receipt_url || '',
+    occurred_on:     row?.occurred_on    || todayIso(),
+    category:        row?.category       || 'hosting',
+    vendor:          row?.vendor         || '',
+    amount:          row?.amount         ?? '',
+    notes:           row?.notes          || '',
+    receipt_url:     row?.receipt_url    || '',
+    vendor_1099_id:  row?.vendor_1099_id || '',
   });
   const [saving, setSaving] = useState(false);
+  const showVendor1099 = form.category === 'contractors';
   const save = async () => {
     setSaving(true);
-    const body = { ...form, amount: Number(form.amount), vendor: form.vendor || null, notes: form.notes || null, receipt_url: form.receipt_url || null };
+    const body = {
+      ...form,
+      amount: Number(form.amount),
+      vendor: form.vendor || null,
+      notes:  form.notes  || null,
+      receipt_url: form.receipt_url || null,
+      vendor_1099_id: showVendor1099 ? (form.vendor_1099_id || null) : null,
+    };
     const r = row?.id
       ? await adminFetch(`/api/admin/books/expenses?id=${row.id}`, { method: 'PUT', body: JSON.stringify(body) })
       : await adminFetch('/api/admin/books/expenses',                { method: 'POST', body: JSON.stringify(body) });
@@ -678,6 +920,16 @@ function ExpenseEditorModal({ row, onClose, onSaved }) {
       <FormRow label="Vendor">
         <input value={form.vendor} onChange={e => setForm({ ...form, vendor: e.target.value })} placeholder="e.g. Vercel, OpenAI, Twilio" style={inputStyle}/>
       </FormRow>
+      {showVendor1099 && (
+        <FormRow label="1099 vendor (year-end tracking)">
+          <select value={form.vendor_1099_id} onChange={e => setForm({ ...form, vendor_1099_id: e.target.value })} style={inputStyle}>
+            <option value="">— none —</option>
+            {vendors.filter(v => v.active).map(v => (
+              <option key={v.id} value={v.id}>{v.name}{v.business_name ? ` (${v.business_name})` : ''}</option>
+            ))}
+          </select>
+        </FormRow>
+      )}
       <FormRow label="Amount (USD)">
         <input type="number" step="0.01" min="0" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} style={inputStyle}/>
       </FormRow>

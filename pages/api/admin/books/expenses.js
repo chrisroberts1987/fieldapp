@@ -47,6 +47,13 @@ function validateBody(body, { partial = false } = {}) {
       out.receipt_url = body.receipt_url || null;
     }
   }
+  if (body.vendor_1099_id !== undefined) {
+    if (body.vendor_1099_id && !/^[0-9a-f-]{36}$/i.test(String(body.vendor_1099_id))) {
+      errors.push('vendor_1099_id must be a UUID or null.');
+    } else {
+      out.vendor_1099_id = body.vendor_1099_id || null;
+    }
+  }
   return { out, errors };
 }
 
@@ -58,7 +65,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const { from, to, category } = req.query;
     let q = sb.from('platform_expenses')
-      .select('id, occurred_on, category, vendor, amount, notes, receipt_url, source, source_id, created_at, updated_at')
+      .select('id, occurred_on, category, vendor, amount, notes, receipt_url, source, source_id, vendor_1099_id, created_at, updated_at')
       .order('occurred_on', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(1000);
