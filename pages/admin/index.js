@@ -458,23 +458,26 @@ function BooksSection() {
   const [payments, setPayments]     = useState(null);
   const [quarterly, setQuarterly]   = useState(null);
   const [vendors, setVendors]       = useState(null);
+  const [recurring, setRecurring]   = useState(null);
   const [loading, setLoading]       = useState(false);
-  const [adding, setAdding]         = useState(null); // 'expense' | 'tax' | 'vendor' | 'settings'
+  const [adding, setAdding]         = useState(null); // 'expense' | 'tax' | 'vendor' | 'settings' | 'recurring'
 
   const reload = async () => {
     setLoading(true);
-    const [p, e, t, q, v] = await Promise.all([
+    const [p, e, t, q, v, rc] = await Promise.all([
       adminFetch('/api/admin/books/pnl'),
       adminFetch('/api/admin/books/expenses'),
       adminFetch('/api/admin/books/tax-payments'),
       adminFetch(`/api/admin/books/quarterly?year=${year}`),
       adminFetch(`/api/admin/books/vendors-1099?year=${year}`),
+      adminFetch('/api/admin/books/recurring'),
     ]);
-    if (!p?.error) setPnl(p);
-    if (!e?.error) setExpenses(e.expenses || []);
-    if (!t?.error) setPayments(t.payments || []);
-    if (!q?.error) setQuarterly(q);
-    if (!v?.error) setVendors(v.vendors || []);
+    if (!p?.error)  setPnl(p);
+    if (!e?.error)  setExpenses(e.expenses || []);
+    if (!t?.error)  setPayments(t.payments || []);
+    if (!q?.error)  setQuarterly(q);
+    if (!v?.error)  setVendors(v.vendors || []);
+    if (!rc?.error) setRecurring(rc.recurring || []);
     setLoading(false);
   };
   useEffect(() => { reload(); }, [year]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -593,6 +596,18 @@ function BooksSection() {
       {/* Quarterly tax breakdown */}
       {quarterly && <QuarterlyPanel data={quarterly}/>}
 
+      {/* Recurring expenses */}
+      <BookTablePanel
+        title="Recurring monthly expenses"
+        addLabel="+ Add recurring"
+        onAdd={() => setAdding('recurring')}
+        rows={recurring || []}
+        renderRow={(r) => (
+          <RecurringRow key={r.id} row={r} onChanged={reload}/>
+        )}
+        emptyText="No recurring expenses set up. Use for Claude Max, GitHub, Vercel Pro — anything that bills monthly at a known amount."
+      />
+
       {/* 1099 vendors */}
       <BookTablePanel
         title={`1099 Vendors · ${year}`}
@@ -615,10 +630,97 @@ function BooksSection() {
       {adding === 'vendor' && (
         <Vendor1099EditorModal onClose={() => setAdding(null)} onSaved={() => { setAdding(null); reload(); }}/>
       )}
+      {adding === 'recurring' && (
+        <RecurringEditorModal onClose={() => setAdding(null)} onSaved={() => { setAdding(null); reload(); }}/>
+      )}
       {adding === 'settings' && (
         <BooksSettingsModal current={quarterly?.config} onClose={() => setAdding(null)} onSaved={() => { setAdding(null); reload(); }}/>
       )}
     </>
+  );
+}
+
+function RecurringRow({ row, onChanged }) {
+  const [editing, setEditing] = useState(false);
+  const del = async () => {
+    if (!confirm(`Delete recurring "${row.name}" (${fmtMoney(row.amount)} on the ${row.day_of_month}th)?`)) return;
+    const r = await adminFetch(`/api/admin/books/recurring?id=${row.id}`, { method: 'DELETE' });
+    if (r?.error) { toast(r.error); return; }
+    onChanged();
+  };
+  const lastIns = row.last_inserted_on ? `last inserted ${row.last_inserted_on}` : 'not yet inserted';
+  return (
+    <>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 80px 90px 100px auto',gap:10,alignItems:'center',padding:'8px 10px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:8,fontSize:13,opacity: row.active ? 1 : 0.5}}>
+        <div style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+          <span style={{color:'#f0f4ff',fontWeight:600}}>{row.name}</span>
+          <span style={{color:'#7a8db0',marginLeft:6,fontSize:11}}>· {row.category}</span>
+          {row.vendor && <span style={{color:'#7a8db0',marginLeft:6,fontSize:11}}>· {row.vendor}</span>}
+          {!row.active && <span style={{color:'#f26060',marginLeft:6,fontSize:11}}>· paused</span>}
+        </div>
+        <div style={{color:'#7a8db0',fontSize:11,textAlign:'right'}}>day {row.day_of_month}</div>
+        <div style={{color:'#7a8db0',fontSize:10}}>{lastIns}</div>
+        <div style={{color:'#f26060',fontWeight:700,textAlign:'right'}}>{fmtMoney(row.amount)}/mo</div>
+        <div style={{display:'flex',gap:4}}>
+          <button onClick={() => setEditing(true)} style={iconBtn}>✎</button>
+          <button onClick={del} style={iconBtn}>✕</button>
+        </div>
+      </div>
+      {editing && (
+        <RecurringEditorModal row={row} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); onChanged(); }}/>
+      )}
+    </>
+  );
+}
+
+function RecurringEditorModal({ row, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name:         row?.name         || '',
+    category:     row?.category     || 'software',
+    vendor:       row?.vendor       || '',
+    amount:       row?.amount       ?? '',
+    day_of_month: row?.day_of_month || 1,
+    notes:        row?.notes        || '',
+    active:       row?.active ?? true,
+  });
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    setSaving(true);
+    const body = {
+      ...form,
+      amount: Number(form.amount),
+      day_of_month: Math.floor(Number(form.day_of_month)),
+      vendor: form.vendor || null,
+      notes:  form.notes  || null,
+    };
+    const r = row?.id
+      ? await adminFetch(`/api/admin/books/recurring?id=${row.id}`, { method: 'PUT', body: JSON.stringify(body) })
+      : await adminFetch('/api/admin/books/recurring',                { method: 'POST', body: JSON.stringify(body) });
+    setSaving(false);
+    if (r?.error) { toast(r.error); return; }
+    onSaved();
+  };
+  return (
+    <EditorShell title={row?.id ? 'Edit recurring expense' : 'Add recurring expense'} onClose={onClose} onSave={save} saving={saving}>
+      <FormRow label="Name"><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Claude Max, GitHub Pro" style={inputStyle}/></FormRow>
+      <FormRow label="Category">
+        <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} style={inputStyle}>
+          {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </FormRow>
+      <FormRow label="Vendor"><input value={form.vendor} onChange={e => setForm({ ...form, vendor: e.target.value })} placeholder="e.g. Anthropic" style={inputStyle}/></FormRow>
+      <FormRow label="Amount per month (USD)"><input type="number" step="0.01" min="0" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} style={inputStyle}/></FormRow>
+      <FormRow label="Day of month it charges (1-31)"><input type="number" min="1" max="31" value={form.day_of_month} onChange={e => setForm({ ...form, day_of_month: e.target.value })} style={inputStyle}/></FormRow>
+      <FormRow label="Notes"><textarea rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} style={{...inputStyle,fontFamily:'inherit',resize:'vertical'}}/></FormRow>
+      {row?.id && (
+        <FormRow label="Status">
+          <label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:'#c8d4ee'}}>
+            <input type="checkbox" checked={form.active} onChange={e => setForm({ ...form, active: e.target.checked })}/>
+            Active (uncheck to pause without deleting)
+          </label>
+        </FormRow>
+      )}
+    </EditorShell>
   );
 }
 

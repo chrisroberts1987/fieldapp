@@ -57,13 +57,22 @@ export default async function handler(req, res) {
   // the Stripe-fee importer is wired up.
   const revenueYTD = mrr * (now.getUTCMonth() + 1);
 
-  // ---- AI cost ----------------------------------------------------
-  const aiThisMonth = await sumNumeric(sb, 'ai_usage_log', 'estimated_cost', 'created_at', monthStart);
-  const aiYTD       = await sumNumeric(sb, 'ai_usage_log', 'estimated_cost', 'created_at', yearStart);
-
-  // ---- Manual expenses (by category) ------------------------------
+  // ---- Manual expenses (by category, source-aware) ---------------
+  // `pullExpenses` also collects the set of dates that have actual
+  // Anthropic-imported costs, so we can de-dup the ai_usage_log
+  // estimate for those days (actuals beat estimates).
   const expensesThisMonth = await pullExpenses(sb, monthStart);
   const expensesYTD       = await pullExpenses(sb, yearStart);
+
+  // ---- AI cost ---------------------------------------------------
+  // For days with an Anthropic actual cost row, ignore the per-call
+  // estimate. For all other days, fall back to the estimate.
+  const aiEstThisMonth = await sumAiUsageExcluding(sb, monthStart, expensesThisMonth.anthropicDates);
+  const aiEstYTD       = await sumAiUsageExcluding(sb, yearStart,  expensesYTD.anthropicDates);
+  // Combined AI cost = estimate (for uncovered days) + manually/auto-
+  // logged AI expenses (Anthropic actuals, Claude Max recurring, etc.)
+  const aiThisMonth = aiEstThisMonth + (expensesThisMonth.byCategory.ai || 0);
+  const aiYTD       = aiEstYTD       + (expensesYTD.byCategory.ai       || 0);
 
   // ---- Tax payments (actual recorded) -----------------------------
   const { data: taxPaymentsYTD } = await sb
@@ -73,8 +82,13 @@ export default async function handler(req, res) {
   const taxPaidYTD = (taxPaymentsYTD || []).reduce((s, r) => s + Number(r.amount || 0), 0);
 
   // ---- Roll up ----------------------------------------------------
-  const totalExpensesThisMonth = aiThisMonth + expensesThisMonth.total;
-  const totalExpensesYTD       = aiYTD       + expensesYTD.total;
+  // expensesX.total already includes the category='ai' rows, so the
+  // "non-AI manual" bucket is total - byCategory.ai. Avoids double-
+  // counting category='ai' rows when we add AI back in.
+  const manualNonAiThisMonth = expensesThisMonth.total - (expensesThisMonth.byCategory.ai || 0);
+  const manualNonAiYTD       = expensesYTD.total       - (expensesYTD.byCategory.ai       || 0);
+  const totalExpensesThisMonth = aiThisMonth + manualNonAiThisMonth;
+  const totalExpensesYTD       = aiYTD       + manualNonAiYTD;
   const netBeforeTaxThisMonth  = revenueThisMonth - totalExpensesThisMonth;
   const netBeforeTaxYTD        = revenueYTD       - totalExpensesYTD;
   const estTaxThisMonth        = Math.max(0, netBeforeTaxThisMonth) * taxRate;
@@ -95,13 +109,13 @@ export default async function handler(req, res) {
     expenses: {
       thisMonth: {
         ai:       round(aiThisMonth),
-        manual:   round(expensesThisMonth.total),
+        manual:   round(manualNonAiThisMonth),
         total:    round(totalExpensesThisMonth),
         byCategory: expensesThisMonth.byCategory,
       },
       ytd: {
         ai:       round(aiYTD),
-        manual:   round(expensesYTD.total),
+        manual:   round(manualNonAiYTD),
         total:    round(totalExpensesYTD),
         byCategory: expensesYTD.byCategory,
       },
@@ -130,21 +144,30 @@ export default async function handler(req, res) {
 async function pullExpenses(sb, sinceIso) {
   const { data } = await sb
     .from('platform_expenses')
-    .select('amount, category')
+    .select('amount, category, source, occurred_on')
     .gte('occurred_on', isoDate(sinceIso));
   const byCategory = {};
+  const anthropicDates = new Set();
   let total = 0;
   for (const r of data || []) {
     const amt = Number(r.amount || 0);
     total += amt;
     byCategory[r.category] = round((byCategory[r.category] || 0) + amt);
+    if (r.source === 'anthropic') anthropicDates.add(r.occurred_on);
   }
-  return { total, byCategory };
+  return { total, byCategory, anthropicDates };
 }
 
-async function sumNumeric(sb, table, column, dateColumn, sinceIso) {
-  const { data } = await sb.from(table).select(column).gte(dateColumn, sinceIso);
-  return (data || []).reduce((s, r) => s + Number(r[column] || 0), 0);
+async function sumAiUsageExcluding(sb, sinceIso, excludeDates) {
+  const { data } = await sb.from('ai_usage_log')
+    .select('estimated_cost, created_at').gte('created_at', sinceIso);
+  let total = 0;
+  for (const r of data || []) {
+    const day = String(r.created_at).slice(0, 10);
+    if (excludeDates.has(day)) continue;
+    total += Number(r.estimated_cost || 0);
+  }
+  return total;
 }
 
 function clampRate(raw) {
