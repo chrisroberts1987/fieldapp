@@ -189,7 +189,54 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'org update failed' });
   }
 
+  // Book Apple's commission as a platform expense so the admin Books
+  // P&L reflects the true take-rate on IAP revenue. Only fires on
+  // events that represent actual money moving (initial, renewal,
+  // upgrade). Idempotent via source_id = revenuecat_event_id.
+  if (type === 'INITIAL_PURCHASE' || type === 'RENEWAL' || type === 'PRODUCT_CHANGE') {
+    await bookAppleCommission(eventId, event, type).catch(e => {
+      console.error('[iap webhook] commission book failed', e?.message);
+    });
+  }
+
   return res.status(200).json({ ok: true });
+}
+
+// Apple charges 30% on first-year subs and 15% on year-2+ renewals
+// (the standard rate). If RevenueCat passes commission_percentage on
+// the event, trust that — it accounts for the Small Business Program
+// reduced rate and other edge cases. Otherwise fall back by event type.
+async function bookAppleCommission(eventId, event, type) {
+  const price = Number(event.price ?? event.price_in_purchased_currency);
+  if (!Number.isFinite(price) || price <= 0) return;
+
+  let pct = Number(event.commission_percentage);
+  if (!Number.isFinite(pct) || pct <= 0 || pct >= 1) {
+    pct = type === 'RENEWAL' ? 0.15 : 0.30;
+  }
+
+  const commission = Math.round(price * pct * 100) / 100;
+  if (commission <= 0) return;
+
+  const occurredOn = event.purchased_at_ms
+    ? new Date(event.purchased_at_ms).toISOString().slice(0, 10)
+    : new Date().toISOString().slice(0, 10);
+
+  const { error } = await supabase.from('platform_expenses').insert({
+    occurred_on: occurredOn,
+    category:    'fees',
+    vendor:      'Apple',
+    amount:      commission,
+    notes:       `${type} · ${event.product_id || 'unknown'} · ${Math.round(pct * 100)}% of $${price.toFixed(2)}`,
+    source:      'revenuecat',
+    source_id:   eventId,
+  });
+  // 23505 = duplicate (we've seen this event before). All other
+  // errors are logged but don't fail the webhook ack — the
+  // subscription update already succeeded.
+  if (error && error.code !== '23505') {
+    console.error('[iap webhook] commission insert failed', error.message);
+  }
 }
 
 // Fire-and-forget Slack alert for a Stripe → Apple migration refusal.

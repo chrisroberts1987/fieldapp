@@ -20,6 +20,7 @@
     { "path": "/api/cron/pending-jobs", "schedule": "0 15 * * *" },
     { "path": "/api/cron/recurring-jobs", "schedule": "0 7 * * *" },
     { "path": "/api/cron/trial-ending", "schedule": "0 16 * * *" },
-    { "path": "/api/cron/demo-refresh", "schedule": "30 6 * * *" }
+    { "path": "/api/cron/demo-refresh", "schedule": "30 6 * * *" },
+    { "path": "/api/cron/import-stripe-fees", "schedule": "0 8 * * *" }
   ]
 }
