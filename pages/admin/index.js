@@ -78,7 +78,7 @@ export default function Admin() {
         WebkitOverflowScrolling:'touch',
         scrollbarWidth:'none',
       }}>
-        {['overview','finances','reach','businesses','usage','ai','support','integrations','broadcast'].map(k => (
+        {['overview','finances','books','reach','businesses','usage','ai','support','integrations','broadcast'].map(k => (
           <button key={k} onClick={() => setTab(k)}
             style={{
               background:'transparent', border:'none',
@@ -97,6 +97,7 @@ export default function Admin() {
       <main style={{maxWidth:1280,margin:'0 auto',padding:'24px 16px 0'}}>
         {tab === 'overview'   && <OverviewSection onGoTo={setTab} />}
         {tab === 'finances'   && <FinancesSection />}
+        {tab === 'books'      && <BooksSection />}
         {tab === 'reach'      && <ReachSection />}
         {tab === 'businesses' && <BusinessesSection />}
         {tab === 'usage'      && <UsageSection />}
@@ -430,6 +431,345 @@ function FinancesSection() {
     </>
   );
 }
+
+// =============================================================
+// Books — manual expense ledger + tax payments + computed P&L
+// =============================================================
+const EXPENSE_CATEGORIES = [
+  'hosting','ai','ads','software','contractors','salaries',
+  'legal','equipment','travel','marketing','fees','other',
+];
+const TAX_TYPES = [
+  ['federal_quarterly', 'Federal · Quarterly'],
+  ['federal_annual',    'Federal · Annual'],
+  ['state_quarterly',   'State · Quarterly'],
+  ['state_annual',      'State · Annual'],
+  ['self_employment',   'Self-Employment'],
+  ['sales',             'Sales Tax'],
+  ['other',             'Other'],
+];
+const fmtMoney = (n) => '$' + (Number(n) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
+function BooksSection() {
+  const [pnl, setPnl]               = useState(null);
+  const [expenses, setExpenses]     = useState(null);
+  const [payments, setPayments]     = useState(null);
+  const [loading, setLoading]       = useState(false);
+  const [adding, setAdding]         = useState(null); // 'expense' | 'tax' | null
+
+  const reload = async () => {
+    setLoading(true);
+    const [p, e, t] = await Promise.all([
+      adminFetch('/api/admin/books/pnl'),
+      adminFetch('/api/admin/books/expenses'),
+      adminFetch('/api/admin/books/tax-payments'),
+    ]);
+    if (!p?.error) setPnl(p);
+    if (!e?.error) setExpenses(e.expenses || []);
+    if (!t?.error) setPayments(t.payments || []);
+    setLoading(false);
+  };
+  useEffect(() => { reload(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!pnl && loading) return <Loading/>;
+  if (!pnl) return <div style={{color:'#f26060',padding:20}}>Could not load books.</div>;
+
+  const net = pnl.netAfterTax.ytd;
+  const netColor = net >= 0 ? '#2edf87' : '#f26060';
+
+  return (
+    <>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',gap:12,flexWrap:'wrap',marginBottom:18}}>
+        <SectionHeading title="Books" subtitle="Platform P&L, expense ledger, and tax payments. Manual entry today; auto-imports in Phase 2."/>
+        <button onClick={reload} disabled={loading} style={{
+          background: loading ? '#1e2a42' : '#4f9eff', border:'none', borderRadius:8, color:'#fff',
+          padding:'9px 16px', fontFamily:"'Bebas Neue',sans-serif", fontSize:13, letterSpacing:'.06em',
+          cursor: loading ? 'wait' : 'pointer',
+        }}>{loading ? 'REFRESHING…' : 'REFRESH'}</button>
+      </div>
+
+      {/* Hero net */}
+      <div style={{
+        background:'linear-gradient(135deg, #1e2a42 0%, #243353 100%)',
+        border:'1px solid #2e3f60', borderRadius:14, padding:'20px 22px', marginBottom:22,
+      }}>
+        <div style={{fontSize:11,color:'#7a8db0',letterSpacing:'.18em',textTransform:'uppercase',fontWeight:700}}>
+          Net YTD (after estimated tax · {Math.round(pnl.taxRate*100)}% rate)
+        </div>
+        <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:56,lineHeight:1.05,letterSpacing:'.02em',color:netColor,marginTop:6}}>
+          {fmtMoney(net)}
+        </div>
+        <div style={{fontSize:12,color:'#7a8db0',marginTop:6}}>
+          Revenue: <span style={{color:'#f0f4ff',fontWeight:600}}>{fmtMoney(pnl.revenue.ytd)}</span>
+          {' · '}Expenses: <span style={{color:'#f26060',fontWeight:600}}>{fmtMoney(pnl.expenses.ytd.total)}</span>
+          {' · '}Est. tax: <span style={{color:'#fbbf24',fontWeight:600}}>{fmtMoney(pnl.estimatedTax.ytd)}</span>
+        </div>
+      </div>
+
+      {/* This-month KPIs */}
+      <Subhead>This month</Subhead>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))',gap:10,marginBottom:18}}>
+        <Kpi label="Revenue"           value={fmtMoney(pnl.revenue.thisMonth)}        color="#2edf87" sub={`Stripe ${fmtMoney(pnl.revenue.byType.stripe)} · Apple ${fmtMoney(pnl.revenue.byType.apple)}`}/>
+        <Kpi label="AI cost"           value={fmtMoney(pnl.expenses.thisMonth.ai)}    color="#fbbf24" sub="from usage log"/>
+        <Kpi label="Manual expenses"   value={fmtMoney(pnl.expenses.thisMonth.manual)} color="#f26060" sub={`${expenses?.length || 0} entries total`}/>
+        <Kpi label="Net before tax"    value={fmtMoney(pnl.netBeforeTax.thisMonth)}   color="#f0f4ff"/>
+        <Kpi label="Est. tax accrual"  value={fmtMoney(pnl.estimatedTax.thisMonth)}   color="#fbbf24" sub={`${Math.round(pnl.taxRate*100)}% × net`}/>
+        <Kpi label="Net after tax"     value={fmtMoney(pnl.netAfterTax.thisMonth)}    color={pnl.netAfterTax.thisMonth >= 0 ? '#2edf87' : '#f26060'}/>
+      </div>
+
+      {/* Tax payments summary */}
+      <Subhead>Tax YTD</Subhead>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))',gap:10,marginBottom:18}}>
+        <Kpi label="Estimated owed YTD" value={fmtMoney(pnl.estimatedTax.ytd)} color="#fbbf24"/>
+        <Kpi label="Paid YTD"           value={fmtMoney(pnl.taxPayments.paidYTD)} color="#2edf87"/>
+        <Kpi label="Remaining to set aside" value={fmtMoney(pnl.taxPayments.owedRemaining)} color={pnl.taxPayments.owedRemaining > 0 ? '#f26060' : '#2edf87'}/>
+      </div>
+
+      {/* Expense ledger */}
+      <BookTablePanel
+        title="Expenses"
+        addLabel="+ Add expense"
+        onAdd={() => setAdding('expense')}
+        byCategory={pnl.expenses.ytd.byCategory}
+        rows={expenses || []}
+        renderRow={(r) => (
+          <ExpenseRow key={r.id} row={r} onChanged={reload}/>
+        )}
+        emptyText="No expenses logged yet."
+      />
+
+      {/* Tax payments */}
+      <BookTablePanel
+        title="Tax payments"
+        addLabel="+ Add payment"
+        onAdd={() => setAdding('tax')}
+        rows={payments || []}
+        renderRow={(r) => (
+          <TaxPaymentRow key={r.id} row={r} onChanged={reload}/>
+        )}
+        emptyText="No tax payments logged yet."
+      />
+
+      {adding === 'expense' && (
+        <ExpenseEditorModal onClose={() => setAdding(null)} onSaved={() => { setAdding(null); reload(); }}/>
+      )}
+      {adding === 'tax' && (
+        <TaxPaymentEditorModal onClose={() => setAdding(null)} onSaved={() => { setAdding(null); reload(); }}/>
+      )}
+    </>
+  );
+}
+
+function BookTablePanel({ title, addLabel, onAdd, byCategory, rows, renderRow, emptyText }) {
+  return (
+    <div style={{marginTop:18,marginBottom:18,background:'#0d1726',border:'1px solid #2e3f60',borderRadius:12,padding:14}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,marginBottom:10}}>
+        <Subhead>{title}</Subhead>
+        <button onClick={onAdd} style={{
+          background:'#4f9eff',border:'none',borderRadius:8,color:'#fff',
+          padding:'7px 12px',fontSize:12,fontWeight:700,letterSpacing:'.04em',cursor:'pointer',fontFamily:'inherit',
+        }}>{addLabel}</button>
+      </div>
+      {byCategory && Object.keys(byCategory).length > 0 && (
+        <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:10}}>
+          {Object.entries(byCategory).sort((a,b) => b[1]-a[1]).map(([cat, amt]) => (
+            <span key={cat} style={{background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:999,padding:'4px 10px',fontSize:11,color:'#c8d4ee'}}>
+              {cat}: <span style={{color:'#f0f4ff',fontWeight:700}}>{fmtMoney(amt)}</span>
+            </span>
+          ))}
+        </div>
+      )}
+      {rows.length === 0
+        ? <div style={{fontSize:12,color:'#7a8db0',fontStyle:'italic',padding:'10px 0'}}>{emptyText}</div>
+        : <div style={{display:'flex',flexDirection:'column',gap:6}}>{rows.map(renderRow)}</div>}
+    </div>
+  );
+}
+
+function ExpenseRow({ row, onChanged }) {
+  const [editing, setEditing] = useState(false);
+  const del = async () => {
+    if (!confirm(`Delete ${row.category} expense for ${fmtMoney(row.amount)}?`)) return;
+    const r = await adminFetch(`/api/admin/books/expenses?id=${row.id}`, { method: 'DELETE' });
+    if (r?.error) { toast(r.error); return; }
+    onChanged();
+  };
+  return (
+    <>
+      <div style={{display:'grid',gridTemplateColumns:'90px 110px 1fr 100px auto',gap:10,alignItems:'center',padding:'8px 10px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:8,fontSize:13}}>
+        <div style={{color:'#c8d4ee'}}>{row.occurred_on}</div>
+        <div style={{color:'#7a8db0',fontWeight:600,textTransform:'uppercase',fontSize:11,letterSpacing:'.06em'}}>{row.category}</div>
+        <div style={{color:'#f0f4ff',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+          {row.vendor || <span style={{color:'#7a8db0',fontStyle:'italic'}}>—</span>}
+          {row.source !== 'manual' && <span style={{marginLeft:6,fontSize:10,padding:'1px 6px',borderRadius:999,background:'#2e3f60',color:'#c8d4ee'}}>{row.source}</span>}
+        </div>
+        <div style={{color:'#f26060',fontWeight:700,textAlign:'right'}}>{fmtMoney(row.amount)}</div>
+        <div style={{display:'flex',gap:4}}>
+          <button onClick={() => setEditing(true)} style={iconBtn}>✎</button>
+          <button onClick={del} style={iconBtn}>✕</button>
+        </div>
+      </div>
+      {editing && (
+        <ExpenseEditorModal row={row} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); onChanged(); }}/>
+      )}
+    </>
+  );
+}
+
+function TaxPaymentRow({ row, onChanged }) {
+  const [editing, setEditing] = useState(false);
+  const typeLabel = TAX_TYPES.find(([k]) => k === row.tax_type)?.[1] || row.tax_type;
+  const del = async () => {
+    if (!confirm(`Delete ${typeLabel} payment of ${fmtMoney(row.amount)}?`)) return;
+    const r = await adminFetch(`/api/admin/books/tax-payments?id=${row.id}`, { method: 'DELETE' });
+    if (r?.error) { toast(r.error); return; }
+    onChanged();
+  };
+  return (
+    <>
+      <div style={{display:'grid',gridTemplateColumns:'90px 1fr 100px 100px auto',gap:10,alignItems:'center',padding:'8px 10px',background:'#1e2a42',border:'1px solid #2e3f60',borderRadius:8,fontSize:13}}>
+        <div style={{color:'#c8d4ee'}}>{row.paid_on}</div>
+        <div style={{color:'#f0f4ff',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{typeLabel}</div>
+        <div style={{color:'#7a8db0',fontSize:12}}>{row.period}</div>
+        <div style={{color:'#2edf87',fontWeight:700,textAlign:'right'}}>{fmtMoney(row.amount)}</div>
+        <div style={{display:'flex',gap:4}}>
+          <button onClick={() => setEditing(true)} style={iconBtn}>✎</button>
+          <button onClick={del} style={iconBtn}>✕</button>
+        </div>
+      </div>
+      {editing && (
+        <TaxPaymentEditorModal row={row} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); onChanged(); }}/>
+      )}
+    </>
+  );
+}
+
+function ExpenseEditorModal({ row, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    occurred_on: row?.occurred_on || todayIso(),
+    category:    row?.category    || 'hosting',
+    vendor:      row?.vendor      || '',
+    amount:      row?.amount      ?? '',
+    notes:       row?.notes       || '',
+    receipt_url: row?.receipt_url || '',
+  });
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    setSaving(true);
+    const body = { ...form, amount: Number(form.amount), vendor: form.vendor || null, notes: form.notes || null, receipt_url: form.receipt_url || null };
+    const r = row?.id
+      ? await adminFetch(`/api/admin/books/expenses?id=${row.id}`, { method: 'PUT', body: JSON.stringify(body) })
+      : await adminFetch('/api/admin/books/expenses',                { method: 'POST', body: JSON.stringify(body) });
+    setSaving(false);
+    if (r?.error) { toast(r.error); return; }
+    onSaved();
+  };
+  return (
+    <EditorShell title={row?.id ? 'Edit expense' : 'Add expense'} onClose={onClose} onSave={save} saving={saving}>
+      <FormRow label="Date">
+        <input type="date" value={form.occurred_on} onChange={e => setForm({ ...form, occurred_on: e.target.value })} style={inputStyle}/>
+      </FormRow>
+      <FormRow label="Category">
+        <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} style={inputStyle}>
+          {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </FormRow>
+      <FormRow label="Vendor">
+        <input value={form.vendor} onChange={e => setForm({ ...form, vendor: e.target.value })} placeholder="e.g. Vercel, OpenAI, Twilio" style={inputStyle}/>
+      </FormRow>
+      <FormRow label="Amount (USD)">
+        <input type="number" step="0.01" min="0" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} style={inputStyle}/>
+      </FormRow>
+      <FormRow label="Receipt URL">
+        <input type="url" value={form.receipt_url} onChange={e => setForm({ ...form, receipt_url: e.target.value })} placeholder="https://..." style={inputStyle}/>
+      </FormRow>
+      <FormRow label="Notes">
+        <textarea rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} style={{...inputStyle, fontFamily:'inherit', resize:'vertical'}}/>
+      </FormRow>
+    </EditorShell>
+  );
+}
+
+function TaxPaymentEditorModal({ row, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    paid_on:  row?.paid_on  || todayIso(),
+    period:   row?.period   || `${new Date().getUTCFullYear()} Q${Math.floor(new Date().getUTCMonth()/3)+1}`,
+    tax_type: row?.tax_type || 'federal_quarterly',
+    amount:   row?.amount   ?? '',
+    notes:    row?.notes    || '',
+  });
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    setSaving(true);
+    const body = { ...form, amount: Number(form.amount), notes: form.notes || null };
+    const r = row?.id
+      ? await adminFetch(`/api/admin/books/tax-payments?id=${row.id}`, { method: 'PUT', body: JSON.stringify(body) })
+      : await adminFetch('/api/admin/books/tax-payments',                { method: 'POST', body: JSON.stringify(body) });
+    setSaving(false);
+    if (r?.error) { toast(r.error); return; }
+    onSaved();
+  };
+  return (
+    <EditorShell title={row?.id ? 'Edit tax payment' : 'Add tax payment'} onClose={onClose} onSave={save} saving={saving}>
+      <FormRow label="Paid on">
+        <input type="date" value={form.paid_on} onChange={e => setForm({ ...form, paid_on: e.target.value })} style={inputStyle}/>
+      </FormRow>
+      <FormRow label="Type">
+        <select value={form.tax_type} onChange={e => setForm({ ...form, tax_type: e.target.value })} style={inputStyle}>
+          {TAX_TYPES.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+        </select>
+      </FormRow>
+      <FormRow label="Period">
+        <input value={form.period} onChange={e => setForm({ ...form, period: e.target.value })} placeholder="e.g. 2026 Q2" style={inputStyle}/>
+      </FormRow>
+      <FormRow label="Amount (USD)">
+        <input type="number" step="0.01" min="0" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} style={inputStyle}/>
+      </FormRow>
+      <FormRow label="Notes">
+        <textarea rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} style={{...inputStyle, fontFamily:'inherit', resize:'vertical'}}/>
+      </FormRow>
+    </EditorShell>
+  );
+}
+
+function EditorShell({ title, children, onClose, onSave, saving }) {
+  return (
+    <div role="dialog" aria-modal="true"
+      style={{position:'fixed',inset:0,zIndex:9500,background:'rgba(8,11,20,0.78)',display:'flex',alignItems:'center',justifyContent:'center',padding:14,backdropFilter:'blur(4px)'}}>
+      <div style={{width:'100%',maxWidth:520,background:'#1a2236',border:'1px solid #2e3f60',borderRadius:14,boxShadow:'0 20px 50px rgba(0,0,0,0.55)',padding:18,color:'#f0f4ff'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+          <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:22,letterSpacing:'.06em'}}>{title.toUpperCase()}</div>
+          <button onClick={onClose} style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#7a8db0',width:30,height:30,cursor:'pointer'}}>✕</button>
+        </div>
+        {children}
+        <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:14}}>
+          <button onClick={onClose} style={{background:'transparent',border:'1px solid #2e3f60',borderRadius:8,color:'#c8d4ee',padding:'9px 14px',fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
+          <button onClick={onSave} disabled={saving} style={{background: saving ? '#1e2a42' : '#4f9eff',border:'none',borderRadius:8,color:'#fff',padding:'9px 18px',fontSize:13,fontWeight:700,cursor: saving ? 'wait' : 'pointer',fontFamily:'inherit',letterSpacing:'.04em'}}>{saving ? 'SAVING…' : 'SAVE'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FormRow({ label, children }) {
+  return (
+    <div style={{marginBottom:10}}>
+      <label style={{display:'block',fontSize:11,color:'#7a8db0',letterSpacing:'.08em',textTransform:'uppercase',fontWeight:700,marginBottom:4}}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
+const inputStyle = {
+  width:'100%', boxSizing:'border-box',
+  background:'#0d1726', border:'1px solid #2e3f60', borderRadius:8,
+  color:'#f0f4ff', padding:'9px 11px', fontSize:13,
+};
+const iconBtn = {
+  background:'transparent', border:'1px solid #2e3f60', borderRadius:6,
+  color:'#7a8db0', width:26, height:26, cursor:'pointer', fontSize:12, padding:0,
+};
 
 function TierMrrCard({ tier, mrr, totalMrr, accent }) {
   const label = tier[0].toUpperCase() + tier.slice(1);
