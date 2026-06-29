@@ -7,6 +7,8 @@ import OfflineBanner from '../components/OfflineBanner';
 import InstallPrompt from '../components/InstallPrompt';
 import AssistantWidget from '../components/AssistantWidget';
 import { ToastHost } from '../components/Toast';
+import DemoLockModal, { showDemoLock } from '../components/DemoLockModal';
+import { DEMO_READONLY_MARKER } from '../lib/demoAccount';
 import { supabase } from '../lib/supabase';
 import { useOrg } from '../lib/org';
 
@@ -39,6 +41,36 @@ export default function MyApp({ Component, pageProps }) {
     supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user || null));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setUser(session?.user || null));
     return () => sub?.subscription?.unsubscribe?.();
+  }, []);
+
+  // Global fetch interceptor: when the demo user tries to write,
+  // database trigger trg_block_demo_writes raises a Postgres error
+  // whose message starts with DEMO_READONLY_MARKER. We catch that
+  // here and pop the sign-up modal instead of letting the raw error
+  // surface in the UI. Zero-cost for non-demo users — the body is
+  // only inspected on a failed response.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.__demoFetchPatched) return;
+    window.__demoFetchPatched = true;
+    const orig = window.fetch.bind(window);
+    window.fetch = async (...args) => {
+      const res = await orig(...args);
+      if (!res.ok) {
+        try {
+          const cloned = res.clone();
+          const ct = cloned.headers.get('content-type') || '';
+          if (ct.includes('application/json')) {
+            const body = await cloned.json();
+            const msg = body?.message || body?.error || body?.error_description || '';
+            if (typeof msg === 'string' && msg.includes(DEMO_READONLY_MARKER)) {
+              showDemoLock();
+            }
+          }
+        } catch {}
+      }
+      return res;
+    };
   }, []);
 
   // Register the service worker on first mount. The browser will keep
@@ -115,6 +147,7 @@ fbq('track', 'PageView');
       </Head>
       <OfflineBanner />
       <ToastHost />
+      <DemoLockModal />
       <Component {...pageProps} />
       <TourOverlay />
       <InstallPrompt />
